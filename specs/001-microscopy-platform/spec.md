@@ -300,9 +300,9 @@ A naturalist or mycologist links their imaging session to an iNaturalist observa
 
 **Camera and Imaging Controls**
 
-- **FR-009**: System MUST provide manual controls for exposure time and sensor gain/ISO with real-time preview updates
+- **FR-009**: System MUST provide manual controls for exposure time and sensor gain/ISO with real-time preview updates (<200ms response time per FR-015)
 - **FR-010**: System MUST offer white balance presets (Tungsten, Daylight, Auto) and one-click auto white balance (click on white area)
-- **FR-011**: System MUST provide sliders for brightness, contrast, saturation, and gamma correction on live feed
+- **FR-011**: System MUST provide sliders for brightness, contrast, saturation, and gamma correction on live feed with real-time updates (<200ms response time per FR-015)
 - **FR-012**: System MUST support hardware binning modes (2x2, 4x4) if exposed by camera API
 - **FR-013**: System MUST provide dark-field correction tool to capture and subtract sensor noise
 - **FR-014**: System MUST offer image flip/mirror controls (horizontal/vertical) for optical correction
@@ -350,7 +350,7 @@ A naturalist or mycologist links their imaging session to an iNaturalist observa
 - **FR-037**: System MUST automatically stitch overlapping frames into panoramic image using feature matching
 - **FR-038**: System MUST provide Z-stack capture interface for Extended Depth of Focus (EDF)
 - **FR-039**: System MUST fuse multiple focus images into single all-in-focus composite using focus stacking algorithm
-- **FR-040**: System MUST include image gallery panel to review recently captured images and videos
+- **FR-040**: System SHOULD include image gallery panel to review recently captured images and videos (Priority: P12 - Future Enhancement; MVP uses file manager integration; gallery would appear as right-anchored tile panel with thumbnail grid, click to load into main view)
 
 **Image Processing and Filtering**
 
