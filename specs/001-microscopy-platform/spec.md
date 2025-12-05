@@ -5,6 +5,16 @@
 **Status**: Draft  
 **Input**: Educational institutions, hobbyists, small laboratories, and researchers using general-purpose digital microscopy cameras (primarily USB/UVC-compliant devices). Core Goal: stable, cross-platform open-source application that replicates and improves upon proprietary microscopy software with intuitive UI, advanced imaging features (Stitching, EDF), and metrology.
 
+## Clarifications
+
+### Session 2025-12-05
+
+- Q: Default file storage location strategy for captured images and videos? → A: Cross-platform user documents folder (e.g., `~/Documents/uScope/`)
+- Q: Video codec and compression strategy for MP4/AVI recording? → A: H.264 with medium preset, CRF 23 (recommended quality)
+- Q: RTSP streaming default resolution for classroom collaboration? → A: 720p (1280×720) at 30fps (recommended for bandwidth/quality balance)
+- Q: Object detection algorithm for automated spore/object identification? → A: Contour detection with morphological operations (edge-based, flexible, no training required)
+- Q: Scale bar OCR processing timing for external images? → A: Process automatically on image load (immediate feedback, user validates before measurements)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Live Camera Preview and Basic Capture (Priority: P1) 🎯 MVP
@@ -283,8 +293,10 @@ A naturalist or mycologist links their imaging session to an iNaturalist observa
 - **FR-004**: System MUST capture full-resolution still images with single button click while maintaining live preview
 - **FR-005**: System MUST support independent resolution settings for live preview (low-res/high-fps) and capture (high-res/full-quality)
 - **FR-006**: System MUST record video to standard formats (MP4, AVI) with real-time compression options
+- **FR-006.1**: System MUST encode video using H.264/AVC codec with medium preset and CRF 23 quality setting for optimal balance of file size, quality, and compatibility
 - **FR-007**: System MUST support time-lapse capture with configurable intervals and total duration
 - **FR-008**: System MUST save captured images with automatic timestamp-based filenames
+- **FR-008.1**: System MUST use cross-platform user documents folder as default save location (`~/Documents/uScope/` on Linux/macOS, `%USERPROFILE%\Documents\uScope\` on Windows, app-specific storage on Android/iOS)
 
 **Camera and Imaging Controls**
 
@@ -303,6 +315,7 @@ A naturalist or mycologist links their imaging session to an iNaturalist observa
 - **FR-016.2**: System MUST provide calibration tool to define pixel-to-micrometer scale by drawing reference line on stage micrometer image
 - **FR-017**: System MUST store calibration data linked to specific microscope profile, objective, and camera combination
 - **FR-017.1**: System MUST automatically detect scale bars in loaded images using computer vision (edge detection, line detection, OCR)
+- **FR-017.1.1**: System MUST trigger scale bar detection automatically when user loads external image without embedded calibration metadata, displaying detected scale with confidence score for user validation
 - **FR-017.2**: System MUST extract scale bar length in pixels and associated text label using OCR (supporting µm, um, μm, mm, nm, Å units)
 - **FR-017.3**: System MUST calculate pixel-to-micrometer ratio from detected scale bar and apply as temporary calibration
 - **FR-017.4**: System MUST display confidence score for automatic scale detection and highlight detected scale bar region
@@ -321,6 +334,7 @@ A naturalist or mycologist links their imaging session to an iNaturalist observa
 
 - **FR-026**: System MUST provide automated object detection algorithm with configurable parameters (size range, circularity, contrast threshold, morphology filters)
 - **FR-027**: System MUST detect and outline similar objects in calibrated images using computer vision algorithms (contour detection, blob analysis, or template matching)
+- **FR-027.1**: System MUST implement contour-based detection using OpenCV (grayscale conversion, Gaussian blur, adaptive/Otsu thresholding, morphological operations for noise removal, findContours for boundary detection) as primary detection method
 - **FR-028**: System MUST display detected objects with visual indicators (bounding boxes, contours, or masks) overlaid on image
 - **FR-029**: System MUST allow users to manually remove false positive detections from the detection set
 - **FR-030**: System MUST allow users to manually add missed objects by clicking or drawing regions
@@ -377,6 +391,7 @@ A naturalist or mycologist links their imaging session to an iNaturalist observa
 - **FR-061**: System MUST provide "Classroom Mode" toggle to enable/disable RTSP video server
 - **FR-062**: System MUST broadcast RTSP stream availability on local network using UDP broadcast messages with service discovery information (teacher name, device ID, stream URL)
 - **FR-063**: System MUST encode live camera feed to RTSP stream with configurable quality settings (resolution, bitrate, frame rate)
+- **FR-063.1**: System MUST default RTSP stream to 720p (1280×720) resolution at 30fps, providing optimal balance of clarity for microscopy viewing, bandwidth efficiency (~3-5 Mbps with H.264), and broad device compatibility
 - **FR-064**: System MUST embed real-time annotation data in RTSP stream using metadata tracks or custom RTP extensions
 - **FR-065**: System MUST implement mDNS/Bonjour service discovery as fallback for multi-subnet network environments
 - **FR-066**: System MUST display list of discovered RTSP streams from teachers on same local network in student app camera source selector
