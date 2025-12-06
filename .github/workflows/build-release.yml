@@ -36,14 +36,12 @@ jobs:
     uses: ./.github/workflows/build-android.yml
     with:
       upload-artifacts: false
-    continue-on-error: true
       
   build-ios:
     name: Build iOS
     uses: ./.github/workflows/build-ios.yml
     with:
       upload-artifacts: false
-    continue-on-error: true
     
   create-release:
     name: Create GitHub Release

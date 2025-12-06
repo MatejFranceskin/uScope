@@ -1,5 +1,8 @@
 <RCC>
     <qresource prefix="/">
+        <!-- Application icon -->
+        <file>images/uScope.svg</file>
+        
         <!-- Image resources -->
         <file>images/camera.svg</file>
         <file>images/settings.svg</file>
@@ -7,5 +10,9 @@
         <file>images/media-playback-start.svg</file>
         <file>images/media-playback-pause.svg</file>
         <file>images/media-playback-stop.svg</file>
+        
+        <!-- Sound resources -->
+        <file>sounds/camera-shutter.mp3</file>
+        <file>sounds/snap.mp3</file>
     </qresource>
 </RCC>

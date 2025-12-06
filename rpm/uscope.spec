@@ -41,13 +41,11 @@ streaming, and iNaturalist integration.
 
 %install
 %cmake_install
-install -D -m 0644 uScope.desktop %{buildroot}%{_datadir}/applications/uscope.desktop
-install -D -m 0644 images/uScope.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/uscope.svg
 
 %files
 %{_bindir}/uScope
-%{_datadir}/applications/uscope.desktop
-%{_datadir}/icons/hicolor/scalable/apps/uscope.svg
+%{_datadir}/applications/uScope.desktop
+%{_datadir}/icons/hicolor/scalable/apps/uScope.svg
 
 %changelog
 * Fri Dec 06 2024 uScope Team <info@uscope.org> - 0.1.0-1

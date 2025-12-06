@@ -22,26 +22,34 @@ jobs:
         path: |
           ${{ github.workspace }}/vcpkg
           ${{ github.workspace }}/build/vcpkg_installed
-        key: ${{ runner.os }}-vcpkg-${{ hashFiles('**/CMakeLists.txt') }}
+          ~\AppData\Local\vcpkg\archives
+        key: ${{ runner.os }}-vcpkg-${{ hashFiles('**/CMakeLists.txt') }}-v2
         restore-keys: |
           ${{ runner.os }}-vcpkg-
       
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
       with:
-        version: '6.7.*'
-        modules: 'qtmultimedia qtsvg'
+        version: '6.7.3'
+        host: 'windows'
+        target: 'desktop'
         arch: 'win64_msvc2019_64'
+        modules: 'qtmultimedia qtshadertools'
         cache: true
         
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v1.1
+      
+    - name: Install ImageMagick
+      run: choco install imagemagick -y
       
     - name: Install vcpkg dependencies
       run: |
         git clone https://github.com/Microsoft/vcpkg.git
         cd vcpkg
         .\bootstrap-vcpkg.bat
+        # Enable binary caching
+        $env:VCPKG_BINARY_SOURCES="clear;files,$env:LOCALAPPDATA\vcpkg\archives,readwrite"
         .\vcpkg install opencv:x64-windows tesseract:x64-windows --triplet=x64-windows
       continue-on-error: true
         
@@ -59,22 +67,105 @@ jobs:
     - name: Deploy Qt dependencies
       run: |
         cd build/Release
-        windeployqt uScope.exe
+        windeployqt uScope.exe --release --no-translations
         
-    - name: Create installer (WiX - optional)
+    - name: Install WiX Toolset
       run: |
-        # WiX installation would go here
-        # For now, just package the executable
-        mkdir package
-        cp build/Release/*.exe package/
-        cp build/Release/*.dll package/ -ErrorAction SilentlyContinue
-      continue-on-error: true
-      
-    - name: Upload Windows artifact
+        dotnet tool install --global wix
+        wix extension add -g WixToolset.UI.wixext
+        wix extension add -g WixToolset.Util.wixext
+        
+    - name: Create WiX installer
+      run: |
+        # Create staging directory with all files
+        mkdir installer-staging
+        cp -r build/Release/* installer-staging/
+        
+        # Download VC++ redistributable
+        Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "installer-staging/vc_redist.x64.exe"
+        
+        # Create WiX source file
+        @"
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+          <Package Name="uScope" Version="0.1.0" Manufacturer="uScope" UpgradeCode="12345678-1234-1234-1234-123456789012">
+            <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+            <MediaTemplate EmbedCab="yes" />
+            
+            <Feature Id="ProductFeature" Title="uScope" Level="1">
+              <ComponentGroupRef Id="ProductComponents" />
+            </Feature>
+            
+            <!-- Install VC++ redistributable -->
+            <CustomAction Id="InstallVCRedist" 
+                          FileRef="VCRedistFile" 
+                          ExeCommand="/quiet /norestart" 
+                          Execute="deferred" 
+                          Impersonate="no" 
+                          Return="check" />
+            <InstallExecuteSequence>
+              <Custom Action="InstallVCRedist" Before="InstallFinalize" Condition="NOT Installed" />
+            </InstallExecuteSequence>
+          </Package>
+          
+          <Fragment>
+            <StandardDirectory Id="ProgramFiles64Folder">
+              <Directory Id="INSTALLFOLDER" Name="uScope" />
+            </StandardDirectory>
+            <StandardDirectory Id="ProgramMenuFolder">
+              <Directory Id="ApplicationProgramsFolder" Name="uScope"/>
+            </StandardDirectory>
+          </Fragment>
+          
+          <Fragment>
+            <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+              <!-- Main executable -->
+              <Component Id="MainExecutable" Guid="*">
+                <File Id="uScopeExe" Source="installer-staging/uScope.exe" KeyPath="yes">
+                  <Shortcut Id="StartMenuShortcut" 
+                            Directory="ApplicationProgramsFolder" 
+                            Name="uScope" 
+                            WorkingDirectory="INSTALLFOLDER" 
+                            Icon="AppIcon" />
+                </File>
+              </Component>
+              
+              <!-- VC++ Redistributable -->
+              <Component Id="VCRedist" Guid="*">
+                <File Id="VCRedistFile" Source="installer-staging/vc_redist.x64.exe" KeyPath="yes" />
+              </Component>
+              
+              <!-- All DLL files -->
+        "@ | Out-File -FilePath Product.wxs -Encoding UTF8
+        
+        # Add all DLLs to the WiX file
+        Get-ChildItem installer-staging/*.dll | ForEach-Object {
+          $guid = [guid]::NewGuid().ToString()
+          $name = $_.Name
+          @"
+              <Component Id="Comp_$($name -replace '[^a-zA-Z0-9]', '_')" Guid="$guid">
+                <File Id="File_$($name -replace '[^a-zA-Z0-9]', '_')" Source="installer-staging/$name" KeyPath="yes" />
+              </Component>
+        "@ | Out-File -FilePath Product.wxs -Append -Encoding UTF8
+        }
+        
+        # Close the ComponentGroup and add Icon
+        @"
+            </ComponentGroup>
+          </Fragment>
+          
+          <Fragment>
+            <Icon Id="AppIcon" SourceFile="build/uScope.ico" />
+          </Fragment>
+        </Wix>
+        "@ | Out-File -FilePath Product.wxs -Append -Encoding UTF8
+        
+        # Build the installer
+        wix build Product.wxs -out uScope-0.1.0-windows-x64.msi
+        
+    - name: Upload Windows installer
       if: inputs.upload-artifacts
       uses: actions/upload-artifact@v4
       with:
         name: uscope-windows
-        path: |
-          build/Release/uScope.exe
-          build/Release/*.dll
+        path: uScope-0.1.0-windows-x64.msi

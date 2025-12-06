@@ -25,40 +25,70 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       
+    - name: Install host Qt packages (for build tools)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
+        
+    - name: Set host Qt paths
+      run: |
+        echo "QT_HOST_PATH=/usr" >> $GITHUB_ENV
+        echo "QT_HOST_PATH_CMAKE_DIR=/usr/lib/x86_64-linux-gnu/cmake" >> $GITHUB_ENV
+        
     - name: Install Qt for Android
       uses: jurplel/install-qt-action@v3
       with:
-        version: '6.7.*'
+        version: '6.4.2'
         host: 'linux'
         target: 'android'
         arch: 'android_arm64_v8a'
-        modules: 'qtmultimedia qtsvg'
+        modules: 'qtmultimedia qtshadertools'
         cache: true
+      continue-on-error: false
         
     - name: Install Android NDK
       run: |
-        sdkmanager "ndk;25.1.8937393"
+        # Remove pre-installed platforms that Gradle 7.4.2 can't parse
+        rm -rf $ANDROID_SDK_ROOT/platforms/android-3[1-9]*
+        rm -rf $ANDROID_SDK_ROOT/platforms/android-[4-9]*
+        
+        # Install only what we need
+        sdkmanager "ndk;25.1.8937393" "build-tools;30.0.3" "platforms;android-30"
         
     - name: Configure for Android
       run: |
         cmake -B build-android \
+          -DCMAKE_PREFIX_PATH=/home/runner/work/uScope/Qt/6.4.2/android_arm64_v8a \
+          -DQt6_DIR=/home/runner/work/uScope/Qt/6.4.2/android_arm64_v8a/lib/cmake/Qt6 \
+          -DQT_HOST_PATH=$QT_HOST_PATH \
+          -DQT_HOST_PATH_CMAKE_DIR=/usr/lib/x86_64-linux-gnu/cmake \
+          -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \
           -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake \
+          -DANDROID_SDK_ROOT=$ANDROID_SDK_ROOT \
           -DANDROID_ABI=arm64-v8a \
-          -DANDROID_PLATFORM=android-23 \
-          -DQT_HOST_PATH=$Qt6_DIR/../../../gcc_64 \
+          -DANDROID_PLATFORM=android-30 \
+          -DQT_ANDROID_API_VERSION=30 \
+          -DQT_ANDROID_BUILD_TOOLS_VERSION=30.0.3 \
           -DCMAKE_BUILD_TYPE=Release
       env:
+        ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
         ANDROID_NDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}/ndk/25.1.8937393
+        
+    - name: Build native library
+      run: |
+        cmake --build build-android --target uScope --parallel
         
     - name: Build APK
       run: |
-        cmake --build build-android --parallel
-        # Additional APK packaging would go here with androiddeployqt
+        cmake --build build-android --target uScope_make_apk --parallel
+      env:
+        ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+        ANDROID_NDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}/ndk/25.1.8937393
         
     - name: Upload Android artifact
       if: inputs.upload-artifacts
       uses: actions/upload-artifact@v4
       with:
         name: uscope-android
-        path: build-android/**/*.apk
+        path: build-android/android-build/build/outputs/apk/debug/android-build-debug.apk
       continue-on-error: true

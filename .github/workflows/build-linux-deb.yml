@@ -16,21 +16,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Install Qt 6
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: '6.7.*'
-        modules: 'qtmultimedia qtsvg'
-        cache: true
-        
     - name: Install build dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           cmake \
           build-essential \
+          qt6-base-dev \
+          qt6-multimedia-dev \
+          libqt6svg6-dev \
           libgl1-mesa-dev \
+          libunwind-dev \
           libgstreamer1.0-dev \
+          imagemagick \
           libgstreamer-plugins-base1.0-dev \
           debhelper \
           devscripts

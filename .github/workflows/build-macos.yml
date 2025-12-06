@@ -16,6 +16,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Install ImageMagick
+      run: brew install imagemagick
+      
     - name: Cache Homebrew packages
       uses: actions/cache@v4
       with:
@@ -32,8 +35,11 @@ jobs:
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
       with:
-        version: '6.7.*'
-        modules: 'qtmultimedia qtsvg'
+        version: '6.7.3'
+        host: 'mac'
+        target: 'desktop'
+        arch: 'clang_64'
+        modules: 'qtmultimedia qtshadertools'
         cache: true
         
     - name: Install Homebrew dependencies
@@ -41,22 +47,15 @@ jobs:
         brew install opencv tesseract gstreamer create-dmg || true
         
     - name: Configure CMake
-      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$(brew --prefix qt@6)
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$Qt6_DIR/..
       
     - name: Build
       run: cmake --build build --parallel
       
-    - name: Create app bundle
+    - name: Deploy Qt dependencies
       run: |
-        mkdir -p uScope.app/Contents/MacOS
-        mkdir -p uScope.app/Contents/Resources
-        
-        cp build/uScope uScope.app/Contents/MacOS/
-        cp macos/Info.plist.in uScope.app/Contents/Info.plist || true
-        cp images/uScope.ico uScope.app/Contents/Resources/ || true
-        
-        # Deploy Qt dependencies
-        macdeployqt uScope.app -always-overwrite || true
+        # CMake already created uScope.app in build directory
+        macdeployqt build/uScope.app -always-overwrite
         
     - name: Create DMG
       run: |
@@ -66,8 +65,8 @@ jobs:
           --window-size 600 300 \
           --app-drop-link 425 120 \
           uScope-0.1.0-macos.dmg \
-          uScope.app || \
-        hdiutil create -volname uScope -srcfolder uScope.app -ov -format UDZO uScope-0.1.0-macos.dmg
+          build/uScope.app || \
+        hdiutil create -volname uScope -srcfolder build/uScope.app -ov -format UDZO uScope-0.1.0-macos.dmg
       
     - name: Upload macOS artifact
       if: inputs.upload-artifacts

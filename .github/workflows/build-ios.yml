@@ -16,18 +16,38 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Install Qt for macOS (host tools)
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.4.2'
+        host: 'mac'
+        target: 'desktop'
+        arch: 'clang_64'
+        cache: true
+    
+    - name: Save host Qt path
+      run: |
+        echo "QT_HOST_PATH=${{ github.workspace }}/../Qt/6.4.2/macos" >> $GITHUB_ENV
+        echo "QT_HOST_PATH_CMAKE_DIR=${{ github.workspace }}/../Qt/6.4.2/macos/lib/cmake" >> $GITHUB_ENV
+        
     - name: Install Qt for iOS
       uses: jurplel/install-qt-action@v3
       with:
-        version: '6.7.*'
+        version: '6.4.2'
         host: 'mac'
         target: 'ios'
-        modules: 'qtmultimedia qtsvg'
+        arch: 'ios'
+        modules: 'qtmultimedia'
         cache: true
         
     - name: Configure for iOS
       run: |
         cmake -B build-ios \
+          -DCMAKE_PREFIX_PATH=${{ github.workspace }}/../Qt/6.4.2/ios \
+          -DCMAKE_FIND_ROOT_PATH=${{ github.workspace }}/../Qt/6.4.2/ios \
+          -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \
+          -DQT_HOST_PATH=${{ env.QT_HOST_PATH }} \
+          -DQT_HOST_PATH_CMAKE_DIR=${{ env.QT_HOST_PATH_CMAKE_DIR }} \
           -GXcode \
           -DCMAKE_SYSTEM_NAME=iOS \
           -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \

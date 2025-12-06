@@ -30,6 +30,7 @@ jobs:
           qt6-qtmultimedia-devel \
           qt6-qtsvg-devel \
           rpm-build \
+          ImageMagick \
           rpmdevtools
           
     - name: Install optional dependencies
@@ -58,14 +59,15 @@ jobs:
           .
         
         # Build RPM
-        rpmbuild -ba ~/rpmbuild/SPECS/uscope.spec || true
+        rpmbuild -ba ~/rpmbuild/SPECS/uscope.spec
         
-        # Copy built RPM if it exists
-        find ~/rpmbuild/RPMS -name "*.rpm" -exec cp {} . \; || true
+        # Copy built RPM to workspace
+        find ~/rpmbuild/RPMS -name "*.rpm" -exec cp {} . \;
         
     - name: Upload RPM artifact
-      if: inputs.upload-artifacts && hashFiles('*.rpm') != ''
+      if: inputs.upload-artifacts
       uses: actions/upload-artifact@v4
       with:
         name: uscope-rpm
         path: "*.rpm"
+      continue-on-error: true

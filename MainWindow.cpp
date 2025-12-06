@@ -46,6 +46,13 @@ void MainWindow::setupUi()
     // Set initial window size
     resize(1280, 720);
     setWindowTitle("uScope - Microscopy Platform");
+    
+    // Set window icon (prefer .ico on Windows/Linux, use .svg as fallback for Android/iOS)
+    QIcon appIcon(":/images/uScope.ico");
+    if (appIcon.isNull()) {
+        appIcon = QIcon(":/images/uScope.svg");
+    }
+    setWindowIcon(appIcon);
 }
 
 void MainWindow::createControllers()
