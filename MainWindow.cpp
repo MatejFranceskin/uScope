@@ -2,16 +2,26 @@
 #include "VideoGraphicsScene.h"
 #include "Tile.h"
 #include "TileButton.h"
+#include "controllers/CameraController.h"
+#include "ui/CameraControlsPanel.h"
+#include "models/CapturedImage.h"
 #include <QGraphicsView>
 #include <QResizeEvent>
+#include <QMessageBox>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , _view(nullptr)
     , _scene(nullptr)
+    , _cameraController(nullptr)
+    , _cameraPanel(nullptr)
 {
     setupUi();
-    createPlaceholderTiles();
+    createControllers();
+    createTiles();
+    
+    // Auto-start first available camera
+    _cameraController->autoStartCamera();
 }
 
 MainWindow::~MainWindow()
@@ -38,12 +48,35 @@ void MainWindow::setupUi()
     setWindowTitle("uScope - Microscopy Platform");
 }
 
-void MainWindow::createPlaceholderTiles()
+void MainWindow::createControllers()
 {
+    // Create camera controller
+    _cameraController = new CameraController(this);
+    
+    // Connect camera signals
+    connect(_cameraController, &CameraController::frameReady,
+            _scene, &VideoGraphicsScene::updateVideoFrame);
+    connect(_cameraController, &CameraController::imageCaptured,
+            this, &MainWindow::onImageCaptured);
+    connect(_cameraController, &CameraController::error,
+            this, &MainWindow::onCameraError);
+}
+
+void MainWindow::createTiles()
+{
+    // Create camera controls panel (hidden initially)
+    _cameraPanel = new CameraControlsPanel(_cameraController);
+    _scene->addItem(_cameraPanel);
+    _cameraPanel->hide();
+    
+    connect(_cameraPanel, &CameraControlsPanel::captureRequested,
+            this, &MainWindow::onCaptureButtonClicked);
+    
     // Create left-anchored tiles
     TileButton* cameraButton = new TileButton(":/images/camera.svg", "Camera", 1.0f, 1.0f, Tile::Anchor::Left);
     _scene->addItem(cameraButton);
     _leftTiles.append(cameraButton);
+    connect(cameraButton, &TileButton::clicked, this, &MainWindow::onCameraButtonClicked);
     
     TileButton* settingsButton = new TileButton(":/images/settings.svg", "Settings", 1.0f, 1.0f, Tile::Anchor::Left);
     _scene->addItem(settingsButton);
@@ -53,16 +86,37 @@ void MainWindow::createPlaceholderTiles()
     TileButton* captureButton = new TileButton(":/images/media-record.svg", "Capture", 1.0f, 1.0f, Tile::Anchor::Right);
     _scene->addItem(captureButton);
     _rightTiles.append(captureButton);
+    connect(captureButton, &TileButton::clicked, this, &MainWindow::onCaptureButtonClicked);
     
     TileButton* recordButton = new TileButton(":/images/media-playback-start.svg", "Record", 1.0f, 1.0f, Tile::Anchor::Right);
     _scene->addItem(recordButton);
     _rightTiles.append(recordButton);
-    
-    // Connect placeholder signals (will be replaced with actual functionality)
-    connect(cameraButton, &TileButton::clicked, []() { /* TODO: Show camera controls */ });
-    connect(settingsButton, &TileButton::clicked, []() { /* TODO: Show settings dialog */ });
-    connect(captureButton, &TileButton::clicked, []() { /* TODO: Capture image */ });
-    connect(recordButton, &TileButton::clicked, []() { /* TODO: Start/stop recording */ });
+}
+
+void MainWindow::onCameraButtonClicked()
+{
+    if (_cameraPanel->isVisible()) {
+        _cameraPanel->hide();
+    } else {
+        _cameraPanel->refreshCameras();
+        _cameraPanel->show();
+    }
+}
+
+void MainWindow::onCaptureButtonClicked()
+{
+    _cameraController->captureImage();
+}
+
+void MainWindow::onImageCaptured(const CapturedImage& image)
+{
+    QMessageBox::information(this, "Image Captured", 
+        QString("Image saved to:\n%1").arg(image.filePath()));
+}
+
+void MainWindow::onCameraError(const QString& message)
+{
+    QMessageBox::warning(this, "Camera Error", message);
 }
 
 float MainWindow::calculateBaseTileSize() const

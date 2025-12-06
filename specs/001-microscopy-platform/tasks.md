@@ -107,22 +107,22 @@
 
 ### Implementation for User Story 1
 
-- [ ] T052 [P] [US1] Create models/CameraProfile.h with QString id/name/manufacturer, QSize resolution, int frameRate, QDateTime lastUsed
-- [ ] T053 [P] [US1] Create models/CameraProfile.cpp with constructor, validation (non-empty name, positive resolution/frameRate), toJson/fromJson for QSettings persistence
-- [ ] T054 [P] [US1] Create models/CapturedImage.h with QString filePath, QDateTime timestamp, QSize resolution, QString cameraId, QImage imageData
-- [ ] T055 [P] [US1] Create models/CapturedImage.cpp with constructor, save() method writing to QStandardPaths::DocumentsLocation + "/uScope/", embedded metadata via QImageWriter::setText
-- [ ] T056 [P] [US1] Create services/CameraService.h with QObject subclass, QCamera* _camera, QVideoSink* _sink, frameReady(QVideoFrame) signal, error(QString) signal
-- [ ] T057 [US1] Create services/CameraService.cpp with enumerateCameras() using QMediaDevices::videoInputs(), startCamera(cameraId), stopCamera(), captureFrame() methods
-- [ ] T058 [US1] Implement CameraService::startCamera connecting QVideoSink::videoFrameChanged to frameReady signal, setting QCameraFormat, calling QCamera::start()
-- [ ] T059 [US1] Implement CameraService::captureFrame() grabbing current QVideoFrame, converting to QImage, emitting imageCaptured signal
-- [ ] T060 [P] [US1] Create controllers/CameraController.h with QObject subclass, CameraService* _service, frameReady(QVideoFrame) signal, cameraConnected(QString id) signal
-- [ ] T061 [US1] Create controllers/CameraController.cpp with startCamera(id) slot calling _service->startCamera(), captureImage() slot calling _service->captureFrame(), signal forwarding
-- [ ] T062 [US1] Update VideoGraphicsScene to render QVideoFrame as background via QGraphicsPixmapItem, connect to CameraController::frameReady signal
-- [ ] T063 [US1] Update MainWindow constructor to create CameraController instance, auto-start first available camera
-- [ ] T064 [US1] Create ui/CameraControlsPanel.h with Tile subclass, TileCombo for camera selection dropdown, TileButton for snap
-- [ ] T065 [US1] Create ui/CameraControlsPanel.cpp populating camera combo from CameraController::enumerateCameras(), connecting snap button to CameraController::captureImage()
-- [ ] T066 [US1] Add CameraControlsPanel tile to MainWindow _leftTiles, position at top-left with updateGeometry
-- [ ] T067 [US1] Implement image save to ~/Documents/uScope/ with filename format "image_yyyyMMdd_HHmmss.png" using QDateTime
+- [X] T052 [P] [US1] Create models/CameraProfile.h with QString id/name/manufacturer, QSize resolution, int frameRate, QDateTime lastUsed
+- [X] T053 [P] [US1] Create models/CameraProfile.cpp with constructor, validation (non-empty name, positive resolution/frameRate), toJson/fromJson for QSettings persistence
+- [X] T054 [P] [US1] Create models/CapturedImage.h with QString filePath, QDateTime timestamp, QSize resolution, QString cameraId, QImage imageData
+- [X] T055 [P] [US1] Create models/CapturedImage.cpp with constructor, save() method writing to QStandardPaths::DocumentsLocation + "/uScope/", embedded metadata via QImageWriter::setText
+- [X] T056 [P] [US1] Create services/CameraService.h with QObject subclass, QCamera* _camera, QVideoSink* _sink, frameReady(QVideoFrame) signal, error(QString) signal
+- [X] T057 [US1] Create services/CameraService.cpp with enumerateCameras() using QMediaDevices::videoInputs(), startCamera(cameraId), stopCamera(), captureFrame() methods
+- [X] T058 [US1] Implement CameraService::startCamera connecting QVideoSink::videoFrameChanged to frameReady signal, setting QCameraFormat, calling QCamera::start()
+- [X] T059 [US1] Implement CameraService::captureFrame() grabbing current QVideoFrame, converting to QImage, emitting imageCaptured signal
+- [X] T060 [P] [US1] Create controllers/CameraController.h with QObject subclass, CameraService* _service, frameReady(QVideoFrame) signal, cameraConnected(QString id) signal
+- [X] T061 [US1] Create controllers/CameraController.cpp with startCamera(id) slot calling _service->startCamera(), captureImage() slot calling _service->captureFrame(), signal forwarding
+- [X] T062 [US1] Update VideoGraphicsScene to render QVideoFrame as background via QGraphicsPixmapItem, connect to CameraController::frameReady signal
+- [X] T063 [US1] Update MainWindow constructor to create CameraController instance, auto-start first available camera
+- [X] T064 [US1] Create ui/CameraControlsPanel.h with Tile subclass, TileCombo for camera selection dropdown, TileButton for snap
+- [X] T065 [US1] Create ui/CameraControlsPanel.cpp populating camera combo from CameraController::enumerateCameras(), connecting snap button to CameraController::captureImage()
+- [X] T066 [US1] Add CameraControlsPanel tile to MainWindow _leftTiles, position at top-left with updateGeometry
+- [X] T067 [US1] Implement image save to ~/Documents/uScope/ with filename format "image_yyyyMMdd_HHmmss.png" using QDateTime
 - [ ] T068 [US1] Add visual feedback on capture (camera shutter sound from sounds/camera-shutter.mp3, brief flash overlay)
 - [ ] T069 [US1] Handle camera disconnect gracefully: show error dialog, attempt reconnection every 2 seconds
 - [ ] T070 [US1] Test with real UVC camera: verify 15+ fps preview, <1s capture latency, images saved with correct timestamp

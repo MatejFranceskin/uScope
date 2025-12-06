@@ -36,6 +36,20 @@ set(PROJECT_SOURCES
     TileSlider.h
     TileDialog.cpp
     TileDialog.h
+    # Models
+    models/CameraProfile.cpp
+    models/CameraProfile.h
+    models/CapturedImage.cpp
+    models/CapturedImage.h
+    # Services
+    services/CameraService.cpp
+    services/CameraService.h
+    # Controllers
+    controllers/CameraController.cpp
+    controllers/CameraController.h
+    # UI
+    ui/CameraControlsPanel.cpp
+    ui/CameraControlsPanel.h
 )
 
 # Resources

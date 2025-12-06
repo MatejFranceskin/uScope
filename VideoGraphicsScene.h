@@ -2,6 +2,8 @@
 #define VIDEOGRAPHICSSCENE_H
 
 #include <QGraphicsScene>
+#include <QVideoFrame>
+#include <QImage>
 
 class VideoGraphicsScene : public QGraphicsScene
 {
@@ -11,11 +13,14 @@ public:
     explicit VideoGraphicsScene(QObject *parent = nullptr);
     ~VideoGraphicsScene();
 
+public slots:
+    void updateVideoFrame(const QVideoFrame& frame);
+
 protected:
     void drawBackground(QPainter *painter, const QRectF &rect) override;
 
 private:
-    // Background rendering will be implemented when camera integration is added
+    QImage _currentFrame;
 };
 
 #endif // VIDEOGRAPHICSSCENE_H
