@@ -75,8 +75,10 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T033 Create Tile.h with QGraphicsWidget subclass, Anchor enum (Left, Right, Center), TileState enum (Idle, Hover, Active, Disabled), updateGeometry method, cornerRadius method
-- [X] T034 Create Tile.cpp with constructor taking width/height multipliers and anchor, paint method with rounded rectangle rendering (radius = baseTileSize/8), hover event handlers
+**Reference**: See `spec.md` section "UI Architecture: Tile-Based Overlay System" for detailed positioning rules and tile layout specifications
+
+- [X] T033 Create Tile.h with QGraphicsWidget subclass, Anchor enum (Left, Right, Center), TileState enum (Idle, Hover, Active, Disabled), X/Y grid position members, updateGeometry method, cornerRadius method
+- [X] T034 Create Tile.cpp with constructor taking width/height multipliers, anchor, and X/Y grid position, paint method with rounded rectangle rendering (radius = baseTileSize/8), hover event handlers, positioning logic per anchor type
 - [X] T035 [P] Create TileLabel.h with Tile subclass, icon QSvgRenderer member, text QString member
 - [X] T036 [P] Create TileLabel.cpp with paint override rendering scaled SVG icon and text below
 - [X] T037 [P] Create TileButton.h with Tile subclass, clicked() signal, pressed state animation
@@ -91,7 +93,7 @@
 - [X] T046 Update MainWindow.cpp setupUi to create QGraphicsView, set VideoGraphicsScene, configure view (no scrollbars, antialiasing), add to central widget
 - [X] T047 Implement MainWindow::calculateBaseTileSize() returning height() / 12
 - [X] T048 Implement MainWindow::resizeEvent calling updateTileLayout() which recalculates baseTileSize and calls updateGeometry on all tiles
-- [X] T049 Add placeholder TileButton instances to MainWindow (_leftTiles: camera icon, settings icon; _rightTiles: capture icon, record icon) in constructor
+- [X] T049 Add main UI TileButton instances to MainWindow per spec.md tile layout: Fullscreen Toggle (Right,0,0,1×1), Camera Selection (Right,0,2,1×1), Settings (Right,0,3,1×1), Snapshot (Right,0,4,1×1), Record (Right,0,5,1×1) with corresponding icons and initial states
 - [X] T050 Update VideoGraphicsScene.cpp to render black background rectangle as placeholder for video feed
 - [X] T051 Verify tile UI renders correctly, tiles scale proportionally on window resize, hover states work, tiles have rounded corners
 

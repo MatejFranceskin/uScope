@@ -15,6 +15,70 @@
 - Q: Object detection algorithm for automated spore/object identification? → A: Contour detection with morphological operations (edge-based, flexible, no training required)
 - Q: Scale bar OCR processing timing for external images? → A: Process automatically on image load (immediate feedback, user validates before measurements)
 
+## UI Architecture: Tile-Based Overlay System
+
+### Tile Positioning System
+
+The UI uses a custom tile-based overlay system where all interactive elements (buttons, controls, dialogs) are positioned on a proportional grid system that scales with window size.
+
+**Tile Sizing**:
+- Each tile has a `widthMultiplier` and `heightMultiplier` (integer values)
+- Base tile size = window height / 12
+- Actual tile size = multiplier × base tile size
+- Example: A 1×1 tile on a 1080px tall window = 90×90 pixels
+
+**Grid Positioning**:
+- Each tile has an X and Y position on an imaginary grid
+- Y position starts at 0 and always counts from top to bottom
+- X position behavior depends on anchor type:
+  - **Anchor=Left**: X position means the tile is in the Xth column from the left (X=0 is leftmost)
+  - **Anchor=Right**: X position means the tile is in the Xth column from the right (X=0 is rightmost)
+  - **Anchor=Center**: X=0 means tile is centered, positive X values are columns to the right of center, negative X values are columns to the left of center
+
+**Dialogs**:
+- Dialogs are always centered on screen (ignoring X,Y positioning)
+- Dialogs are modal (block interaction with other tiles)
+- Dialogs can contain sub-tiles arranged within the dialog area
+
+### Tile Layout and Functions
+
+The following tiles comprise the main UI:
+
+**Fullscreen Toggle** (Anchor: Right, Position: 0,0, Size: 1×1)
+- Purpose: Toggles fullscreen mode that hides all other tiles except the video feed
+- Icon: Custom fullscreen/expand icon
+- State: Active when in fullscreen mode (different icon for exit fullscreen)
+- Behavior: Single-state toggle button
+
+**Camera Selection** (Anchor: Right, Position: 0,2, Size: 1×1)
+- Purpose: Opens dialog showing list of available camera sources
+- Icon: `images/camera.svg`
+- Dialog: Displays all detected cameras, highlights currently selected camera
+- Dialog Controls: OK button (apply selection), Cancel button (dismiss)
+- Behavior: Click opens centered modal dialog with camera list
+
+**Settings** (Anchor: Right, Position: 0,3, Size: 1×1)
+- Purpose: Opens settings dialog for application configuration
+- Icon: `images/settings.svg`
+- Dialog: Contains sub-tiles for various settings categories
+- Dialog Controls: Standard dialog with OK/Cancel buttons
+- Behavior: Click opens centered modal dialog
+
+**Snapshot** (Anchor: Right, Position: 0,4, Size: 1×1)
+- Purpose: Captures a single high-resolution still image from current video feed
+- Icon: `images/camera.svg` or dedicated snapshot icon
+- Sound: Plays `sounds/camera-shutter.mp3` on capture
+- Visual Feedback: Brief white flash overlay on capture
+- Behavior: Single-click captures and saves image with timestamp
+
+**Record** (Anchor: Right, Position: 0,5, Size: 1×1)
+- Purpose: Starts/stops video recording
+- States: Two-state toggle (Start/Stop recording)
+  - **Start State**: Icon `images/media-record.svg` (red record icon)
+  - **Stop State**: Icon `images/media-playback-stop.svg` (stop icon), tile shows active recording indicator
+- Behavior: Click toggles recording state
+- Visual Feedback: Recording state shows animated indicator or different background color
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Live Camera Preview and Basic Capture (Priority: P1) 🎯 MVP
