@@ -24,6 +24,18 @@ set(PROJECT_SOURCES
     MainWindow.h
     VideoGraphicsScene.cpp
     VideoGraphicsScene.h
+    Tile.cpp
+    Tile.h
+    TileLabel.cpp
+    TileLabel.h
+    TileButton.cpp
+    TileButton.h
+    TileCombo.cpp
+    TileCombo.h
+    TileSlider.cpp
+    TileSlider.h
+    TileDialog.cpp
+    TileDialog.h
 )
 
 # Resources

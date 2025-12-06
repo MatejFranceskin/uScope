@@ -75,25 +75,25 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T033 Create Tile.h with QGraphicsWidget subclass, Anchor enum (Left, Right, Center), TileState enum (Idle, Hover, Active, Disabled), updateGeometry method, cornerRadius method
-- [ ] T034 Create Tile.cpp with constructor taking width/height multipliers and anchor, paint method with rounded rectangle rendering (radius = baseTileSize/8), hover event handlers
-- [ ] T035 [P] Create TileLabel.h with Tile subclass, icon QSvgRenderer member, text QString member
-- [ ] T036 [P] Create TileLabel.cpp with paint override rendering scaled SVG icon and text below
-- [ ] T037 [P] Create TileButton.h with Tile subclass, clicked() signal, pressed state animation
-- [ ] T038 [P] Create TileButton.cpp with mousePressEvent/mouseReleaseEvent emitting clicked signal
-- [ ] T039 [P] Create TileCombo.h with Tile subclass, QGraphicsProxyWidget for embedded QComboBox, currentTextChanged signal
-- [ ] T040 [P] Create TileCombo.cpp with QComboBox creation, proxy widget setup, signal forwarding
-- [ ] T041 [P] Create TileSlider.h with Tile subclass, QGraphicsProxyWidget for embedded QSlider, valueChanged signal
-- [ ] T042 [P] Create TileSlider.cpp with QSlider creation, orientation setup, signal forwarding
-- [ ] T043 [P] Create TileDialog.h with Tile subclass for modal centered dialogs, dimOverlay QGraphicsRectItem member, show/hide methods
-- [ ] T044 [P] Create TileDialog.cpp with semi-transparent black overlay (alpha 180), centered positioning, Esc key handling
-- [ ] T045 Update MainWindow.h with QGraphicsView* _view, VideoGraphicsScene* _scene, QList<Tile*> _leftTiles/_rightTiles/_centerTiles, calculateBaseTileSize() method, resizeEvent override
-- [ ] T046 Update MainWindow.cpp setupUi to create QGraphicsView, set VideoGraphicsScene, configure view (no scrollbars, antialiasing), add to central widget
-- [ ] T047 Implement MainWindow::calculateBaseTileSize() returning height() / 12
-- [ ] T048 Implement MainWindow::resizeEvent calling updateTileLayout() which recalculates baseTileSize and calls updateGeometry on all tiles
-- [ ] T049 Add placeholder TileButton instances to MainWindow (_leftTiles: camera icon, settings icon; _rightTiles: capture icon, record icon) in constructor
-- [ ] T050 Update VideoGraphicsScene.cpp to render black background rectangle as placeholder for video feed
-- [ ] T051 Verify tile UI renders correctly, tiles scale proportionally on window resize, hover states work, tiles have rounded corners
+- [X] T033 Create Tile.h with QGraphicsWidget subclass, Anchor enum (Left, Right, Center), TileState enum (Idle, Hover, Active, Disabled), updateGeometry method, cornerRadius method
+- [X] T034 Create Tile.cpp with constructor taking width/height multipliers and anchor, paint method with rounded rectangle rendering (radius = baseTileSize/8), hover event handlers
+- [X] T035 [P] Create TileLabel.h with Tile subclass, icon QSvgRenderer member, text QString member
+- [X] T036 [P] Create TileLabel.cpp with paint override rendering scaled SVG icon and text below
+- [X] T037 [P] Create TileButton.h with Tile subclass, clicked() signal, pressed state animation
+- [X] T038 [P] Create TileButton.cpp with mousePressEvent/mouseReleaseEvent emitting clicked signal
+- [X] T039 [P] Create TileCombo.h with Tile subclass, QGraphicsProxyWidget for embedded QComboBox, currentTextChanged signal
+- [X] T040 [P] Create TileCombo.cpp with QComboBox creation, proxy widget setup, signal forwarding
+- [X] T041 [P] Create TileSlider.h with Tile subclass, QGraphicsProxyWidget for embedded QSlider, valueChanged signal
+- [X] T042 [P] Create TileSlider.cpp with QSlider creation, orientation setup, signal forwarding
+- [X] T043 [P] Create TileDialog.h with Tile subclass for modal centered dialogs, dimOverlay QGraphicsRectItem member, show/hide methods
+- [X] T044 [P] Create TileDialog.cpp with semi-transparent black overlay (alpha 180), centered positioning, Esc key handling
+- [X] T045 Update MainWindow.h with QGraphicsView* _view, VideoGraphicsScene* _scene, QList<Tile*> _leftTiles/_rightTiles/_centerTiles, calculateBaseTileSize() method, resizeEvent override
+- [X] T046 Update MainWindow.cpp setupUi to create QGraphicsView, set VideoGraphicsScene, configure view (no scrollbars, antialiasing), add to central widget
+- [X] T047 Implement MainWindow::calculateBaseTileSize() returning height() / 12
+- [X] T048 Implement MainWindow::resizeEvent calling updateTileLayout() which recalculates baseTileSize and calls updateGeometry on all tiles
+- [X] T049 Add placeholder TileButton instances to MainWindow (_leftTiles: camera icon, settings icon; _rightTiles: capture icon, record icon) in constructor
+- [X] T050 Update VideoGraphicsScene.cpp to render black background rectangle as placeholder for video feed
+- [X] T051 Verify tile UI renders correctly, tiles scale proportionally on window resize, hover states work, tiles have rounded corners
 
 **Checkpoint**: Foundation ready - tile-based UI system functional with proportional scaling
 

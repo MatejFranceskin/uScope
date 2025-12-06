@@ -1,5 +1,7 @@
 #include "MainWindow.h"
 #include "VideoGraphicsScene.h"
+#include "Tile.h"
+#include "TileButton.h"
 #include <QGraphicsView>
 #include <QResizeEvent>
 
@@ -9,6 +11,7 @@ MainWindow::MainWindow(QWidget *parent)
     , _scene(nullptr)
 {
     setupUi();
+    createPlaceholderTiles();
 }
 
 MainWindow::~MainWindow()
@@ -35,18 +38,71 @@ void MainWindow::setupUi()
     setWindowTitle("uScope - Microscopy Platform");
 }
 
-int MainWindow::calculateBaseTileSize() const
+void MainWindow::createPlaceholderTiles()
 {
-    return height() / 12;
+    // Create left-anchored tiles
+    TileButton* cameraButton = new TileButton(":/images/camera.svg", "Camera", 1.0f, 1.0f, Tile::Anchor::Left);
+    _scene->addItem(cameraButton);
+    _leftTiles.append(cameraButton);
+    
+    TileButton* settingsButton = new TileButton(":/images/settings.svg", "Settings", 1.0f, 1.0f, Tile::Anchor::Left);
+    _scene->addItem(settingsButton);
+    _leftTiles.append(settingsButton);
+    
+    // Create right-anchored tiles
+    TileButton* captureButton = new TileButton(":/images/media-record.svg", "Capture", 1.0f, 1.0f, Tile::Anchor::Right);
+    _scene->addItem(captureButton);
+    _rightTiles.append(captureButton);
+    
+    TileButton* recordButton = new TileButton(":/images/media-playback-start.svg", "Record", 1.0f, 1.0f, Tile::Anchor::Right);
+    _scene->addItem(recordButton);
+    _rightTiles.append(recordButton);
+    
+    // Connect placeholder signals (will be replaced with actual functionality)
+    connect(cameraButton, &TileButton::clicked, []() { /* TODO: Show camera controls */ });
+    connect(settingsButton, &TileButton::clicked, []() { /* TODO: Show settings dialog */ });
+    connect(captureButton, &TileButton::clicked, []() { /* TODO: Capture image */ });
+    connect(recordButton, &TileButton::clicked, []() { /* TODO: Start/stop recording */ });
+}
+
+float MainWindow::calculateBaseTileSize() const
+{
+    return static_cast<float>(height()) / 12.0f;
 }
 
 void MainWindow::updateTileLayout()
 {
-    int baseTileSize = calculateBaseTileSize();
+    float baseTileSize = calculateBaseTileSize();
+    QRectF sceneRect = _scene->sceneRect();
     
-    // Tile layout will be implemented in Phase 3
-    // For now, just calculate the base size
-    (void)baseTileSize; // Suppress unused variable warning
+    // Update left-anchored tiles
+    for (int i = 0; i < _leftTiles.size(); ++i) {
+        Tile* tile = _leftTiles[i];
+        tile->updateGeometry(baseTileSize, i);
+        
+        float yPos = tile->property("yPosition").toFloat();
+        tile->setPos(baseTileSize * 0.5f, yPos);  // 0.5 tile spacing from left edge
+    }
+    
+    // Update right-anchored tiles
+    for (int i = 0; i < _rightTiles.size(); ++i) {
+        Tile* tile = _rightTiles[i];
+        tile->updateGeometry(baseTileSize, i);
+        
+        float yPos = tile->property("yPosition").toFloat();
+        float xPos = sceneRect.width() - tile->boundingRect().width() - (baseTileSize * 0.5f);
+        tile->setPos(xPos, yPos);
+    }
+    
+    // Update center-anchored tiles
+    for (int i = 0; i < _centerTiles.size(); ++i) {
+        Tile* tile = _centerTiles[i];
+        tile->updateGeometry(baseTileSize, i);
+        
+        float yPos = tile->property("yPosition").toFloat();
+        float xPos = (sceneRect.width() - tile->boundingRect().width()) / 2.0f;
+        tile->setPos(xPos, yPos);
+    }
 }
 
 void MainWindow::resizeEvent(QResizeEvent *event)

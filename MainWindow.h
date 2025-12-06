@@ -7,6 +7,7 @@
 
 class VideoGraphicsScene;
 class Tile;
+class TileButton;
 
 class MainWindow : public QMainWindow
 {
@@ -21,7 +22,8 @@ protected:
 
 private:
     void setupUi();
-    int calculateBaseTileSize() const;
+    void createPlaceholderTiles();
+    float calculateBaseTileSize() const;
     void updateTileLayout();
 
     QGraphicsView *_view;
