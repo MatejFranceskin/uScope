@@ -1,0 +1,8 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: uScope
+Upstream-Contact: uScope Team <info@uscope.org>
+Source: https://github.com/MatejFranceskin/uScope
+
+Files: *
+Copyright: 2025 uScope Team
+License: See LICENSE file in source repository

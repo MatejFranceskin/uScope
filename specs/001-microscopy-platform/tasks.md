@@ -21,25 +21,25 @@
 
 **Target**: Create buildable skeleton application for Linux, Windows, macOS, Android, iOS with automated packaging
 
-- [ ] T001 Create CMakeLists.txt at repository root with Qt 6.10+ project configuration (project name: uScope, VERSION 0.1.0, C++17, Qt6::Core Qt6::Widgets Qt6::Multimedia Qt6::Svg)
-- [ ] T002 [P] Create main.cpp with minimal Qt application entry point (QApplication, MainWindow instantiation, exec loop)
-- [ ] T003 [P] Create MainWindow.h header with QMainWindow subclass, Q_OBJECT macro, forward declarations for QGraphicsView/QGraphicsScene
-- [ ] T004 [P] Create MainWindow.cpp with empty MainWindow constructor, destructor, setupUi method stub
-- [ ] T005 [P] Create VideoGraphicsScene.h header with QGraphicsScene subclass for video background rendering
-- [ ] T006 [P] Create VideoGraphicsScene.cpp with constructor, basic paint method stub
-- [ ] T007 [P] Update .gitignore to exclude build/, *.user, *.autosave, .vscode/, .idea/, CMakeCache.txt, CMakeFiles/
-- [ ] T008 Create README.md with project description, build instructions for all platforms, dependency list (Qt 6.10+, OpenCV 4.x, Tesseract 4.x, GStreamer)
-- [ ] T009 [P] Create resources.qrc file with images/ and sounds/ directories referenced from existing assets
-- [ ] T010 [P] Create uScope.desktop file for Linux desktop integration (Name, Comment, Exec, Icon, Categories=Education;Science)
-- [ ] T011 [P] Update android/AndroidManifest.xml with camera permissions (android.permission.CAMERA, android.permission.WRITE_EXTERNAL_STORAGE)
-- [ ] T012 [P] Update ios/Info.plist.in with camera usage description (NSCameraUsageDescription, NSPhotoLibraryUsageDescription)
-- [ ] T013 [P] Update macos/Info.plist.in with bundle identifier, version, camera entitlements
-- [ ] T014 Update CMakeLists.txt to install desktop file, icons, and resources for Linux package
-- [ ] T015 [P] Create debian/ directory structure for DEB packaging (control, rules, copyright, changelog)
-- [ ] T016 [P] Create debian/control with package metadata (Package: uscope, Version, Depends: libqt6core6, libqt6multimedia6, libopencv4, tesseract-ocr, gstreamer1.0-rtsp)
-- [ ] T017 [P] Create rpm/uscope.spec file with RPM package metadata and build instructions
-- [ ] T018 [P] Create windows/uscope.wxs WiX source file for MSI installer with file components, shortcuts, registry entries
-- [ ] T019 Verify project builds successfully on Linux with `cmake -B build && cmake --build build`
+- [X] T001 Create CMakeLists.txt at repository root with Qt 6.10+ project configuration (project name: uScope, VERSION 0.1.0, C++17, Qt6::Core Qt6::Widgets Qt6::Multimedia Qt6::Svg)
+- [X] T002 [P] Create main.cpp with minimal Qt application entry point (QApplication, MainWindow instantiation, exec loop)
+- [X] T003 [P] Create MainWindow.h header with QMainWindow subclass, Q_OBJECT macro, forward declarations for QGraphicsView/QGraphicsScene
+- [X] T004 [P] Create MainWindow.cpp with empty MainWindow constructor, destructor, setupUi method stub
+- [X] T005 [P] Create VideoGraphicsScene.h header with QGraphicsScene subclass for video background rendering
+- [X] T006 [P] Create VideoGraphicsScene.cpp with constructor, basic paint method stub
+- [X] T007 [P] Update .gitignore to exclude build/, *.user, *.autosave, .vscode/, .idea/, CMakeCache.txt, CMakeFiles/
+- [X] T008 Create README.md with project description, build instructions for all platforms, dependency list (Qt 6.10+, OpenCV 4.x, Tesseract 4.x, GStreamer)
+- [X] T009 [P] Create resources.qrc file with images/ and sounds/ directories referenced from existing assets
+- [X] T010 [P] Create uScope.desktop file for Linux desktop integration (Name, Comment, Exec, Icon, Categories=Education;Science)
+- [X] T011 [P] Update android/AndroidManifest.xml with camera permissions (android.permission.CAMERA, android.permission.WRITE_EXTERNAL_STORAGE)
+- [X] T012 [P] Update ios/Info.plist.in with camera usage description (NSCameraUsageDescription, NSPhotoLibraryUsageDescription)
+- [X] T013 [P] Update macos/Info.plist.in with bundle identifier, version, camera entitlements
+- [X] T014 Update CMakeLists.txt to install desktop file, icons, and resources for Linux package
+- [X] T015 [P] Create debian/ directory structure for DEB packaging (control, rules, copyright, changelog)
+- [X] T016 [P] Create debian/control with package metadata (Package: uscope, Version, Depends: libqt6core6, libqt6multimedia6, libopencv4, tesseract-ocr, gstreamer1.0-rtsp)
+- [X] T017 [P] Create rpm/uscope.spec file with RPM package metadata and build instructions
+- [X] T018 [P] Create windows/uscope.wxs WiX source file for MSI installer with file components, shortcuts, registry entries
+- [X] T019 Verify project builds successfully on Linux with `cmake -B build && cmake --build build`
 
 **Checkpoint**: Minimal Qt application compiles and runs with empty window on Linux
 

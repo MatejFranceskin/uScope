@@ -1,0 +1,7 @@
+uscope (0.1.0-1) unstable; urgency=medium
+
+  * Initial release.
+  * Core features: camera preview, image capture, basic controls.
+  * Tile-based UI architecture implementation.
+
+ -- uScope Team <info@uscope.org>  Fri, 06 Dec 2024 00:00:00 +0000

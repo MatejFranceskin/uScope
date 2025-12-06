@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=uScope
+Comment=Cross-platform microscopy application for USB/UVC cameras
+Exec=uscope
+Icon=uScope
+Terminal=false
+Categories=Education;Science;
+Keywords=microscope;microscopy;camera;image;measurement;calibration;
