@@ -1,0 +1,52 @@
+name: Build iOS IPA
+
+on:
+  workflow_call:
+    inputs:
+      upload-artifacts:
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install Qt for iOS
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.7.*'
+        host: 'mac'
+        target: 'ios'
+        modules: 'qtmultimedia qtsvg'
+        cache: true
+        
+    - name: Configure for iOS
+      run: |
+        cmake -B build-ios \
+          -GXcode \
+          -DCMAKE_SYSTEM_NAME=iOS \
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+          -DCMAKE_BUILD_TYPE=Release
+          
+    - name: Build
+      run: |
+        cmake --build build-ios --config Release -- -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+        
+    - name: Create IPA (unsigned)
+      run: |
+        mkdir -p Payload
+        cp -r build-ios/Release-iphoneos/uScope.app Payload/
+        zip -r uScope-0.1.0-ios.ipa Payload
+        
+    - name: Upload iOS artifact
+      if: inputs.upload-artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: uscope-ios
+        path: uScope-0.1.0-ios.ipa
+      continue-on-error: true

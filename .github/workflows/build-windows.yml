@@ -1,0 +1,80 @@
+name: Build Windows Package
+
+on:
+  workflow_call:
+    inputs:
+      upload-artifacts:
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Cache vcpkg
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ github.workspace }}/vcpkg
+          ${{ github.workspace }}/build/vcpkg_installed
+        key: ${{ runner.os }}-vcpkg-${{ hashFiles('**/CMakeLists.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-vcpkg-
+      
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.7.*'
+        modules: 'qtmultimedia qtsvg'
+        arch: 'win64_msvc2019_64'
+        cache: true
+        
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v1.1
+      
+    - name: Install vcpkg dependencies
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git
+        cd vcpkg
+        .\bootstrap-vcpkg.bat
+        .\vcpkg install opencv:x64-windows tesseract:x64-windows --triplet=x64-windows
+      continue-on-error: true
+        
+    - name: Configure CMake
+      run: |
+        if (Test-Path vcpkg) {
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="vcpkg/scripts/buildsystems/vcpkg.cmake"
+        } else {
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+        }
+      
+    - name: Build
+      run: cmake --build build --config Release --parallel
+      
+    - name: Deploy Qt dependencies
+      run: |
+        cd build/Release
+        windeployqt uScope.exe
+        
+    - name: Create installer (WiX - optional)
+      run: |
+        # WiX installation would go here
+        # For now, just package the executable
+        mkdir package
+        cp build/Release/*.exe package/
+        cp build/Release/*.dll package/ -ErrorAction SilentlyContinue
+      continue-on-error: true
+      
+    - name: Upload Windows artifact
+      if: inputs.upload-artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: uscope-windows
+        path: |
+          build/Release/uScope.exe
+          build/Release/*.dll

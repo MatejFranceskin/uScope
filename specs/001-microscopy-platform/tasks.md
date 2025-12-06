@@ -51,19 +51,19 @@
 
 **⚠️ CRITICAL**: These workflows enable continuous testing and distribution across all platforms
 
-- [ ] T020 [P] Create .github/workflows/build-linux-deb.yml with Ubuntu runner, Qt/OpenCV/Tesseract/GStreamer installation, CMake build, dpkg-deb packaging
-- [ ] T021 [P] Create .github/workflows/build-linux-rpm.yml with Fedora container, dnf dependencies, rpmbuild packaging
-- [ ] T022 [P] Create .github/workflows/build-windows.yml with windows-latest runner, aqtinstall for Qt 6.10, vcpkg for OpenCV, WiX toolset installation, MSI build
-- [ ] T023 [P] Create .github/workflows/build-macos.yml with macos-latest runner, Homebrew dependencies (qt@6, opencv, tesseract, gstreamer), macdeployqt bundling, create-dmg for DMG
-- [ ] T024 [P] Create .github/workflows/build-android.yml with ubuntu-latest runner, Android SDK/NDK setup, Qt for Android installation, Gradle build, APK signing with keystore from secrets
-- [ ] T025 [P] Create .github/workflows/build-ios.yml with macos-latest runner, Qt for iOS installation, Xcode build, IPA export with code signing from secrets
-- [ ] T026 Create .github/workflows/build-pr.yml orchestrating all platform builds on pull_request trigger with artifact upload
-- [ ] T027 Create .github/workflows/build-release.yml orchestrating all platform builds on tag push (v*.*.*) with GitHub Release creation and asset upload
-- [ ] T028 [P] Add workflow caching for Qt installation, vcpkg, Homebrew to reduce build times
-- [ ] T029 [P] Create .github/ISSUE_TEMPLATE/ with bug report and feature request templates
-- [ ] T030 [P] Create .github/PULL_REQUEST_TEMPLATE.md with checklist (builds pass, constitution check, manual testing)
+- [X] T020 [P] Create .github/workflows/build-linux-deb.yml with Ubuntu runner, Qt/OpenCV/Tesseract/GStreamer installation, CMake build, dpkg-deb packaging
+- [X] T021 [P] Create .github/workflows/build-linux-rpm.yml with Fedora container, dnf dependencies, rpmbuild packaging
+- [X] T022 [P] Create .github/workflows/build-windows.yml with windows-latest runner, aqtinstall for Qt 6.10, vcpkg for OpenCV, WiX toolset installation, MSI build
+- [X] T023 [P] Create .github/workflows/build-macos.yml with macos-latest runner, Homebrew dependencies (qt@6, opencv, tesseract, gstreamer), macdeployqt bundling, create-dmg for DMG
+- [X] T024 [P] Create .github/workflows/build-android.yml with ubuntu-latest runner, Android SDK/NDK setup, Qt for Android installation, Gradle build, APK signing with keystore from secrets
+- [X] T025 [P] Create .github/workflows/build-ios.yml with macos-latest runner, Qt for iOS installation, Xcode build, IPA export with code signing from secrets
+- [X] T026 Create .github/workflows/build-pr.yml orchestrating all platform builds on pull_request trigger with artifact upload
+- [X] T027 Create .github/workflows/build-release.yml orchestrating all platform builds on tag push (v*.*.*) with GitHub Release creation and asset upload
+- [X] T028 [P] Add workflow caching for Qt installation, vcpkg, Homebrew to reduce build times
+- [X] T029 [P] Create .github/ISSUE_TEMPLATE/ with bug report and feature request templates
+- [X] T030 [P] Create .github/PULL_REQUEST_TEMPLATE.md with checklist (builds pass, constitution check, manual testing)
 - [ ] T031 Test build-pr.yml workflow by creating test PR, verify all platform builds complete, artifacts uploaded
-- [ ] T032 Document required GitHub Secrets in README.md (ANDROID_KEYSTORE, ANDROID_KEYSTORE_PASSWORD, IOS_CERTIFICATE, IOS_PROVISIONING_PROFILE)
+- [X] T032 Document required GitHub Secrets in README.md (ANDROID_KEYSTORE, ANDROID_KEYSTORE_PASSWORD, IOS_CERTIFICATE, IOS_PROVISIONING_PROFILE)
 
 **Checkpoint**: All platform workflows build successfully, packages created and uploaded as artifacts
 

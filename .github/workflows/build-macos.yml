@@ -1,0 +1,77 @@
+name: Build macOS Package
+
+on:
+  workflow_call:
+    inputs:
+      upload-artifacts:
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Cache Homebrew packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/Library/Caches/Homebrew
+          /usr/local/Cellar/opencv
+          /usr/local/Cellar/tesseract
+          /usr/local/Cellar/gstreamer
+          /usr/local/Cellar/create-dmg
+        key: ${{ runner.os }}-homebrew-${{ hashFiles('**/CMakeLists.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-homebrew-
+      
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.7.*'
+        modules: 'qtmultimedia qtsvg'
+        cache: true
+        
+    - name: Install Homebrew dependencies
+      run: |
+        brew install opencv tesseract gstreamer create-dmg || true
+        
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$(brew --prefix qt@6)
+      
+    - name: Build
+      run: cmake --build build --parallel
+      
+    - name: Create app bundle
+      run: |
+        mkdir -p uScope.app/Contents/MacOS
+        mkdir -p uScope.app/Contents/Resources
+        
+        cp build/uScope uScope.app/Contents/MacOS/
+        cp macos/Info.plist.in uScope.app/Contents/Info.plist || true
+        cp images/uScope.ico uScope.app/Contents/Resources/ || true
+        
+        # Deploy Qt dependencies
+        macdeployqt uScope.app -always-overwrite || true
+        
+    - name: Create DMG
+      run: |
+        create-dmg \
+          --volname "uScope" \
+          --window-pos 200 120 \
+          --window-size 600 300 \
+          --app-drop-link 425 120 \
+          uScope-0.1.0-macos.dmg \
+          uScope.app || \
+        hdiutil create -volname uScope -srcfolder uScope.app -ov -format UDZO uScope-0.1.0-macos.dmg
+      
+    - name: Upload macOS artifact
+      if: inputs.upload-artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: uscope-macos
+        path: uScope-0.1.0-macos.dmg

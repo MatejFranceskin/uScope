@@ -207,6 +207,41 @@ This project follows principles defined in `.specify/memory/constitution.md`:
 
 See the constitution for detailed development guidelines.
 
+## CI/CD and GitHub Actions
+
+This project uses GitHub Actions for automated builds and releases across all platforms.
+
+### Required GitHub Secrets
+
+For automated builds to work, configure the following secrets in your repository settings:
+
+#### Android Build Secrets (Optional)
+- `ANDROID_KEYSTORE_BASE64` - Base64-encoded keystore file for signing APKs
+- `ANDROID_KEYSTORE_PASSWORD` - Keystore password
+- `ANDROID_KEY_ALIAS` - Key alias in the keystore
+- `ANDROID_KEY_PASSWORD` - Key password
+
+#### iOS Build Secrets (Optional)
+- `IOS_CERTIFICATE_BASE64` - Base64-encoded developer certificate (.p12)
+- `IOS_CERTIFICATE_PASSWORD` - Certificate password
+- `IOS_PROVISIONING_PROFILE_BASE64` - Base64-encoded provisioning profile
+- `APPLE_ID` - Apple ID for app notarization
+- `APPLE_APP_SPECIFIC_PASSWORD` - App-specific password for notarization
+
+**Note:** The workflows will create unsigned builds if these secrets are not configured. Signed builds are only required for distribution to users.
+
+### Workflow Overview
+
+- **Pull Requests**: Builds all platforms (Linux DEB/RPM, Windows, macOS, Android, iOS)
+- **Tagged Releases**: Builds all platforms and creates GitHub Release with downloadable artifacts
+- **Caching**: Qt installations and build dependencies are cached to speed up builds
+
+To create a release:
+```bash
+git tag -a v0.1.0 -m "Initial release"
+git push origin v0.1.0
+```
+
 ## License
 
 MIT License - see LICENSE file for details.

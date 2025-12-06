@@ -1,0 +1,71 @@
+name: Build Linux RPM Package
+
+on:
+  workflow_call:
+    inputs:
+      upload-artifacts:
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  build-rpm:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+      
+    steps:
+    - name: Install git
+      run: dnf install -y git
+      
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install build dependencies
+      run: |
+        dnf install -y \
+          cmake \
+          gcc-c++ \
+          qt6-qtbase-devel \
+          qt6-qtmultimedia-devel \
+          qt6-qtsvg-devel \
+          rpm-build \
+          rpmdevtools
+          
+    - name: Install optional dependencies
+      run: |
+        dnf install -y \
+          opencv-devel \
+          tesseract-devel \
+          gstreamer1-devel || true
+          
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+      
+    - name: Build
+      run: cmake --build build --parallel
+      
+    - name: Create RPM package
+      run: |
+        mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+        cp rpm/uscope.spec ~/rpmbuild/SPECS/
+        
+        # Create source tarball
+        tar czf ~/rpmbuild/SOURCES/uscope-0.1.0.tar.gz \
+          --transform 's,^,uscope-0.1.0/,' \
+          --exclude='.git' \
+          --exclude='build' \
+          .
+        
+        # Build RPM
+        rpmbuild -ba ~/rpmbuild/SPECS/uscope.spec || true
+        
+        # Copy built RPM if it exists
+        find ~/rpmbuild/RPMS -name "*.rpm" -exec cp {} . \; || true
+        
+    - name: Upload RPM artifact
+      if: inputs.upload-artifacts && hashFiles('*.rpm') != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: uscope-rpm
+        path: "*.rpm"
