@@ -80,6 +80,8 @@ set(PROJECT_SOURCES
     models/CameraProfile.h
     models/CapturedImage.cpp
     models/CapturedImage.h
+    models/ZoomState.cpp
+    models/ZoomState.h
     # Services
     services/CameraService.cpp
     services/CameraService.h
