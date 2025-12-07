@@ -2,8 +2,8 @@
 #include <QGraphicsSceneMouseEvent>
 
 TileButton::TileButton(const QString& svgPath, const QString& text, float widthMultiplier, 
-                       float heightMultiplier, Anchor anchor, QGraphicsItem* parent)
-    : TileLabel(svgPath, text, widthMultiplier, heightMultiplier, anchor, parent)
+                       float heightMultiplier, Anchor anchor, int gridX, int gridY, QGraphicsItem* parent)
+    : TileLabel(svgPath, text, widthMultiplier, heightMultiplier, anchor, gridX, gridY, parent)
     , _pressed(false)
 {
 }
@@ -15,7 +15,7 @@ void TileButton::mousePressEvent(QGraphicsSceneMouseEvent* event)
         setState(TileState::Active);
         event->accept();
     } else {
-        QGraphicsWidget::mousePressEvent(event);
+        QGraphicsItem::mousePressEvent(event);
     }
 }
 
@@ -26,7 +26,8 @@ void TileButton::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
         
         // Check if release is still within button bounds
         if (boundingRect().contains(event->pos())) {
-            setState(TileState::Hover);
+            // Return to Idle, hover events will set Hover if mouse is still over
+            setState(TileState::Idle);
             emit clicked();
         } else {
             setState(TileState::Idle);
@@ -34,6 +35,6 @@ void TileButton::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
         
         event->accept();
     } else {
-        QGraphicsWidget::mouseReleaseEvent(event);
+        QGraphicsItem::mouseReleaseEvent(event);
     }
 }

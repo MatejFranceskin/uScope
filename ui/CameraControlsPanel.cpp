@@ -17,13 +17,13 @@ CameraControlsPanel::CameraControlsPanel(CameraController* controller, QGraphics
 
 void CameraControlsPanel::setupUI()
 {
-    // Create camera selector combo
-    _cameraSelector = new TileCombo(2.5f, 0.8f, Tile::Anchor::Center, this);
+    // Create camera selector combo (centered, grid position 0,0)
+    _cameraSelector = new TileCombo(2.5f, 0.8f, Tile::Anchor::Center, 0, 0, this);
     connect(_cameraSelector, QOverload<int>::of(&TileCombo::currentIndexChanged),
             this, &CameraControlsPanel::onCameraSelected);
     
-    // Create capture button
-    _captureButton = new TileButton(":/images/media-record.svg", "Snap", 2.0f, 1.2f, Tile::Anchor::Center, this);
+    // Create capture button (centered, grid position 0,1)
+    _captureButton = new TileButton(":/images/media-record.svg", "Snap", 2.0f, 1.2f, Tile::Anchor::Center, 0, 1, this);
     connect(_captureButton, &TileButton::clicked, this, &CameraControlsPanel::onCaptureClicked);
     
     // Initial camera refresh

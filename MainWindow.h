@@ -22,10 +22,14 @@ public:
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
+    void showEvent(QShowEvent *event) override;
 
 private slots:
+    void onFullscreenToggleClicked();
     void onCameraButtonClicked();
     void onCaptureButtonClicked();
+    void onRecordButtonClicked();
+    void onSettingsButtonClicked();
     void onImageCaptured(const CapturedImage& image);
     void onCameraError(const QString& message);
 
@@ -35,11 +39,17 @@ private:
     void createTiles();
     float calculateBaseTileSize() const;
     void updateTileLayout();
+    void setFullscreenMode(bool enabled);
 
     QGraphicsView *_view;
     VideoGraphicsScene *_scene;
     CameraController *_cameraController;
     CameraControlsPanel *_cameraPanel;
+    
+    TileButton* _fullscreenToggle;
+    TileButton* _recordButton;
+    bool _fullscreenMode;
+    bool _isRecording;
     
     QList<Tile*> _leftTiles;
     QList<Tile*> _rightTiles;

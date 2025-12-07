@@ -7,6 +7,7 @@
 #include "models/CapturedImage.h"
 #include <QGraphicsView>
 #include <QResizeEvent>
+#include <QShowEvent>
 #include <QMessageBox>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -15,6 +16,10 @@ MainWindow::MainWindow(QWidget *parent)
     , _scene(nullptr)
     , _cameraController(nullptr)
     , _cameraPanel(nullptr)
+    , _fullscreenToggle(nullptr)
+    , _recordButton(nullptr)
+    , _fullscreenMode(false)
+    , _isRecording(false)
 {
     setupUi();
     createControllers();
@@ -33,6 +38,7 @@ void MainWindow::setupUi()
 {
     // Create graphics scene with video background
     _scene = new VideoGraphicsScene(this);
+    _scene->setItemIndexMethod(QGraphicsScene::NoIndex);  // Disable BSP tree for better performance with video
     
     // Create graphics view
     _view = new QGraphicsView(_scene, this);
@@ -40,6 +46,8 @@ void MainWindow::setupUi()
     _view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     _view->setRenderHint(QPainter::Antialiasing, true);
     _view->setRenderHint(QPainter::SmoothPixmapTransform, true);
+    _view->setViewportUpdateMode(QGraphicsView::FullViewportUpdate);  // Use double buffering, no flicker
+    _view->setOptimizationFlag(QGraphicsView::DontAdjustForAntialiasing, true);
     
     setCentralWidget(_view);
     
@@ -53,6 +61,11 @@ void MainWindow::setupUi()
         appIcon = QIcon(":/images/uScope.svg");
     }
     setWindowIcon(appIcon);
+    
+    // Set initial scene rect to match initial window size
+    // Account for window decorations by using a reasonable initial size
+    _scene->setSceneRect(0, 0, 1280, 720);
+    qDebug() << "setupUi: Set initial scene rect to" << _scene->sceneRect();
 }
 
 void MainWindow::createControllers()
@@ -79,25 +92,37 @@ void MainWindow::createTiles()
     connect(_cameraPanel, &CameraControlsPanel::captureRequested,
             this, &MainWindow::onCaptureButtonClicked);
     
-    // Create left-anchored tiles
-    TileButton* cameraButton = new TileButton(":/images/camera.svg", "Camera", 1.0f, 1.0f, Tile::Anchor::Left);
+    // Create right-anchored tiles per spec.md tile layout:
+    
+    // Fullscreen Toggle (Right, 0,0, 1×1)
+    _fullscreenToggle = new TileButton(":/images/uScope.svg", "Full", 1.0f, 1.0f, Tile::Anchor::Right, 0, 0);
+    _scene->addItem(_fullscreenToggle);
+    _rightTiles.append(_fullscreenToggle);
+    connect(_fullscreenToggle, &TileButton::clicked, this, &MainWindow::onFullscreenToggleClicked);
+    
+    // Camera Selection (Right, 0,2, 1×1)
+    TileButton* cameraButton = new TileButton(":/images/camera.svg", "Camera", 1.0f, 1.0f, Tile::Anchor::Right, 0, 2);
     _scene->addItem(cameraButton);
-    _leftTiles.append(cameraButton);
+    _rightTiles.append(cameraButton);
     connect(cameraButton, &TileButton::clicked, this, &MainWindow::onCameraButtonClicked);
     
-    TileButton* settingsButton = new TileButton(":/images/settings.svg", "Settings", 1.0f, 1.0f, Tile::Anchor::Left);
+    // Settings (Right, 0,3, 1×1)
+    TileButton* settingsButton = new TileButton(":/images/settings.svg", "Settings", 1.0f, 1.0f, Tile::Anchor::Right, 0, 3);
     _scene->addItem(settingsButton);
-    _leftTiles.append(settingsButton);
+    _rightTiles.append(settingsButton);
+    connect(settingsButton, &TileButton::clicked, this, &MainWindow::onSettingsButtonClicked);
     
-    // Create right-anchored tiles
-    TileButton* captureButton = new TileButton(":/images/media-record.svg", "Capture", 1.0f, 1.0f, Tile::Anchor::Right);
-    _scene->addItem(captureButton);
-    _rightTiles.append(captureButton);
-    connect(captureButton, &TileButton::clicked, this, &MainWindow::onCaptureButtonClicked);
+    // Snapshot (Right, 0,4, 1×1)
+    TileButton* snapshotButton = new TileButton(":/images/media-record.svg", "Snapshot", 1.0f, 1.0f, Tile::Anchor::Right, 0, 4);
+    _scene->addItem(snapshotButton);
+    _rightTiles.append(snapshotButton);
+    connect(snapshotButton, &TileButton::clicked, this, &MainWindow::onCaptureButtonClicked);
     
-    TileButton* recordButton = new TileButton(":/images/media-playback-start.svg", "Record", 1.0f, 1.0f, Tile::Anchor::Right);
-    _scene->addItem(recordButton);
-    _rightTiles.append(recordButton);
+    // Record (Right, 0,5, 1×1) - two-state button
+    _recordButton = new TileButton(":/images/media-playback-start.svg", "Record", 1.0f, 1.0f, Tile::Anchor::Right, 0, 5);
+    _scene->addItem(_recordButton);
+    _rightTiles.append(_recordButton);
+    connect(_recordButton, &TileButton::clicked, this, &MainWindow::onRecordButtonClicked);
 }
 
 void MainWindow::onCameraButtonClicked()
@@ -110,9 +135,72 @@ void MainWindow::onCameraButtonClicked()
     }
 }
 
+void MainWindow::onSettingsButtonClicked()
+{
+    // TODO: Implement settings dialog
+    QMessageBox::information(this, "Settings", "Settings dialog not yet implemented.");
+}
+
 void MainWindow::onCaptureButtonClicked()
 {
     _cameraController->captureImage();
+}
+
+void MainWindow::onRecordButtonClicked()
+{
+    _isRecording = !_isRecording;
+    
+    if (_isRecording) {
+        // Start recording
+        _recordButton->setSvgPath(":/images/media-playback-stop.svg");
+        _recordButton->setText("Stop");
+        _recordButton->setState(Tile::TileState::Active);
+        // TODO: Start actual video recording
+        QMessageBox::information(this, "Recording", "Video recording started (not yet implemented).");
+    } else {
+        // Stop recording
+        _recordButton->setSvgPath(":/images/media-playback-start.svg");
+        _recordButton->setText("Record");
+        _recordButton->setState(Tile::TileState::Idle);
+        // TODO: Stop actual video recording
+        QMessageBox::information(this, "Recording", "Video recording stopped.");
+    }
+}
+
+void MainWindow::onFullscreenToggleClicked()
+{
+    setFullscreenMode(!_fullscreenMode);
+}
+
+void MainWindow::setFullscreenMode(bool enabled)
+{
+    _fullscreenMode = enabled;
+    
+    // Hide/show all tiles except fullscreen toggle
+    for (Tile* tile : _leftTiles) {
+        tile->setVisible(!enabled);
+    }
+    
+    for (Tile* tile : _rightTiles) {
+        if (tile != _fullscreenToggle) {
+            tile->setVisible(!enabled);
+        }
+    }
+    
+    for (Tile* tile : _centerTiles) {
+        tile->setVisible(!enabled);
+    }
+    
+    // Update fullscreen toggle icon and state
+    if (enabled) {
+        _fullscreenToggle->setSvgPath(":/images/uScope.svg");  // TODO: Use exit-fullscreen icon
+        _fullscreenToggle->setText("Exit");
+        _fullscreenToggle->setState(Tile::TileState::Active);
+    } else {
+        _fullscreenToggle->setSvgPath(":/images/uScope.svg");  // TODO: Use enter-fullscreen icon
+        _fullscreenToggle->setText("Full");
+        _fullscreenToggle->setState(Tile::TileState::Idle);
+    }
 }
 
 void MainWindow::onImageCaptured(const CapturedImage& image)
@@ -128,41 +216,29 @@ void MainWindow::onCameraError(const QString& message)
 
 float MainWindow::calculateBaseTileSize() const
 {
-    return static_cast<float>(height()) / 12.0f;
+    return static_cast<float>(height()) / 8.0f;
 }
 
 void MainWindow::updateTileLayout()
 {
+    if (!_scene || !_view) {
+        return;
+    }
+    
     float baseTileSize = calculateBaseTileSize();
     QRectF sceneRect = _scene->sceneRect();
     
-    // Update left-anchored tiles
-    for (int i = 0; i < _leftTiles.size(); ++i) {
-        Tile* tile = _leftTiles[i];
-        tile->updateGeometry(baseTileSize, i);
-        
-        float yPos = tile->property("yPosition").toFloat();
-        tile->setPos(baseTileSize * 0.5f, yPos);  // 0.5 tile spacing from left edge
+    // Update all tiles with new geometry (they calculate their own positions)
+    for (Tile* tile : _leftTiles) {
+        tile->updateGeometry(baseTileSize, sceneRect.width());
     }
     
-    // Update right-anchored tiles
-    for (int i = 0; i < _rightTiles.size(); ++i) {
-        Tile* tile = _rightTiles[i];
-        tile->updateGeometry(baseTileSize, i);
-        
-        float yPos = tile->property("yPosition").toFloat();
-        float xPos = sceneRect.width() - tile->boundingRect().width() - (baseTileSize * 0.5f);
-        tile->setPos(xPos, yPos);
+    for (Tile* tile : _rightTiles) {
+        tile->updateGeometry(baseTileSize, sceneRect.width());
     }
     
-    // Update center-anchored tiles
-    for (int i = 0; i < _centerTiles.size(); ++i) {
-        Tile* tile = _centerTiles[i];
-        tile->updateGeometry(baseTileSize, i);
-        
-        float yPos = tile->property("yPosition").toFloat();
-        float xPos = (sceneRect.width() - tile->boundingRect().width()) / 2.0f;
-        tile->setPos(xPos, yPos);
+    for (Tile* tile : _centerTiles) {
+        tile->updateGeometry(baseTileSize, sceneRect.width());
     }
 }
 
@@ -170,10 +246,22 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
     
-    // Update scene rect to match view
+    // Update scene rect to match viewport
     if (_scene && _view) {
-        _scene->setSceneRect(0, 0, _view->viewport()->width(), _view->viewport()->height());
+        QSize viewportSize = _view->viewport()->size();
+        _scene->setSceneRect(0, 0, viewportSize.width(), viewportSize.height());
+        updateTileLayout();
     }
+}
+
+void MainWindow::showEvent(QShowEvent *event)
+{
+    QMainWindow::showEvent(event);
     
-    updateTileLayout();
+    // Ensure tiles are positioned correctly when window is first shown
+    if (_scene && _view) {
+        QSize viewportSize = _view->viewport()->size();
+        _scene->setSceneRect(0, 0, viewportSize.width(), viewportSize.height());
+        updateTileLayout();
+    }
 }

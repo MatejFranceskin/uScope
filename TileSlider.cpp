@@ -3,8 +3,8 @@
 #include <QWidget>
 
 TileSlider::TileSlider(Qt::Orientation orientation, float widthMultiplier, 
-                       float heightMultiplier, Anchor anchor, QGraphicsItem* parent)
-    : Tile(widthMultiplier, heightMultiplier, anchor, parent)
+                       float heightMultiplier, Anchor anchor, int gridX, int gridY, QGraphicsItem* parent)
+    : Tile(widthMultiplier, heightMultiplier, anchor, gridX, gridY, parent)
     , _orientation(orientation)
 {
     // Create container widget
@@ -53,9 +53,9 @@ void TileSlider::setLabel(const QString& label)
     _label->setText(label);
 }
 
-void TileSlider::updateGeometry(float baseTileSize, int positionIndex)
+void TileSlider::updateGeometry(float baseTileSize, float sceneWidth)
 {
-    Tile::updateGeometry(baseTileSize, positionIndex);
+    Tile::updateGeometry(baseTileSize, sceneWidth);
     
     // Resize proxy widget to match tile size
     _proxyWidget->resize(boundingRect().size());

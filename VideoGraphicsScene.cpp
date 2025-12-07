@@ -1,5 +1,6 @@
 #include "VideoGraphicsScene.h"
 #include <QPainter>
+#include <QGraphicsView>
 
 VideoGraphicsScene::VideoGraphicsScene(QObject *parent)
     : QGraphicsScene(parent)
@@ -14,8 +15,8 @@ void VideoGraphicsScene::updateVideoFrame(const QVideoFrame& frame)
 {
     if (frame.isValid()) {
         _currentFrame = frame.toImage();
-        // Trigger background redraw
-        update();
+        // Invalidate background layer only
+        invalidate(sceneRect(), QGraphicsScene::BackgroundLayer);
     }
 }
 

@@ -2,7 +2,7 @@
 Version=1.0
 Type=Application
 Name=uScope
-Comment=Cross-platform microscopy application for USB/UVC cameras
+Comment=Microscopy application
 Exec=uscope
 Icon=uScope
 Terminal=false

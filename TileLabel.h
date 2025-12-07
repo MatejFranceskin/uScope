@@ -16,7 +16,7 @@ class TileLabel : public Tile
 public:
     TileLabel(const QString& svgPath, const QString& text, float widthMultiplier = 1.0f, 
               float heightMultiplier = 1.0f, Anchor anchor = Anchor::Center, 
-              QGraphicsItem* parent = nullptr);
+              int gridX = 0, int gridY = 0, QGraphicsItem* parent = nullptr);
 
     void setText(const QString& text);
     QString text() const { return _text; }

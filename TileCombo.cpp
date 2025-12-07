@@ -1,7 +1,7 @@
 #include "TileCombo.h"
 
-TileCombo::TileCombo(float widthMultiplier, float heightMultiplier, Anchor anchor, QGraphicsItem* parent)
-    : Tile(widthMultiplier, heightMultiplier, anchor, parent)
+TileCombo::TileCombo(float widthMultiplier, float heightMultiplier, Anchor anchor, int gridX, int gridY, QGraphicsItem* parent)
+    : Tile(widthMultiplier, heightMultiplier, anchor, gridX, gridY, parent)
 {
     // Create QComboBox
     _comboBox = new QComboBox();
@@ -37,9 +37,9 @@ QString TileCombo::currentText() const
     return _comboBox->currentText();
 }
 
-void TileCombo::updateGeometry(float baseTileSize, int positionIndex)
+void TileCombo::updateGeometry(float baseTileSize, float sceneWidth)
 {
-    Tile::updateGeometry(baseTileSize, positionIndex);
+    Tile::updateGeometry(baseTileSize, sceneWidth);
     
     // Resize proxy widget to match tile size
     _proxyWidget->resize(boundingRect().size());

@@ -14,7 +14,7 @@ class TileCombo : public Tile
 
 public:
     TileCombo(float widthMultiplier = 2.0f, float heightMultiplier = 0.8f, 
-              Anchor anchor = Anchor::Center, QGraphicsItem* parent = nullptr);
+              Anchor anchor = Anchor::Center, int gridX = 0, int gridY = 0, QGraphicsItem* parent = nullptr);
 
     QComboBox* comboBox() const { return _comboBox; }
 
@@ -28,7 +28,7 @@ signals:
     void currentIndexChanged(int index);
 
 protected:
-    void updateGeometry(float baseTileSize, int positionIndex);
+    void updateGeometry(float baseTileSize, float sceneWidth);
 
 private:
     QComboBox* _comboBox;

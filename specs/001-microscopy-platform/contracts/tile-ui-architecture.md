@@ -18,7 +18,7 @@ Defines the custom tile-based UI architecture that provides consistent, resoluti
 ### 2. Tile Properties
 - **Shape**: Square (1×1) or rectangle (N×M multipliers, e.g., 2×1, 3×2) with rounded corners
 - **Corner Radius**: `baseTileSize / 8` (proportional scaling, typically 8-15px depending on window size)
-- **Transparency**: Semi-transparent background (alpha 0.6-0.9 depending on state)
+- **Transparency**: Semi-transparent background (alpha 150-220 depending on state: Idle=200, Hover=220, Active=220, Disabled=150)
 - **Background Color**: State-dependent (Idle, Hover, Active, Disabled)
 - **Border**: Optional 1-2px border for emphasis (rounded to match corners)
 - **Content**: Icon (top/center) + Text (bottom/center) typical layout
@@ -35,12 +35,66 @@ Defines the custom tile-based UI architecture that provides consistent, resoluti
 3. **Dialog Overlay** (z=20): Semi-transparent black dimming (when modal dialog active)
 4. **Modal Dialog Layer** (z=30): Centered dialog tiles
 
+### 5. Rendering Architecture (CRITICAL)
+
+**Base Class**: `QGraphicsObject` (NOT QGraphicsWidget)
+- QGraphicsWidget has default widget rendering that draws opaque backgrounds/frames
+- This causes visual artifacts (black corners outside rounded rectangles)
+- QGraphicsObject is lighter weight and has no default rendering
+- Must implement `boundingRect()` and `paint()` for custom drawing
+
+**Scene Rendering Strategy**:
+- Video background rendered in `VideoGraphicsScene::drawBackground()`
+- Tiles rendered as QGraphicsObject items on top
+- Scene invalidation: `invalidate(sceneRect(), BackgroundLayer)` updates only video
+- **CRITICAL**: Must use `FullViewportUpdate` mode for flicker-free rendering
+
+**Viewport Update Mode**:
+```cpp
+_view->setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+```
+- **FullViewportUpdate**: Renders entire scene to off-screen buffer, then swaps atomically (double buffering)
+- **MinimalViewportUpdate**: Attempts minimal region updates but causes tiles to repaint on every video frame
+- Video updates at 30-60 fps - MinimalViewportUpdate triggers item repaints unnecessarily
+- FullViewportUpdate ensures tiles only repaint when their state actually changes
+
+**Item Caching**:
+```cpp
+setCacheMode(ItemCoordinateCache);
+setFlag(ItemClipsToShape, true);
+```
+- ItemCoordinateCache: Caches item rendering in item's coordinate system
+- ItemClipsToShape: Ensures clicks/hover only within rounded rectangle shape
+- Cache persists across video frame updates when using FullViewportUpdate
+
+**Paint Implementation**:
+```cpp
+void Tile::paint(QPainter* painter, ...) {
+    QPainterPath roundedPath;
+    roundedPath.addRoundedRect(boundingRect(), radius, radius);
+    painter->fillPath(roundedPath, backgroundColor);
+    // Draw content...
+}
+
+QPainterPath Tile::shape() const {
+    QPainterPath path;
+    path.addRoundedRect(boundingRect(), radius, radius);
+    return path;  // Used for hit testing and clipping
+}
+```
+
+**Key Insights**:
+1. Video updates should NOT trigger tile repaints - tiles are independent items
+2. FullViewportUpdate provides proper double buffering for smooth rendering
+3. QGraphicsObject avoids unwanted default widget rendering
+4. Semi-transparent tiles work correctly with proper viewport mode (no alpha blending flicker)
+
 ## Base Tile Class API
 
 ### Tile Base Class
 
 ```cpp
-class Tile : public QGraphicsWidget {
+class Tile : public QGraphicsObject {  // NOT QGraphicsWidget - see Rendering Architecture
     Q_OBJECT
     Q_PROPERTY(TileState state READ state WRITE setState NOTIFY stateChanged)
     
@@ -55,14 +109,18 @@ public:
      * @param anchor Positioning anchor (Left, Right, Center)
      * @param parent Parent QGraphicsItem
      */
-    Tile(int widthMult, int heightMult, Anchor anchor, QGraphicsItem* parent = nullptr);
+    Tile(float widthMult, float heightMult, Anchor anchor, int stackPosition, int maxStack, QGraphicsItem* parent = nullptr);
     virtual ~Tile() = default;
     
-    // Geometry management
+    // Geometry management (QGraphicsObject requires boundingRect)
+    QRectF boundingRect() const override { return QRectF(0, 0, _width, _height); }
     void updateGeometry(int windowWidth, int windowHeight, int baseTileSize);
-    int widthMultiplier() const { return _widthMult; }
-    int heightMultiplier() const { return _heightMult; }
+    float widthMultiplier() const { return _widthMult; }
+    float heightMultiplier() const { return _heightMult; }
     Anchor anchor() const { return _anchor; }
+    
+    // Shape for hit testing and clipping
+    QPainterPath shape() const override;
     
     // State management
     TileState state() const { return _state; }
@@ -92,9 +150,11 @@ protected:
     QSizeF scaledIconSize() const { return QSizeF(_baseTileSize * 0.6, _baseTileSize * 0.6); }
     
 private:
-    int _widthMult, _heightMult;
+    float _widthMult, _heightMult;
     int _baseTileSize = 100;  // Updated by updateGeometry()
+    float _width = 100.0f, _height = 100.0f;  // Required for QGraphicsObject
     Anchor _anchor;
+    int _stackPosition, _maxStack;
     TileState _state = Idle;
     QColor _backgroundColor;
     qreal _transparency = 0.7;
@@ -363,33 +423,45 @@ void MainWindow::positionTiles(QList<Tile*>& tiles, Tile::Anchor anchor) {
 
 ```cpp
 QColor Tile::getStateColor() const {
+    // Semi-transparent backgrounds for video overlay effect
     switch (_state) {
     case Idle:
-        return QColor(100, 100, 100, 180);  // Gray, 70% opaque
+        return QColor(40, 40, 40, 200);   // Dark semi-transparent
     case Hover:
-        return QColor(120, 120, 150, 200);  // Light blue, 78% opaque
+        return QColor(60, 60, 60, 220);   // Lighter on hover
     case Active:
-        return QColor(80, 150, 80, 220);    // Green, 86% opaque
+        return QColor(0, 120, 215, 220);  // Qt blue for active
     case Disabled:
-        return QColor(80, 80, 80, 150);     // Dark gray, 59% opaque
+        return QColor(30, 30, 30, 150);   // Darker, more transparent
     default:
-        return QColor(100, 100, 100, 180);
+        return QColor(40, 40, 40, 200);
     }
 }
 
 void Tile::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) {
-    painter->setRenderHint(QPainter::Antialiasing);  // Smooth rounded corners
-    QRectF rect = boundingRect();
-    int radius = cornerRadius();  // baseTileSize / 8
+    painter->setRenderHint(QPainter::Antialiasing);
     
-    // Draw rounded rectangle background
-    painter->setBrush(getStateColor());
+    // Create rounded rectangle path
+    int radius = _baseTileSize / 8;
+    QPainterPath roundedPath;
+    roundedPath.addRoundedRect(boundingRect(), radius, radius);
+    
+    // Fill with semi-transparent state color
+    painter->fillPath(roundedPath, getStateColor());
+    
+    // Optional border
     if (_borderWidth > 0) {
         painter->setPen(QPen(_borderColor, _borderWidth));
-    } else {
-        painter->setPen(Qt::NoPen);
+        painter->drawPath(roundedPath);
     }
-    painter->drawRoundedRect(rect, radius, radius);
+}
+
+QPainterPath Tile::shape() const {
+    // Returns rounded rectangle for accurate hit testing
+    int radius = _baseTileSize / 8;
+    QPainterPath path;
+    path.addRoundedRect(boundingRect(), radius, radius);
+    return path;
 }
 ```
 
@@ -399,13 +471,19 @@ void Tile::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) {
 
 ```cpp
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
-    // Setup view and scene
+    // Setup scene and view
     _scene = new VideoGraphicsScene(this);
     _view = new QGraphicsView(_scene, this);
     setCentralWidget(_view);
     
-    // Left-side tiles
-    auto* cameraSelectTile = new TileCombo(":/images/camera.svg", "Camera", Tile::Left);
+    // CRITICAL: Configure viewport for flicker-free rendering
+    _view->setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+    _scene->setItemIndexMethod(QGraphicsScene::NoIndex);
+    _view->setOptimizationFlag(QGraphicsView::DontAdjustForAntialiasing, true);
+    
+    // Left-side tiles (stackPosition, maxStack for vertical layout)
+    auto* cameraSelectTile = new TileCombo(":/images/camera.svg", "Camera", 
+                                           Tile::Left, 0, 2);
     cameraSelectTile->addItem("USB Camera 1", "/dev/video0");
     cameraSelectTile->addItem("USB Camera 2", "/dev/video1");
     connect(cameraSelectTile, &TileCombo::currentIndexChanged, 
@@ -413,19 +491,21 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     _leftTiles.append(cameraSelectTile);
     _scene->addItem(cameraSelectTile);
     
-    auto* settingsTile = new TileButton(":/images/settings.svg", "Settings", Tile::Left);
+    auto* settingsTile = new TileButton(":/images/settings.svg", "Settings", 
+                                        Tile::Left, 1, 2);
     connect(settingsTile, &TileButton::clicked, this, &MainWindow::showSettingsDialog);
     _leftTiles.append(settingsTile);
     _scene->addItem(settingsTile);
     
     // Right-side tiles
-    auto* captureTile = new TileButton(":/images/camera.svg", "Capture", Tile::Right);
+    auto* captureTile = new TileButton(":/images/camera.svg", "Capture", 
+                                       Tile::Right, 0, 2);
     connect(captureTile, &TileButton::clicked, this, &MainWindow::captureImage);
     _rightTiles.append(captureTile);
     _scene->addItem(captureTile);
     
     auto* exposureSlider = new TileSlider(":/images/settings.svg", "Exposure", 
-                                          10, 1000, 100, Tile::Right);
+                                          10, 1000, 100, Tile::Right, 1, 2);
     connect(exposureSlider, &TileSlider::valueChanged, 
             _cameraController, &CameraController::setExposure);
     _rightTiles.append(exposureSlider);

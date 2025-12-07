@@ -3,11 +3,11 @@
 #include <QKeyEvent>
 
 TileDialog::TileDialog(float widthMultiplier, float heightMultiplier, QGraphicsItem* parent)
-    : Tile(widthMultiplier, heightMultiplier, Anchor::Center, parent)
+    : Tile(widthMultiplier, heightMultiplier, Anchor::Center, 0, 0, parent)
     , _dimOverlay(nullptr)
 {
     // Dialogs start hidden
-    QGraphicsWidget::setVisible(false);
+    QGraphicsItem::setVisible(false);
 }
 
 TileDialog::~TileDialog()
@@ -46,13 +46,13 @@ void TileDialog::show()
     setZValue(1000);
     
     // Show dialog
-    QGraphicsWidget::setVisible(true);
+    QGraphicsItem::setVisible(true);
     setFocus();
 }
 
 void TileDialog::hide()
 {
-    QGraphicsWidget::setVisible(false);
+    QGraphicsItem::setVisible(false);
     
     if (_dimOverlay) {
         _dimOverlay->setVisible(false);
@@ -61,7 +61,7 @@ void TileDialog::hide()
 
 bool TileDialog::isVisible() const
 {
-    return QGraphicsWidget::isVisible();
+    return QGraphicsItem::isVisible();
 }
 
 void TileDialog::keyPressEvent(QKeyEvent* event)

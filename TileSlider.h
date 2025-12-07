@@ -16,7 +16,7 @@ class TileSlider : public Tile
 public:
     TileSlider(Qt::Orientation orientation = Qt::Horizontal, 
                float widthMultiplier = 2.0f, float heightMultiplier = 0.8f,
-               Anchor anchor = Anchor::Center, QGraphicsItem* parent = nullptr);
+               Anchor anchor = Anchor::Center, int gridX = 0, int gridY = 0, QGraphicsItem* parent = nullptr);
 
     QSlider* slider() const { return _slider; }
 
@@ -30,7 +30,7 @@ signals:
     void valueChanged(int value);
 
 protected:
-    void updateGeometry(float baseTileSize, int positionIndex);
+    void updateGeometry(float baseTileSize, float sceneWidth);
 
 private:
     QSlider* _slider;

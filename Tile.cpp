@@ -2,35 +2,65 @@
 #include <QStyleOptionGraphicsItem>
 #include <QGraphicsSceneHoverEvent>
 
-Tile::Tile(float widthMultiplier, float heightMultiplier, Anchor anchor, QGraphicsItem* parent)
-    : QGraphicsWidget(parent)
+Tile::Tile(float widthMultiplier, float heightMultiplier, Anchor anchor, int gridX, int gridY, QGraphicsItem* parent)
+    : QGraphicsObject(parent)
     , _widthMultiplier(widthMultiplier)
     , _heightMultiplier(heightMultiplier)
     , _anchor(anchor)
+    , _gridX(gridX)
+    , _gridY(gridY)
     , _state(TileState::Idle)
     , _currentBaseTileSize(0.0f)
 {
     setAcceptHoverEvents(true);
+    setFlag(QGraphicsItem::ItemIsSelectable, false);
+    setFlag(QGraphicsItem::ItemClipsToShape, true);
+    
+    // Try ItemCoordinateCache instead - less aggressive but might work better
+    setCacheMode(QGraphicsItem::ItemCoordinateCache);
 }
 
-void Tile::updateGeometry(float baseTileSize, int positionIndex)
+void Tile::updateGeometry(float baseTileSize, float sceneWidth)
 {
     _currentBaseTileSize = baseTileSize;
     
-    // Calculate tile dimensions
-    float width = baseTileSize * _widthMultiplier;
-    float height = baseTileSize * _heightMultiplier;
+    // baseTileSize includes both the tile and its margin
+    // Margin is 10% of baseTileSize (top/bottom or left/right)
+    float margin = baseTileSize * 0.1f;
     
-    // Set size
-    resize(width, height);
+    // Calculate actual tile dimensions (baseTileSize minus margins)
+    float tileSize = baseTileSize - margin;
+    float width = tileSize * _widthMultiplier;
+    float height = tileSize * _heightMultiplier;
     
-    // Calculate position based on anchor and index
-    float spacing = baseTileSize * 0.5f;  // 0.5 tile spacing between tiles
-    float yPos = spacing + (positionIndex * (height + spacing));
+    // Store dimensions for boundingRect
+    _width = width;
+    _height = height;
     
-    // Position is set by MainWindow based on scene dimensions
-    // This method just stores the size for later positioning
-    setProperty("yPosition", yPos);
+    // Calculate position based on anchor and grid coordinates
+    float xPos = 0.0f;
+    float yPos = _gridY * baseTileSize + margin;  // Y grid position * baseTileSize + top margin
+    
+    switch (_anchor) {
+        case Anchor::Left:
+            // X=0 is leftmost, increases rightward
+            xPos = margin + (_gridX * baseTileSize);
+            break;
+            
+        case Anchor::Right:
+            // X=0 is rightmost (closest to edge), X increases leftward
+            xPos = sceneWidth - width - margin - (_gridX * baseTileSize);
+            break;
+            
+        case Anchor::Center:
+            // X=0 is center, positive = right, negative = left
+            xPos = (sceneWidth - width) / 2.0f + (_gridX * baseTileSize);
+            break;
+    }
+    
+    setPos(xPos, yPos);
+    // Don't call prepareGeometryChange() - we're only changing position, not size
+    // Calling it invalidates the item cache causing flickering
 }
 
 float Tile::cornerRadius(float baseTileSize)
@@ -38,12 +68,26 @@ float Tile::cornerRadius(float baseTileSize)
     return baseTileSize / 8.0f;
 }
 
+QRectF Tile::boundingRect() const
+{
+    return QRectF(0, 0, _width, _height);
+}
+
 void Tile::setState(TileState state)
 {
     if (_state != state) {
         _state = state;
-        update();  // Trigger repaint
+        update(boundingRect());  // Update only the bounding rect area
     }
+}
+
+QPainterPath Tile::shape() const
+{
+    // Return the rounded rectangle shape for proper hit testing and clipping
+    QPainterPath path;
+    float radius = cornerRadius(_currentBaseTileSize);
+    path.addRoundedRect(boundingRect(), radius, radius);
+    return path;
 }
 
 void Tile::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
@@ -53,7 +97,7 @@ void Tile::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWid
     
     painter->setRenderHint(QPainter::Antialiasing);
     
-    // Background color based on state
+    // Background color based on state - semi-transparent for overlay effect
     QColor bgColor;
     switch (_state) {
         case TileState::Idle:
