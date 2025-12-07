@@ -1,7 +1,10 @@
 #include "ZoomableGraphicsView.h"
 #include "controllers/ZoomController.h"
+#include "models/ZoomState.h"
 #include <QWheelEvent>
 #include <QMouseEvent>
+#include <QGestureEvent>
+#include <QPinchGesture>
 #include <QScrollBar>
 
 ZoomableGraphicsView::ZoomableGraphicsView(QGraphicsScene* scene, QWidget* parent)
@@ -9,9 +12,13 @@ ZoomableGraphicsView::ZoomableGraphicsView(QGraphicsScene* scene, QWidget* paren
     , _zoomController(nullptr)
     , _isPanning(false)
     , _lastPanPos(0, 0)
+    , _lastPinchScale(1.0)
 {
     // Enable mouse tracking for cursor changes
     setMouseTracking(true);
+    
+    // Enable pinch gesture
+    grabGesture(Qt::PinchGesture);
 }
 
 void ZoomableGraphicsView::setZoomController(ZoomController* controller)
@@ -104,4 +111,45 @@ void ZoomableGraphicsView::mouseReleaseEvent(QMouseEvent* event)
     
     // Pass to base class
     QGraphicsView::mouseReleaseEvent(event);
+}
+
+bool ZoomableGraphicsView::event(QEvent* event)
+{
+    if (!_zoomController) {
+        return QGraphicsView::event(event);
+    }
+    
+    // Handle gesture events
+    if (event->type() == QEvent::Gesture) {
+        QGestureEvent* gestureEvent = static_cast<QGestureEvent*>(event);
+        
+        if (QGesture* gesture = gestureEvent->gesture(Qt::PinchGesture)) {
+            QPinchGesture* pinch = static_cast<QPinchGesture*>(gesture);
+            
+            if (pinch->state() == Qt::GestureStarted) {
+                // Initialize pinch scale
+                _lastPinchScale = 1.0;
+            } else if (pinch->state() == Qt::GestureUpdated) {
+                // Calculate scale factor change
+                qreal currentScale = pinch->totalScaleFactor();
+                qreal scaleDelta = currentScale / _lastPinchScale;
+                _lastPinchScale = currentScale;
+                
+                // Apply zoom based on scale delta
+                qreal currentZoom = _zoomController->zoomState()->zoomFactor();
+                qreal newZoom = currentZoom * scaleDelta;
+                _zoomController->setZoomFactor(newZoom);
+            } else if (pinch->state() == Qt::GestureFinished || 
+                       pinch->state() == Qt::GestureCanceled) {
+                // Reset pinch scale
+                _lastPinchScale = 1.0;
+            }
+            
+            event->accept();
+            return true;
+        }
+    }
+    
+    // Pass to base class
+    return QGraphicsView::event(event);
 }

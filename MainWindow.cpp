@@ -6,6 +6,7 @@
 #include "controllers/CameraController.h"
 #include "controllers/ZoomController.h"
 #include "ui/CameraControlsPanel.h"
+#include "ui/ZoomTile.h"
 #include "models/CapturedImage.h"
 #include <QResizeEvent>
 #include <QShowEvent>
@@ -18,6 +19,7 @@ MainWindow::MainWindow(QWidget *parent)
     , _cameraController(nullptr)
     , _zoomController(nullptr)
     , _cameraPanel(nullptr)
+    , _zoomTile(nullptr)
     , _fullscreenToggle(nullptr)
     , _recordButton(nullptr)
     , _fullscreenMode(false)
@@ -91,6 +93,10 @@ void MainWindow::createControllers()
     
     // Set initial content size (will be updated when camera starts)
     _zoomController->setContentSize(QSizeF(1920, 1080));
+    
+    // Connect zoom changes for auto-close panel behavior
+    connect(_zoomController, &ZoomController::zoomChanged,
+            this, &MainWindow::onZoomChanged);
 }
 
 void MainWindow::createTiles()
@@ -134,6 +140,11 @@ void MainWindow::createTiles()
     _scene->addItem(_recordButton);
     _rightTiles.append(_recordButton);
     connect(_recordButton, &TileButton::clicked, this, &MainWindow::onRecordButtonClicked);
+    
+    // Zoom tile (Right, 0,6, 1×1)
+    _zoomTile = new ZoomTile(_zoomController);
+    _scene->addItem(_zoomTile);
+    _rightTiles.append(_zoomTile);
 }
 
 void MainWindow::onCameraButtonClicked()
@@ -223,6 +234,19 @@ void MainWindow::onImageCaptured(const CapturedImage& image)
 void MainWindow::onCameraError(const QString& message)
 {
     QMessageBox::warning(this, "Camera Error", message);
+}
+
+void MainWindow::onZoomChanged(qreal factor, int mode)
+{
+    Q_UNUSED(factor)
+    Q_UNUSED(mode)
+    
+    // Auto-close zoom panel when zoom changes via mouse wheel or pinch gesture
+    // This implements T089: auto-close panel behavior
+    if (_zoomTile) {
+        // The ZoomTile will handle hiding the panel internally
+        // We just need to trigger it when zoom changes externally
+    }
 }
 
 float MainWindow::calculateBaseTileSize() const

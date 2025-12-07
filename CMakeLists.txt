@@ -95,6 +95,8 @@ set(PROJECT_SOURCES
     # UI
     ui/CameraControlsPanel.cpp
     ui/CameraControlsPanel.h
+    ui/ZoomTile.cpp
+    ui/ZoomTile.h
 )
 
 # Create executable using Qt's helper (handles Android/iOS as shared libraries automatically)

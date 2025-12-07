@@ -8,6 +8,7 @@ class VideoGraphicsScene;
 class ZoomableGraphicsView;
 class Tile;
 class TileButton;
+class ZoomTile;
 class CameraController;
 class ZoomController;
 class CameraControlsPanel;
@@ -33,6 +34,7 @@ private slots:
     void onSettingsButtonClicked();
     void onImageCaptured(const CapturedImage& image);
     void onCameraError(const QString& message);
+    void onZoomChanged(qreal factor, int mode);
 
 private:
     void setupUi();
@@ -47,6 +49,7 @@ private:
     CameraController *_cameraController;
     ZoomController *_zoomController;
     CameraControlsPanel *_cameraPanel;
+    ZoomTile *_zoomTile;
     
     TileButton* _fullscreenToggle;
     TileButton* _recordButton;

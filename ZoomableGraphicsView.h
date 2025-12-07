@@ -59,11 +59,18 @@ protected:
      * @param event Mouse event
      */
     void mouseReleaseEvent(QMouseEvent* event) override;
+    
+    /**
+     * @brief Handle gesture events for touch pinch zoom
+     * @param event Event containing gestures
+     */
+    bool event(QEvent* event) override;
 
 private:
     ZoomController* _zoomController;  ///< Zoom controller
     bool _isPanning;                   ///< Whether currently panning
     QPoint _lastPanPos;                ///< Last mouse position during pan
+    qreal _lastPinchScale;             ///< Last pinch gesture scale factor
 };
 
 #endif // ZOOMABLEGRAPHICSVIEW_H
