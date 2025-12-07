@@ -88,6 +88,8 @@ set(PROJECT_SOURCES
     # Controllers
     controllers/CameraController.cpp
     controllers/CameraController.h
+    controllers/ZoomController.cpp
+    controllers/ZoomController.h
     # UI
     ui/CameraControlsPanel.cpp
     ui/CameraControlsPanel.h
