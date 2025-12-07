@@ -158,21 +158,23 @@
 
 ### Implementation for User Story 2
 
-- [ ] T078 [P] [US2] Create models/ZoomState.h with qreal zoomFactor, enum Mode (Custom, FitWidth, FitHeight, OneToOne), QPointF panOffset
-- [ ] T079 [P] [US2] Create models/ZoomState.cpp with constructor, validation (zoom factor 0.1x to 10.0x), calculateViewTransform() method returning QTransform
-- [ ] T080 [P] [US2] Create controllers/ZoomController.h with QObject subclass, slots for setZoomFactor(qreal), zoomIn(), zoomOut(), setFitWidth(), setFitHeight(), setOneToOne(), setPanOffset(QPointF)
-- [ ] T081 [US2] Create controllers/ZoomController.cpp implementing zoom logic: clamp factor to range, emit zoomChanged(qreal, Mode) signal, update QGraphicsView transform
-- [ ] T082 [US2] Implement mouse wheel event handler in VideoGraphicsScene: QGraphicsScene::wheelEvent override, calculate zoom delta (0.1x per scroll), call ZoomController::setZoomFactor with clamping
-- [ ] T083 [US2] Implement pan functionality: QGraphicsView::mousePressEvent/mouseMoveEvent/mouseReleaseEvent for drag-to-pan when zoomed beyond viewport bounds
-- [ ] T084 [US2] Implement touch pinch gesture: QGraphicsView::event override handling QGestureEvent, calculate pinch scale factor, call ZoomController::setZoomFactor
-- [ ] T085 [P] [US2] Create Zoom tile (TileButton) at Right,0,6 displaying current zoom factor (e.g., "2.3x", "Fit W", "100%")
-- [ ] T086 [US2] Implement zoom controls panel: create 3 sub-tiles (TileButton instances) for "1:1 (100%)", "Fit Width", "Fit Height" positioned at Right,1,6 through Right,3,6
-- [ ] T087 [US2] Implement zoom controls panel toggle: clicking Zoom tile sets state to Active and shows 3 sub-tiles, clicking again or selecting zoom option hides panel and returns to Normal state
-- [ ] T088 [US2] Connect zoom control buttons: "1:1" → ZoomController::setOneToOne(), "Fit Width" → setFitWidth(), "Fit Height" → setFitHeight(), all close panel after execution
-- [ ] T089 [US2] Implement auto-close panel behavior: when zoom changes via mouse wheel or pinch gesture, close zoom controls panel if open
-- [ ] T090 [US2] Update Zoom tile display in real-time: connect to ZoomController::zoomChanged signal, update text to show current factor/mode
-- [ ] T091 [US2] Ensure captured images are always full camera resolution regardless of display zoom level
-- [ ] T092 [US2] Test zoom range: verify zoom works from "Fit Width/Height" (whichever smaller) to 10.0x maximum
+- [X] T078 [P] [US2] Create models/ZoomState.h with qreal zoomFactor, enum Mode (Custom, FitWidth, FitHeight, OneToOne), QPointF panOffset
+- [X] T079 [P] [US2] Create models/ZoomState.cpp with constructor, validation (zoom factor 0.1x to 10.0x), calculateViewTransform() method returning QTransform
+- [X] T080 [P] [US2] Create controllers/ZoomController.h with QObject subclass, slots for setZoomFactor(qreal), zoomIn(), zoomOut(), setFitWidth(), setFitHeight(), setOneToOne(), setPanOffset(QPointF)
+- [X] T081 [US2] Create controllers/ZoomController.cpp implementing zoom logic: clamp factor to range, emit zoomChanged(qreal, Mode) signal, apply transform to VideoGraphicsScene (not QGraphicsView to preserve tile positions)
+- [X] T082 [US2] Implement mouse wheel event handler in ZoomableGraphicsView: wheelEvent override, calculate zoom delta (0.1x per scroll), zoom into cursor position by adjusting pan offset
+- [X] T083 [US2] Implement pan functionality: middle mouse or Ctrl+left drag to pan, update cursor to closed hand during panning
+- [X] T084 [US2] Implement touch pinch gesture: QGestureEvent handling with QPinchGesture, zoom into pinch center point by adjusting pan offset proportionally
+- [X] T085 [P] [US2] Create Zoom tile (TileButton) at Right,0,6 displaying current zoom factor (e.g., "2.3x", "Fit W", "100%")
+- [X] T086 [US2] Implement zoom controls panel: create 3 sub-tiles (TileButton instances) for "1:1 (100%)", "Fit Width", "Fit Height" positioned at Right,1,6 through Right,3,6
+- [X] T087 [US2] Implement zoom controls panel toggle: clicking Zoom tile sets state to Active and shows 3 sub-tiles, clicking again or selecting zoom option hides panel and returns to Normal state
+- [X] T088 [US2] Connect zoom control buttons: "1:1" → ZoomController::setOneToOne(), "Fit Width" → setFitWidth(), "Fit Height" → setFitHeight(), all close panel after execution
+- [X] T089 [US2] Implement auto-close panel behavior: when zoom changes via mouse wheel or pinch gesture, close zoom controls panel if open
+- [X] T090 [US2] Update Zoom tile display in real-time: connect to ZoomController::zoomChanged signal, update text to show current factor/mode
+- [X] T091 [US2] Ensure captured images are always full camera resolution regardless of display zoom level
+- [X] T092 [US2] Test zoom range: verify zoom works from "Fit Width/Height" (whichever smaller) to 10.0x maximum
+- [X] T092a [US2] Fix zoom to apply only to video background layer: add setVideoTransform() to VideoGraphicsScene, apply transform in drawBackground() with painter save/restore, tiles remain at fixed positions
+- [X] T092b [US2] Implement zoom-to-point: mouse wheel zooms into cursor position, pinch gesture zooms into pinch center, calculate pan offset adjustment to keep focal point fixed during zoom
 - [ ] T093 [US2] Test zoom controls panel: verify opens on Zoom tile click, closes when option selected or zoom changed externally, Zoom tile state toggles correctly
 - [ ] T094 [US2] Test pan: verify smooth dragging when zoomed in, constrained to image bounds, cursor changes to hand/grab icon
 - [ ] T095 [US2] Test touch gestures on touch-enabled device: verify pinch zoom works smoothly, pan with single-finger drag

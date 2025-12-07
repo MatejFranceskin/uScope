@@ -36,29 +36,12 @@ void VideoGraphicsScene::drawBackground(QPainter *painter, const QRectF &rect)
         // Save painter state
         painter->save();
         
-        // Apply video transform (zoom/pan)
-        painter->setTransform(_videoTransform, true);
+        // Apply the video transform which includes scale, centering, and pan
+        painter->setTransform(_videoTransform, false);
         
-        // Scale video frame to fit scene while maintaining aspect ratio
-        QRectF targetRect = rect;
+        // Draw video at natural size from origin
         QSizeF frameSize = _currentFrame.size();
-        QSizeF sceneSize = rect.size();
-        
-        qreal frameAspect = frameSize.width() / frameSize.height();
-        qreal sceneAspect = sceneSize.width() / sceneSize.height();
-        
-        if (frameAspect > sceneAspect) {
-            // Frame is wider - fit to width
-            qreal scaledHeight = sceneSize.width() / frameAspect;
-            qreal yOffset = (sceneSize.height() - scaledHeight) / 2.0;
-            targetRect = QRectF(rect.left(), rect.top() + yOffset, sceneSize.width(), scaledHeight);
-        } else {
-            // Frame is taller - fit to height
-            qreal scaledWidth = sceneSize.height() * frameAspect;
-            qreal xOffset = (sceneSize.width() - scaledWidth) / 2.0;
-            targetRect = QRectF(rect.left() + xOffset, rect.top(), scaledWidth, sceneSize.height());
-        }
-        
+        QRectF targetRect(0, 0, frameSize.width(), frameSize.height());
         painter->drawImage(targetRect, _currentFrame);
         
         // Restore painter state

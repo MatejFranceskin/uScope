@@ -81,23 +81,36 @@ The following tiles comprise the main UI:
 
 **Zoom** (Anchor: Right, Position: 0,6, Size: 1×1)
 - Purpose: Shows current zoom factor and opens zoom controls panel
-- Display: Shows current zoom level (e.g., "1.5x", "Fit", "100%")
+- Display: Always shows actual zoom value (e.g., "0.7x", "1.5x", "2.3x")
 - Icon: Magnifying glass or zoom icon
 - State: Normal when zoom controls hidden, Active when zoom controls panel is visible
 - Behavior: Click toggles zoom controls panel (3 sub-tiles appear/disappear)
 - Zoom Controls Panel (appears when Zoom tile is Active):
-  - **1:1 / 100%** (Sub-tile 1): Sets video to 1:1 pixel mapping (1 video pixel = 1 screen pixel), zoom = 1.0x
-  - **Fit Width** (Sub-tile 2): Scales video to match viewport width, maintains aspect ratio
-  - **Fit Height** (Sub-tile 3): Scales video to match viewport height, maintains aspect ratio
+  - **1:1** (Sub-tile 1, Right 1,6): Sets video to 1:1 pixel mapping (1 video pixel = 1 screen pixel), zoom = 1.0x
+  - **Fit W** (Sub-tile 2, Right 2,6): Scales video to match viewport width, maintains aspect ratio
+  - **Fit H** (Sub-tile 3, Right 3,6): Scales video to match viewport height, maintains aspect ratio
 - Panel Behavior:
   - When any zoom control is clicked, zoom changes and panel automatically closes
-  - When zoom changes via mouse wheel/pinch, panel automatically closes if open
+  - When zoom changes via mouse wheel/pinch, panel automatically closes if open (switches to Custom mode)
   - Panel tiles positioned near Zoom tile (e.g., Right, Position: 1,6 through 3,6)
-- Mouse Wheel / Touch Pinch: Zoom in/out continuously (1.0x to 10.0x range)
-  - Mouse wheel up = zoom in (increase zoom factor by 0.1x per scroll)
-  - Mouse wheel down = zoom out (decrease zoom factor by 0.1x per scroll)
-  - Touch pinch in/out = zoom out/in proportionally
-  - Zoom always centers on current viewport center
+- Mouse Wheel Zoom:
+  - Mouse wheel up/down = zoom in/out by 0.1x increments
+  - **Zooms into cursor position** (point under cursor stays fixed during zoom)
+  - Range: 0.1x to 10.0x
+- Touch Pinch Zoom:
+  - Two-finger pinch gesture for zoom
+  - **Zooms into pinch center point** (pinch center stays fixed during zoom)
+  - Minimum delta threshold (1%) reduces jitter from touchpad
+- Pan Controls:
+  - **Middle mouse drag**: Pan while zoomed in
+  - **Ctrl + Left mouse drag**: Alternative pan control
+  - Cursor changes to closed hand during pan
+  - **Note**: Linux touchpads typically only support pinch for zoom, not two-finger pan
+- Transform Architecture:
+  - Zoom/pan transform applies **only to video background layer** (via VideoGraphicsScene::drawBackground)
+  - UI tiles remain at fixed screen positions regardless of zoom
+  - Transform chain: translate(center) → scale(zoom) → translate(pan)
+  - Zoom-to-point formula: `newPan = currentPan + mouseOffset * (1.0 / newZoom - 1.0 / oldZoom) * oldZoom`
 - Visual Feedback: Zoom factor updates in Zoom tile display in real-time
 
 ## User Scenarios & Testing *(mandatory)*
@@ -128,12 +141,19 @@ A researcher zooms into specific regions of the live video feed or captured imag
 
 **Independent Test**: With live preview running, scroll mouse wheel to zoom in 3x, verify video magnifies smoothly. Use mouse to pan around zoomed view. Click "Fit Width" button, verify video scales to viewport width.
 
+**Implementation Notes**:
+- Zoom transform applies only to video background layer (via VideoGraphicsScene::drawBackground), not to UI tiles
+- Tiles remain at fixed screen positions regardless of zoom level
+- Mouse wheel zooms into cursor position by calculating pan offset adjustment: `newPan = currentPan + (mousePos - currentPan) * (1.0 - zoomRatio)`
+- Pinch gesture zooms into pinch center point using same pan adjustment formula
+- This ensures focal point (cursor/pinch center) stays fixed on screen during zoom
+
 **Acceptance Scenarios**:
 
-1. **Given** live preview or captured image is displayed, **When** user scrolls mouse wheel up, **Then** video zooms in by 0.1x increment, centered on current viewport center
+1. **Given** live preview or captured image is displayed, **When** user scrolls mouse wheel up, **Then** video zooms in by 0.1x increment, zooming into cursor position (cursor point remains fixed)
 2. **Given** video is zoomed in, **When** user scrolls mouse wheel down, **Then** video zooms out by 0.1x decrement, minimum zoom is "Fit Width" or "Fit Height" (whichever is smaller)
-3. **Given** video is zoomed in beyond viewport, **When** user drags with mouse, **Then** video pans smoothly in drag direction
-4. **Given** touch screen device is used, **When** user performs pinch gesture, **Then** video zooms in/out proportionally to pinch distance
+3. **Given** video is zoomed in beyond viewport, **When** user drags with middle mouse or Ctrl+left mouse, **Then** video pans smoothly in drag direction, cursor shows closed hand
+4. **Given** touch screen device is used, **When** user performs pinch gesture, **Then** video zooms in/out proportionally to pinch distance, zooming into pinch center point
 5. **Given** zoom controls panel is hidden, **When** user clicks Zoom tile, **Then** panel appears showing three buttons: "1:1 (100%)", "Fit Width", "Fit Height", and Zoom tile state becomes Active
 6. **Given** zoom controls panel is visible, **When** user clicks "1:1 (100%)" button, **Then** video scales to 1:1 pixel mapping (1 video pixel = 1 screen pixel, zoom factor = 1.0x), panel closes, Zoom tile returns to Normal state
 7. **Given** zoom controls panel is visible, **When** user clicks "Fit Width" button, **Then** video scales to match viewport width while maintaining aspect ratio, panel closes, Zoom tile displays "Fit W"
@@ -142,6 +162,7 @@ A researcher zooms into specific regions of the live video feed or captured imag
 10. **Given** video is at 1:1 zoom, **When** Zoom tile is displayed, **Then** tile shows "100%" or "1:1" label
 11. **Given** video is zoomed to 2.5x, **When** user views Zoom tile, **Then** tile displays "2.5x"
 12. **Given** zoom factor is set, **When** user captures image, **Then** captured image is at full camera resolution (not affected by display zoom)
+13. **Given** UI tiles are visible, **When** user zooms video, **Then** tiles remain at their fixed screen positions and sizes (only video is transformed)
 
 ---
 

@@ -120,6 +120,13 @@ public slots:
     void setPanOffset(const QPointF& offset);
 
     /**
+     * @brief Set zoom factor and pan offset together
+     * @param factor Zoom factor (0.1x to 10.0x, will be clamped)
+     * @param offset Pan offset in scene coordinates
+     */
+    void setZoomAndPan(qreal factor, const QPointF& offset);
+
+    /**
      * @brief Pan by a delta amount
      * @param delta Amount to pan in scene coordinates
      */
@@ -129,6 +136,14 @@ public slots:
      * @brief Reset zoom and pan to default (FitWidth, no pan)
      */
     void reset();
+    
+    /**
+     * @brief Update zoom transform after viewport size change
+     * 
+     * Should be called when the view is resized to recalculate
+     * the transform based on the new viewport dimensions.
+     */
+    void updateViewportSize();
 
 signals:
     /**
@@ -167,6 +182,7 @@ private:
     QGraphicsView* _view;              ///< Graphics view (for viewport size)
     VideoGraphicsScene* _scene;        ///< Graphics scene (for video transform)
     QSizeF _contentSize;               ///< Content size for fit calculations
+    bool _updatingTransform;           ///< Flag to prevent recursive transform updates
 };
 
 #endif // ZOOMCONTROLLER_H

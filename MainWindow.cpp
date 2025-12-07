@@ -94,6 +94,9 @@ void MainWindow::createControllers()
     // Set initial content size (will be updated when camera starts)
     _zoomController->setContentSize(QSizeF(1920, 1080));
     
+    // Set initial zoom to fit width
+    _zoomController->setFitWidth();
+    
     // Connect zoom changes for auto-close panel behavior
     connect(_zoomController, &ZoomController::zoomChanged,
             this, &MainWindow::onZoomChanged);

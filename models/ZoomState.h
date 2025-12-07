@@ -48,6 +48,11 @@ public slots:
     void setZoomFactor(qreal factor);
     void setMode(Mode mode);
     void setPanOffset(const QPointF& offset);
+    
+    /**
+     * Set zoom factor without changing mode (internal use)
+     */
+    void setZoomFactorInternal(qreal factor);
 
     /**
      * Reset to default state (fit to viewport)

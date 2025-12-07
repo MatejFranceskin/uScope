@@ -113,7 +113,9 @@ void ZoomTile::onZoomTileClicked()
 void ZoomTile::onZoomStateChanged()
 {
     // Update display text from zoom state
-    _displayText = _zoomController->zoomState()->displayString();
+    QString newText = _zoomController->zoomState()->displayString();
+    qDebug() << "ZoomTile::onZoomStateChanged: newText=" << newText << "oldText=" << _displayText;
+    _displayText = newText;
     update();
 }
 

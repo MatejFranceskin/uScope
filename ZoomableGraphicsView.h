@@ -65,6 +65,12 @@ protected:
      * @param event Event containing gestures
      */
     bool event(QEvent* event) override;
+    
+    /**
+     * @brief Handle resize events to update zoom transform
+     * @param event Resize event
+     */
+    void resizeEvent(QResizeEvent* event) override;
 
 private:
     ZoomController* _zoomController;  ///< Zoom controller
