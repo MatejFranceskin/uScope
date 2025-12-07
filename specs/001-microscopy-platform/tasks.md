@@ -96,8 +96,9 @@
 - [X] T049 Add main UI TileButton instances to MainWindow per spec.md tile layout: Fullscreen Toggle (Right,0,0,1×1), Camera Selection (Right,0,2,1×1), Settings (Right,0,3,1×1), Snapshot (Right,0,4,1×1), Record (Right,0,5,1×1) with corresponding icons and initial states
 - [X] T050 Update VideoGraphicsScene.cpp to render black background rectangle as placeholder for video feed
 - [X] T051 Verify tile UI renders correctly, tiles scale proportionally on window resize, hover states work, tiles have rounded corners
+- [X] T051a Fix tile flickering by migrating from QGraphicsWidget to QGraphicsObject, implementing FullViewportUpdate mode for double buffering, adding grid-based positioning system, restoring semi-transparent backgrounds
 
-**Checkpoint**: Foundation ready - tile-based UI system functional with proportional scaling
+**Checkpoint**: Foundation ready - tile-based UI system functional with proportional scaling and flicker-free rendering ✅
 
 ---
 
