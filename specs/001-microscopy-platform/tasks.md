@@ -246,61 +246,101 @@
 
 ---
 
-## Phase 7: User Story 4 - Video Recording (Priority: P4)
+## Phase 9: User Story 4 - PTP Camera Support via libgphoto2 (Priority: P4)
+
+**Goal**: Researcher connects professional DSLR/mirrorless camera, accesses manufacturer-specific controls, uses live view, captures high-resolution images/videos
+
+**Independent Test**: Connect Canon DSLR, verify appears in camera list. Select PTP camera, verify live view. Adjust ISO/shutter, capture image to camera SD card, verify settings applied.
+
+### Implementation for User Story 4
+
+- [ ] T135 [P] [US4] Add libgphoto2 dependency to CMakeLists.txt (find_package(Gphoto2 REQUIRED), target_link_libraries(uScope PRIVATE PkgConfig::Gphoto2))
+- [ ] T136 [P] [US4] Update README.md and build workflows with libgphoto2 installation (apt: libgphoto2-dev, brew: libgphoto2, vcpkg: libgphoto2)
+- [ ] T137 [P] [US4] Create services/PTPCameraService.h with QObject subclass, GPContext* _context, Camera* _camera, methods for detectCameras(), connect(cameraInfo), disconnect(), getLiveViewFrame(), captureImage(), startRecording(), stopRecording()
+- [ ] T138 [US4] Create services/PTPCameraService.cpp implementing gp_camera_autodetect() for camera enumeration, gp_camera_init() for connection, gp_camera_exit() for cleanup
+- [ ] T139 [US4] Implement PTPCameraService::getLiveViewFrame() using gp_camera_capture_preview() to retrieve JPEG preview, decode to QImage, emit frameReady signal at camera's native live view rate
+- [ ] T140 [US4] Implement PTPCameraService::getCapabilities() using gp_camera_get_abilities() and gp_camera_get_config() to query supported settings (ISO range, shutter speeds, aperture values, image formats, video modes)
+- [ ] T141 [US4] Implement PTPCameraService setting control: gp_widget_get_value()/gp_widget_set_value() for ISO, shutter speed, aperture, white balance, image quality, capture target (camera storage vs computer)
+- [ ] T142 [US4] Implement PTPCameraService::captureImage() using gp_camera_capture() with GP_CAPTURE_IMAGE, handle both camera storage mode (return thumbnail + download option) and computer mode (transfer via gp_camera_file_get())
+- [ ] T143 [US4] Implement PTPCameraService::startRecording()/stopRecording() using gp_camera_capture() with GP_CAPTURE_MOVIE for on-camera video recording (stores to SD card)
+- [ ] T144 [P] [US4] Create models/PTPCamera.h with QString id/manufacturer/model/serialNumber, enum ConnectionType (USB, Network), QMap<QString, QVariant> capabilities, QMap<QString, QVariant> currentSettings
+- [ ] T145 [P] [US4] Create models/PTPCamera.cpp with constructor, capabilities parser (ISO values, shutter speeds, aperture values), settings validator
+- [ ] T146 [P] [US4] Update CameraController.h to support both V4L2 (CameraService) and PTP (PTPCameraService) backends, add enum CameraType (UVC, PTP), factory method to create appropriate service
+- [ ] T147 [US4] Update CameraController::enumerateCameras() to query both V4L2 devices (via CameraService) and PTP cameras (via PTPCameraService::detectCameras()), merge into unified list with type indication
+- [ ] T148 [US4] Update CameraController::startCamera(id) to detect camera type from id prefix (e.g., "v4l:/dev/video0" vs "ptp://usb:001,005"), instantiate appropriate service, connect signals
+- [ ] T149 [P] [US4] Create ui/PTPCameraSettingsPanel.h with TileDialog subclass, dynamic layout for camera-specific controls organized by category (Exposure, Image, Advanced)
+- [ ] T150 [US4] Create ui/PTPCameraSettingsPanel.cpp implementing dynamic control generation: TileCombo for enumeration settings (ISO, shutter, aperture, WB mode), TileSlider for range settings, TileButton for toggle settings
+- [ ] T151 [US4] Update ui/CameraControlsPanel to show "PTP Settings" button when PTP camera active, opens PTPCameraSettingsPanel dialog
+- [ ] T152 [US4] Implement capture target selection: TileCombo with options "Camera Storage (SD Card)" and "Computer (USB Transfer)", update PTPCameraService capture target config
+- [ ] T153 [US4] Implement thumbnail preview + download workflow for camera storage mode: show thumbnail after capture, "Download Full Resolution" button triggers gp_camera_file_get()
+- [ ] T154 [US4] Add autofocus support: TileButton "AF" triggers gp_camera_trigger_capture() with half-press simulation (if supported by camera model)
+- [ ] T155 [US4] Implement hot-plug detection: poll gp_camera_autodetect() every 2 seconds, emit cameraConnected/cameraDisconnected signals
+- [ ] T156 [US4] Handle PTP errors gracefully: detect camera busy (GP_ERROR_CAMERA_BUSY), battery warnings, storage full (GP_ERROR_NO_SPACE), show user notifications
+- [ ] T157 [US4] Add EXIF metadata embedding: extract camera settings from PTP response after capture, embed in saved image file (ISO, shutter, aperture, focal length, WB, timestamp)
+- [ ] T158 [US4] Test with Canon DSLR: verify detection, live view at 10-30fps, ISO/shutter/aperture control, image capture to SD card and computer, EXIF metadata correct
+- [ ] T159 [US4] Test with Nikon DSLR: verify manufacturer-specific controls appear correctly, settings apply successfully
+- [ ] T160 [US4] Test camera switching: verify smooth transition between V4L2 and PTP cameras, settings panels adapt dynamically
+- [ ] T161 [US4] Test error conditions: disconnect camera during live view, verify graceful fallback; fill SD card, verify storage full warning
+
+**Checkpoint**: User Stories 1, 2 (zoom), 3 (camera controls), AND 4 (PTP cameras) all work independently
+
+---
+
+## Phase 10: User Story 5 - Video Recording (Priority: P5)
 
 **Goal**: Researcher records dynamic processes as video or time-lapse for later analysis
 
 **Independent Test**: Start video recording, verify MP4 file created with H.264 encoding. Stop recording, confirm playback with proper compression
 
-### Implementation for User Story 4
-
-- [ ] T109 [P] [US4] Create models/VideoRecording.h with QString filePath, QDateTime startTime/endTime, qreal duration, qint64 fileSize, enum State (Idle, Recording, Paused, Stopped)
-- [ ] T110 [P] [US4] Create models/VideoRecording.cpp with constructor, state transition methods, finalize() saving metadata
-- [ ] T111 [P] [US4] Update CameraService.h adding QMediaRecorder* _recorder, startRecording(filePath), stopRecording(), pauseRecording(), resumeRecording() methods
-- [ ] T112 [US4] Implement CameraService recording methods: create QMediaRecorder with QMediaFormat::MPEG4, set video codec to QMediaFormat::VideoCodec::H264, configure encoding with EncodingMode::ConstantQuality and quality=23 (CRF 23 per FR-006.1), connect to _camera, start/stop
-- [ ] T113 [US4] Add recording duration timer updating VideoRecording::duration every second
-- [ ] T114 [P] [US4] Create controllers/VideoRecordingController.h with slots startRecording(), stopRecording(), pauseRecording(), signals recordingStarted(), recordingStopped()
-- [ ] T115 [US4] Create controllers/VideoRecordingController.cpp coordinating CameraService recorder, managing VideoRecording model state
-- [ ] T116 [US4] Add record button (TileButton with record icon) to MainWindow _rightTiles, toggle between start/stop states
-- [ ] T117 [US4] Implement recording indicator overlay (red dot, "REC" text, elapsed time) on VideoGraphicsScene
-- [ ] T118 [US4] Add disk space check before recording: warn if <1GB free, prevent recording if <100MB free
-- [ ] T119 [US4] Implement time-lapse mode: capture frames at user-defined interval (e.g., 5 seconds), compile to video with QMediaRecorder frame-by-frame
-- [ ] T120 [US4] Test video recording: start recording, verify MP4 file created in ~/Documents/uScope/, stop recording, confirm H.264 encoding with ffprobe
-
-**Checkpoint**: User Stories 1-4 all work independently
-
----
-
-## Phase 8: User Story 5 - Automated Object Detection (Priority: P5)
-
-**Goal**: Researcher runs automated spore/object detection, manually corrects false positives/negatives, generates measurement statistics
-
-**Independent Test**: Load calibrated spore image, run detection with size/circularity parameters, verify most spores detected. Remove false positive, add missed spore, run statistics
-
 ### Implementation for User Story 5
 
-- [ ] T121 [P] [US5] Create models/DetectedObject.h with QString id, QPolygonF contour, QRectF boundingBox, qreal area, qreal perimeter, qreal circularity, QPointF centroid
-- [ ] T122 [P] [US5] Create models/DetectedObject.cpp with constructor calculating properties (area, perimeter, circularity = 4π×area/perimeter²)
-- [ ] T123 [P] [US5] Create models/DetectedObjectSet.h with QString id, QList<DetectedObject> objects, detection parameters (minArea, maxArea, minCircularity)
-- [ ] T124 [P] [US5] Create models/DetectedObjectSet.cpp with addObject(), removeObject(), calculateStatistics() methods
-- [ ] T125 [P] [US5] Create services/OpenCVService.h with QObject subclass, detectObjects(QImage, params) method returning QList<QPolygonF> contours
-- [ ] T126 [US5] Create services/OpenCVService.cpp implementing OpenCV detection pipeline: QImage→cv::Mat, grayscale, Gaussian blur, Otsu threshold, morphologyEx(OPEN/CLOSE), findContours, filter by area/circularity
-- [ ] T127 [US5] Add progress callback to OpenCVService::detectObjects emitting detectionProgress(int percent) signal for long operations
-- [ ] T128 [P] [US5] Create controllers/ObjectDetectionController.h with slots runDetection(params), addObject(contour), removeObject(id), measureAllObjects()
-- [ ] T129 [US5] Create controllers/ObjectDetectionController.cpp coordinating OpenCVService detection, DetectedObjectSet management, MeasurementController integration
-- [ ] T130 [P] [US5] Create ui/ObjectDetectionDialog.h with TileDialog subclass, parameter inputs (min/max area sliders, circularity threshold slider), preview checkbox
-- [ ] T131 [US5] Create ui/ObjectDetectionDialog.cpp with parameter UI, real-time preview updating detection overlay on parameter change
-- [ ] T132 [US5] Implement detection overlay rendering all detected contours with cyan outlined style, bounding boxes with magenta outlined style per contracts/annotation-rendering.md
-- [ ] T133 [US5] Add manual correction UI: click detected object to select, Delete key or button to remove, click-and-drag to add missed object
-- [ ] T134 [US5] Implement "Measure All Objects" workflow: iterate detected objects, create Measurement for each with length/width/area, add to MeasurementDataset
-- [ ] T135 [US5] Display statistics panel (mean, std dev, min, max, histogram) for detected object measurements
-- [ ] T136 [US5] Test detection pipeline: load spore image with 50+ objects, verify >90% detection rate, <10s processing time (SC-012.3)
+- [ ] T162 [P] [US5] Create models/VideoRecording.h with QString filePath, QDateTime startTime/endTime, qreal duration, qint64 fileSize, enum State (Idle, Recording, Paused, Stopped)
+- [ ] T163 [P] [US5] Create models/VideoRecording.cpp with constructor, state transition methods, finalize() saving metadata
+- [ ] T164 [P] [US5] Update CameraService.h adding QMediaRecorder* _recorder, startRecording(filePath), stopRecording(), pauseRecording(), resumeRecording() methods
+- [ ] T165 [US5] Implement CameraService recording methods: create QMediaRecorder with QMediaFormat::MPEG4, set video codec to QMediaFormat::VideoCodec::H264, configure encoding with EncodingMode::ConstantQuality and quality=23 (CRF 23 per FR-006.1), connect to _camera, start/stop
+- [ ] T166 [US5] Add recording duration timer updating VideoRecording::duration every second
+- [ ] T167 [P] [US5] Create controllers/VideoRecordingController.h with slots startRecording(), stopRecording(), pauseRecording(), signals recordingStarted(), recordingStopped()
+- [ ] T168 [US5] Create controllers/VideoRecordingController.cpp coordinating CameraService recorder, managing VideoRecording model state
+- [ ] T169 [US5] Add record button (TileButton with record icon) to MainWindow _rightTiles, toggle between start/stop states
+- [ ] T170 [US5] Implement recording indicator overlay (red dot, "REC" text, elapsed time) on VideoGraphicsScene
+- [ ] T171 [US5] Add disk space check before recording: warn if <1GB free, prevent recording if <100MB free
+- [ ] T172 [US5] Implement time-lapse mode: capture frames at user-defined interval (e.g., 5 seconds), compile to video with QMediaRecorder frame-by-frame
+- [ ] T173 [US5] Test video recording: start recording, verify MP4 file created in ~/Documents/uScope/, stop recording, confirm H.264 encoding with ffprobe
 
 **Checkpoint**: User Stories 1-5 all work independently
 
 ---
 
-## Phase 9: User Story 6 - Image Enhancement (Priority: P6)
+## Phase 11: User Story 6 - Automated Object Detection (Priority: P6)
+
+**Goal**: Researcher runs automated spore/object detection, manually corrects false positives/negatives, generates measurement statistics
+
+**Independent Test**: Load calibrated spore image, run detection with size/circularity parameters, verify most spores detected. Remove false positive, add missed spore, run statistics
+
+### Implementation for User Story 6
+
+- [ ] T174 [P] [US6] Create models/DetectedObject.h with QString id, QPolygonF contour, QRectF boundingBox, qreal area, qreal perimeter, qreal circularity, QPointF centroid
+- [ ] T175 [P] [US6] Create models/DetectedObject.cpp with constructor calculating properties (area, perimeter, circularity = 4π×area/perimeter²)
+- [ ] T176 [P] [US6] Create models/DetectedObjectSet.h with QString id, QList<DetectedObject> objects, detection parameters (minArea, maxArea, minCircularity)
+- [ ] T177 [P] [US6] Create models/DetectedObjectSet.cpp with addObject(), removeObject(), calculateStatistics() methods
+- [ ] T178 [P] [US6] Create services/OpenCVService.h with QObject subclass, detectObjects(QImage, params) method returning QList<QPolygonF> contours
+- [ ] T179 [US6] Create services/OpenCVService.cpp implementing OpenCV detection pipeline: QImage→cv::Mat, grayscale, Gaussian blur, Otsu threshold, morphologyEx(OPEN/CLOSE), findContours, filter by area/circularity
+- [ ] T180 [US6] Add progress callback to OpenCVService::detectObjects emitting detectionProgress(int percent) signal for long operations
+- [ ] T181 [P] [US6] Create controllers/ObjectDetectionController.h with slots runDetection(params), addObject(contour), removeObject(id), measureAllObjects()
+- [ ] T182 [US6] Create controllers/ObjectDetectionController.cpp coordinating OpenCVService detection, DetectedObjectSet management, MeasurementController integration
+- [ ] T183 [P] [US6] Create ui/ObjectDetectionDialog.h with TileDialog subclass, parameter inputs (min/max area sliders, circularity threshold slider), preview checkbox
+- [ ] T184 [US6] Create ui/ObjectDetectionDialog.cpp with parameter UI, real-time preview updating detection overlay on parameter change
+- [ ] T185 [US6] Implement detection overlay rendering all detected contours with cyan outlined style, bounding boxes with magenta outlined style per contracts/annotation-rendering.md
+- [ ] T186 [US6] Add manual correction UI: click detected object to select, Delete key or button to remove, click-and-drag to add missed object
+- [ ] T187 [US6] Implement "Measure All Objects" workflow: iterate detected objects, create Measurement for each with length/width/area, add to MeasurementDataset
+- [ ] T188 [US6] Display statistics panel (mean, std dev, min, max, histogram) for detected object measurements
+- [ ] T189 [US6] Test detection pipeline: load spore image with 50+ objects, verify >90% detection rate, <10s processing time (SC-012.3)
+
+**Checkpoint**: User Stories 1-6 all work independently
+
+---
+
+## Phase 12: User Story 7 - Image Enhancement (Priority: P7)
 
 **Goal**: Researcher applies filters and segmentation to highlight specimen features
 
@@ -322,7 +362,7 @@
 
 ---
 
-## Phase 10: User Story 7 - Image Stitching (Priority: P7)
+## Phase 13: User Story 8 - Image Stitching (Priority: P8)
 
 **Goal**: Researcher captures overlapping frames, stitches into high-resolution panorama
 
@@ -346,7 +386,7 @@
 
 ---
 
-## Phase 11: User Story 8 - Extended Depth of Focus (Priority: P8)
+## Phase 14: User Story 9 - Extended Depth of Focus (Priority: P9)
 
 **Goal**: Researcher captures focus stack, fuses into all-in-focus composite image
 
@@ -369,7 +409,7 @@
 
 ---
 
-## Phase 12: User Story 9 - Professional Export (Priority: P9)
+## Phase 15: User Story 10 - Professional Export (Priority: P10)
 
 **Goal**: Researcher generates publication-ready reports and exports with embedded metadata
 
@@ -397,7 +437,7 @@
 
 ---
 
-## Phase 13: User Story 10 - RTSP Classroom Streaming (Priority: P10)
+## Phase 16: User Story 11 - RTSP Classroom Streaming (Priority: P11)
 
 **Goal**: Teacher broadcasts live microscope feed with annotations via RTSP, students connect on LAN and view real-time stream
 
@@ -429,7 +469,7 @@
 
 ---
 
-## Phase 14: User Story 11 - iNaturalist Integration (Priority: P11)
+## Phase 17: User Story 12 - iNaturalist Integration (Priority: P12)
 
 **Goal**: Naturalist links session to iNaturalist observation, pushes images and measurement statistics to observation fields
 
@@ -455,11 +495,11 @@
 - [ ] T215 [US11] Test OAuth flow: verify authentication successful, token stored securely, expired token triggers re-authentication (FR-060)
 - [ ] T216 [US11] Test upload workflow: link to observation, capture 3 images with measurements, push to iNaturalist, verify images uploaded, spore dimensions populated in observation fields
 
-**Checkpoint**: All user stories (1-11) work independently
+**Checkpoint**: All user stories (1-12) work independently
 
 ---
 
-## Phase 15: Polish & Cross-Cutting Concerns
+## Phase 18: Polish & Cross-Cutting Concerns
 
 **Purpose**: Improvements affecting multiple user stories, final validation
 

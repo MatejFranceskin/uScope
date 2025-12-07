@@ -163,7 +163,50 @@ A researcher adjusts exposure, white balance, and color settings to achieve opti
 
 ---
 
-### User Story 4 - Accurate Measurement and Calibration (Priority: P4)
+### User Story 4 - Advanced Camera Support via PTP/libgphoto2 (Priority: P4)
+
+A researcher connects a professional DSLR or mirrorless camera (e.g., Canon, Nikon, Sony) with microscope adapter, detects it automatically alongside UVC cameras, accesses manufacturer-specific controls, uses live view for framing, and captures high-resolution images or videos directly on camera.
+
+**Why this priority**: Professional cameras offer superior image quality, larger sensors, and advanced features compared to USB webcams. Many research setups use DSLR/mirrorless cameras with microscope adapters for publication-quality imaging. This extends the application's camera support beyond basic UVC devices.
+
+**Independent Test**: Connect Canon DSLR via USB, verify it appears in camera list alongside UVC cameras. Select PTP camera, verify live view appears. Adjust ISO and shutter speed, capture image to camera SD card, verify settings applied. Switch to on-board recording, verify video saves to camera.
+
+**Acceptance Scenarios**:
+
+1. **Given** PTP-compatible camera (Canon/Nikon/Sony DSLR or mirrorless) is connected via USB, **When** application starts or camera is hot-plugged, **Then** camera is detected by libgphoto2 and appears in camera selection list with manufacturer/model name
+2. **Given** multiple cameras are connected (mix of UVC and PTP), **When** user opens camera selection dialog, **Then** all cameras are listed with clear indication of type (UVC vs PTP) and current connection status
+3. **Given** PTP camera is selected, **When** connection is established, **Then** camera-specific capabilities are queried (supported ISO values, shutter speeds, aperture values, image formats, video modes)
+4. **Given** PTP camera supports live view, **When** live view is activated, **Then** real-time preview frames are captured from camera and displayed in video feed area at camera's maximum live view frame rate (typically 10-30 fps)
+5. **Given** PTP camera live view is active, **When** user adjusts camera settings (ISO, shutter speed, aperture, white balance), **Then** changes are sent to camera and reflected in live view within 500ms
+6. **Given** camera-specific settings panel is open, **When** user views available controls, **Then** panel displays camera's native settings organized by category (Exposure: ISO, Shutter, Aperture; Image: Format, Quality, White Balance; Advanced: Focus mode, Drive mode, Metering)
+7. **Given** PTP camera is active, **When** user clicks "Snapshot" button, **Then** camera captures full-resolution image to camera's storage (SD card) AND/OR transfers image to computer depending on camera's capture target setting
+8. **Given** image capture target is set to "Camera Storage", **When** image is captured, **Then** thumbnail preview is shown with option to download full-resolution image from camera
+9. **Given** image capture target is set to "Computer", **When** image is captured, **Then** full-resolution image is transferred via USB and saved to ~/Documents/uScope/ with timestamp
+10. **Given** PTP camera supports video recording, **When** user clicks "Record" button, **Then** camera starts on-board video recording (video stored on camera's SD card), recording indicator shows in UI
+11. **Given** on-board recording is active, **When** user clicks "Stop Recording", **Then** camera stops recording and finalizes video file on SD card
+12. **Given** PTP camera is disconnected during operation, **When** connection is lost, **Then** application detects disconnection, shows error notification, automatically falls back to next available camera or test pattern
+13. **Given** PTP camera supports autofocus, **When** user triggers autofocus via button or half-press simulation, **Then** camera performs AF operation and live view shows focused result
+14. **Given** multiple PTP cameras from different manufacturers are available, **When** user switches between them, **Then** settings panel dynamically adapts to show manufacturer-specific controls for selected camera
+15. **Given** PTP camera settings are adjusted, **When** user captures image or video, **Then** EXIF metadata includes all camera settings (ISO, shutter speed, aperture, focal length, white balance, capture time)
+
+**Technical Requirements**:
+- **Library**: libgphoto2 (cross-platform camera control library)
+- **Supported Protocols**: PTP (Picture Transfer Protocol), PTP/IP for network cameras
+- **Camera Detection**: Use `gp_camera_autodetect()` for USB-connected cameras, enumerate alongside V4L2 devices
+- **Live View**: Use `gp_camera_capture_preview()` in loop for frame capture, decode JPEG preview to QImage
+- **Settings Control**: Use `gp_camera_get_config()` and `gp_camera_set_config()` for camera parameter access
+- **Capture Modes**: Support both "Capture to Camera" (SD card) and "Capture to Computer" (USB transfer) via capture target setting
+- **Error Handling**: Detect and handle camera busy states, battery warnings, storage full conditions
+
+**Known Limitations**:
+- Live view frame rate limited by camera (typically 10-30 fps vs 60+ fps for UVC)
+- Not all camera models support live view via PTP (older DSLRs may require mirror lock-up)
+- Video recording to computer (live streaming) not supported by most cameras via PTP - only on-camera recording
+- Some cameras require specific USB modes to be enabled in camera menu
+
+---
+
+### User Story 5 - Accurate Measurement and Calibration (Priority: P5)
 
 A researcher calibrates the system using a stage micrometer, then measures specimen features (length, area, angles) with scientific accuracy.
 
@@ -190,7 +233,7 @@ A researcher calibrates the system using a stage micrometer, then measures speci
 
 ---
 
-### User Story 5 - Video Recording and Time-Lapse (Priority: P5)
+### User Story 6 - Video Recording and Time-Lapse (Priority: P6)
 
 A researcher records dynamic processes (e.g., cell movement, crystal formation) as video or time-lapse sequences for later analysis.
 
@@ -208,7 +251,7 @@ A researcher records dynamic processes (e.g., cell movement, crystal formation) 
 
 ---
 
-### User Story 6 - Automated Object Detection and Measurement (Priority: P6)
+### User Story 7 - Automated Object Detection and Measurement (Priority: P7)
 
 A mycologist or researcher photographs spores or other similar microscopic objects, runs automated detection to identify all instances, manually corrects any missed or false detections, then generates comprehensive measurement statistics across all detected objects.
 
@@ -229,7 +272,7 @@ A mycologist or researcher photographs spores or other similar microscopic objec
 
 ---
 
-### User Story 7 - Image Enhancement and Analysis (Priority: P7)
+### User Story 8 - Image Enhancement and Analysis (Priority: P8)
 
 A researcher applies filters (sharpen, edge detection, histogram equalization) and performs basic segmentation to highlight specimen features.
 
@@ -247,7 +290,7 @@ A researcher applies filters (sharpen, edge detection, histogram equalization) a
 
 ---
 
-### User Story 7 - Large Area Imaging with Stitching (Priority: P7)
+### User Story 9 - Large Area Imaging with Stitching (Priority: P9)
 
 A researcher captures multiple overlapping frames of a large specimen and automatically stitches them into a single high-resolution panorama.
 
@@ -265,7 +308,7 @@ A researcher captures multiple overlapping frames of a large specimen and automa
 
 ---
 
-### User Story 8 - Extended Depth of Focus (EDF) (Priority: P8)
+### User Story 10 - Extended Depth of Focus (EDF) (Priority: P10)
 
 A researcher captures multiple images at different focus depths and fuses them into a single all-in-focus image, overcoming depth-of-field limitations.
 
@@ -283,7 +326,7 @@ A researcher captures multiple images at different focus depths and fuses them i
 
 ---
 
-### User Story 9 - Professional Documentation and Export (Priority: P9)
+### User Story 11 - Professional Documentation and Export (Priority: P11)
 
 A researcher generates publication-ready reports containing images, measurements, statistics, and metadata in standard scientific formats.
 
