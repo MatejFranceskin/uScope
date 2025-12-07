@@ -134,68 +134,115 @@
 
 ---
 
-## Phase 5: User Story 2 - Manual Camera Controls (Priority: P2)
+## Phase 5: Remaining User Story 1 Tasks (Visual Feedback and Error Handling)
 
-**Goal**: Researcher adjusts exposure, white balance, color settings for optimal image quality
+**Goal**: Complete remaining enhancements for User Story 1
 
-**Independent Test**: With live preview running, adjust exposure slider, verify brightness changes in <200ms. Click white balance, confirm color correction
+**Independent Test**: Capture image, verify shutter sound plays and flash overlay appears. Disconnect camera, verify error handling and reconnection attempts.
 
-### Implementation for User Story 2
+### Implementation Enhancements
 
-- [ ] T071 [P] [US2] Update CameraService.h with setExposure(qreal value), setWhiteBalance(mode), setBrightness(int), setContrast(int), setSaturation(int), flipHorizontal(bool), flipVertical(bool) methods
-- [ ] T072 [US2] Implement CameraService camera control methods calling QCamera::setManualExposureTime(), QCamera::setWhiteBalanceMode(), updating exposure/color parameters
-- [ ] T073 [US2] Add flip transform via QVideoSink transformation matrix (QTransform::scale(-1, 1) for horizontal, (1, -1) for vertical)
-- [ ] T074 [P] [US2] Update ui/CameraControlsPanel.h adding TileSlider for exposure, TileSlider for brightness, TileSlider for contrast, TileSlider for saturation
-- [ ] T075 [US2] Update ui/CameraControlsPanel.cpp connecting sliders to CameraController slots (setExposure, setBrightness, setContrast, setSaturation)
-- [ ] T076 [P] [US2] Add TileButton for auto white balance (one-click on center of frame), TileButton for flip horizontal, TileButton for flip vertical
-- [ ] T077 [US2] Implement auto white balance by sampling center region of current frame, calculating color correction, applying via QCamera::setColorTemperature()
-- [ ] T078 [US2] Verify <200ms latency for exposure/brightness/contrast/saturation adjustments (SC-004 requirement)
-- [ ] T079 [US2] Add persistence of camera settings to QSettings per camera ID, restore on camera selection
-- [ ] T080 [US2] Test manual controls: verify real-time updates, flip works correctly, white balance corrects color cast
+- [ ] T071 [US1] Add visual feedback on capture (camera shutter sound from sounds/camera-shutter.mp3, brief flash overlay)
+- [ ] T072 [US1] Handle camera disconnect gracefully: show error dialog, attempt reconnection every 2 seconds
+- [ ] T073 [US1] Test with real UVC camera: verify 15+ fps preview, <1s capture latency, images saved with correct timestamp
 
-**Checkpoint**: User Stories 1 AND 2 both work independently
+**Checkpoint**: User Story 1 fully complete with all enhancements
 
 ---
 
-## Phase 6: User Story 3 - Calibration and Measurement (Priority: P3)
+## Phase 6: User Story 2 - Zoom and Pan (Priority: P2)
+
+**Goal**: Researcher zooms into video feed or captured images to inspect fine details using mouse wheel or touch gestures
+
+**Independent Test**: With live preview running, scroll mouse wheel to zoom in 3x, verify smooth magnification. Click "Fit Width", verify video scales to viewport width.
+
+### Implementation for User Story 2
+
+- [ ] T078 [P] [US2] Create models/ZoomState.h with qreal zoomFactor, enum Mode (Custom, FitWidth, FitHeight, OneToOne), QPointF panOffset
+- [ ] T079 [P] [US2] Create models/ZoomState.cpp with constructor, validation (zoom factor 0.1x to 10.0x), calculateViewTransform() method returning QTransform
+- [ ] T080 [P] [US2] Create controllers/ZoomController.h with QObject subclass, slots for setZoomFactor(qreal), zoomIn(), zoomOut(), setFitWidth(), setFitHeight(), setOneToOne(), setPanOffset(QPointF)
+- [ ] T081 [US2] Create controllers/ZoomController.cpp implementing zoom logic: clamp factor to range, emit zoomChanged(qreal, Mode) signal, update QGraphicsView transform
+- [ ] T082 [US2] Implement mouse wheel event handler in VideoGraphicsScene: QGraphicsScene::wheelEvent override, calculate zoom delta (0.1x per scroll), call ZoomController::setZoomFactor with clamping
+- [ ] T083 [US2] Implement pan functionality: QGraphicsView::mousePressEvent/mouseMoveEvent/mouseReleaseEvent for drag-to-pan when zoomed beyond viewport bounds
+- [ ] T084 [US2] Implement touch pinch gesture: QGraphicsView::event override handling QGestureEvent, calculate pinch scale factor, call ZoomController::setZoomFactor
+- [ ] T085 [P] [US2] Create Zoom tile (TileButton) at Right,0,6 displaying current zoom factor (e.g., "2.3x", "Fit W", "100%")
+- [ ] T086 [US2] Implement zoom controls panel: create 3 sub-tiles (TileButton instances) for "1:1 (100%)", "Fit Width", "Fit Height" positioned at Right,1,6 through Right,3,6
+- [ ] T087 [US2] Implement zoom controls panel toggle: clicking Zoom tile sets state to Active and shows 3 sub-tiles, clicking again or selecting zoom option hides panel and returns to Normal state
+- [ ] T088 [US2] Connect zoom control buttons: "1:1" → ZoomController::setOneToOne(), "Fit Width" → setFitWidth(), "Fit Height" → setFitHeight(), all close panel after execution
+- [ ] T089 [US2] Implement auto-close panel behavior: when zoom changes via mouse wheel or pinch gesture, close zoom controls panel if open
+- [ ] T090 [US2] Update Zoom tile display in real-time: connect to ZoomController::zoomChanged signal, update text to show current factor/mode
+- [ ] T091 [US2] Ensure captured images are always full camera resolution regardless of display zoom level
+- [ ] T092 [US2] Test zoom range: verify zoom works from "Fit Width/Height" (whichever smaller) to 10.0x maximum
+- [ ] T093 [US2] Test zoom controls panel: verify opens on Zoom tile click, closes when option selected or zoom changed externally, Zoom tile state toggles correctly
+- [ ] T094 [US2] Test pan: verify smooth dragging when zoomed in, constrained to image bounds, cursor changes to hand/grab icon
+- [ ] T095 [US2] Test touch gestures on touch-enabled device: verify pinch zoom works smoothly, pan with single-finger drag
+
+**Checkpoint**: User Stories 1 AND 2 (zoom/pan) both work independently
+
+---
+
+## Phase 7: User Story 3 - Manual Camera Controls (Priority: P3)
+
+**Goal**: Researcher adjusts exposure, white balance, and color settings for optimal image quality
+
+**Independent Test**: With live preview running, adjust exposure slider and verify image brightness changes in real-time. Perform one-click white balance and confirm color correction.
+
+### Implementation for User Story 3
+
+- [ ] T096 [P] [US3] Update CameraService.h with setExposure(qreal value), setWhiteBalance(mode), setBrightness(int), setContrast(int), setSaturation(int), flipHorizontal(bool), flipVertical(bool) methods
+- [ ] T097 [US3] Implement CameraService camera control methods calling QCamera::setManualExposureTime(), QCamera::setWhiteBalanceMode(), updating exposure/color parameters
+- [ ] T098 [US3] Add flip transform via QVideoSink transformation matrix (QTransform::scale(-1, 1) for horizontal, (1, -1) for vertical)
+- [ ] T099 [P] [US3] Update ui/CameraControlsPanel.h adding TileSlider for exposure, TileSlider for brightness, TileSlider for contrast, TileSlider for saturation
+- [ ] T100 [US3] Update ui/CameraControlsPanel.cpp connecting sliders to CameraController slots (setExposure, setBrightness, setContrast, setSaturation)
+- [ ] T101 [P] [US3] Add TileButton for auto white balance (one-click on center of frame), TileButton for flip horizontal, TileButton for flip vertical
+- [ ] T102 [US3] Implement auto white balance by sampling center region of current frame, calculating color correction, applying via QCamera::setColorTemperature()
+- [ ] T103 [US3] Verify <200ms latency for exposure/brightness/contrast/saturation adjustments (SC-004 requirement)
+- [ ] T104 [US3] Add persistence of camera settings to QSettings per camera ID, restore on camera selection
+- [ ] T105 [US3] Test manual controls: verify real-time updates, flip works correctly, white balance corrects color cast
+
+**Checkpoint**: User Stories 1, 2 (zoom), AND 3 (camera controls) all work independently
+
+---
+
+## Phase 8: User Story 4 - Calibration and Measurement (Priority: P4)
 
 **Goal**: Researcher calibrates with stage micrometer, measures specimen features in micrometers with scientific accuracy
 
 **Independent Test**: Load micrometer image, draw calibration line on 1mm, save calibration for 10x objective. Load specimen, draw line measurement, verify µm display
 
-### Implementation for User Story 3
+### Implementation for User Story 4
 
-- [ ] T081 [P] [US3] Create models/MicroscopeProfile.h with QString id/name/manufacturer/model, QList<QString> objectiveIds
-- [ ] T082 [P] [US3] Create models/MicroscopeProfile.cpp with constructor, validation, persistence to QSettings, objectives management
-- [ ] T083 [P] [US3] Create models/Objective.h with QString id/name, qreal magnification, QString microscopeId
-- [ ] T084 [P] [US3] Create models/Objective.cpp with constructor, validation (positive magnification), persistence
-- [ ] T085 [P] [US3] Create models/Calibration.h with QString id, QString microscopeId, QString objectiveId, qreal pixelsPerMicron, QSize imageResolution, QDateTime createdAt
-- [ ] T086 [P] [US3] Create models/Calibration.cpp with constructor, validation (positive pixelsPerMicron), calculateScale(pixels) method, persistence
-- [ ] T087 [P] [US3] Create models/Measurement.h with QString id, enum Type (Line, Circle, Polygon, Angle), QList<QPointF> points, qreal value, QString unit
-- [ ] T088 [P] [US3] Create models/Measurement.cpp with calculateLength(), calculateArea(), calculateAngle() methods using Calibration::pixelsPerMicron
-- [ ] T089 [P] [US3] Create models/MeasurementDataset.h with QString id/name, QList<Measurement> measurements, statistics (mean, stdDev, min, max)
-- [ ] T090 [P] [US3] Create models/MeasurementDataset.cpp with addMeasurement(), removeM measurement(), calculateStatistics() methods
-- [ ] T091 [P] [US3] Create services/CalibrationService.h with QObject subclass, methods for createMicroscope(), createObjective(), saveCalibration(), loadCalibration()
-- [ ] T092 [US3] Create services/CalibrationService.cpp implementing persistence to QSettings with key format "microscopes/{id}/objectives/{id}/calibration"
-- [ ] T093 [P] [US3] Create controllers/CalibrationController.h with slots for createMicroscope(), addObjective(), selectObjective(), drawCalibrationLine(), saveCalibration()
-- [ ] T094 [US3] Create controllers/CalibrationController.cpp implementing calibration workflow: capture reference distance in pixels, real-world value in µm, calculate pixelsPerMicron
-- [ ] T095 [P] [US3] Create controllers/MeasurementController.h with slots for startLineMeasurement(), startCircleMeasurement(), startPolygonMeasurement(), finishMeasurement()
-- [ ] T096 [US3] Create controllers/MeasurementController.cpp implementing measurement tools with live preview overlay, final value calculation using active Calibration
-- [ ] T097 [P] [US3] Create ui/CalibrationDialog.h with TileDialog subclass, microscope/objective selection combos, calibration input fields (pixel distance, real distance)
-- [ ] T098 [US3] Create ui/CalibrationDialog.cpp with UI layout, validation (positive values), save button connecting to CalibrationController::saveCalibration
-- [ ] T099 [P] [US3] Create ui/MeasurementOverlay.h with QGraphicsItem subclass for rendering measurement annotations with outlined style (semi-transparent outline, bright fill, antialiasing)
-- [ ] T100 [US3] Create ui/MeasurementOverlay.cpp implementing outlined rendering per contracts/annotation-rendering.md (yellow lines, cyan area measurements, text via QPainterPath)
-- [ ] T101 [US3] Add scale bar overlay to VideoGraphicsScene rendering calibration scale (e.g., "100 µm" with white line, outlined style)
-- [ ] T102 [US3] Implement scale bar auto-display when Calibration exists for current microscope/objective combination
-- [ ] T103 [US3] Create measurement tools tile panel (TileButton for line, circle, polygon tools) in MainWindow _rightTiles
-- [ ] T104 [US3] Connect measurement tool buttons to MeasurementController, display measurement values in tooltip or overlay label
-- [ ] T105 [US3] Implement dataset management: create dataset, add measurements, calculate statistics (mean, std dev, min, max)
-- [ ] T106 [US3] Add export dataset to CSV with columns (ID, Type, Value, Unit, Timestamp)
-- [ ] T107 [US3] Test calibration workflow: create microscope "Olympus BX43", add objective "10x Plan", calibrate with 1mm = 1000px, verify pixelsPerMicron = 1.0
-- [ ] T108 [US3] Test measurement accuracy: measure 100µm line, verify displayed value within 1% error
-- [ ] T108a [US3] Implement automatic scale bar detection on external image load: connect CapturedImage::load signal to OCRService::detectScaleBar, display confidence score with detected scale region highlighted, prompt user to validate/correct before applying calibration (implements FR-017.1.1)
+- [ ] T106 [P] [US4] Create models/MicroscopeProfile.h with QString id/name/manufacturer/model, QList<QString> objectiveIds
+- [ ] T107 [P] [US4] Create models/MicroscopeProfile.cpp with constructor, validation, persistence to QSettings, objectives management
+- [ ] T108 [P] [US4] Create models/Objective.h with QString id/name, qreal magnification, QString microscopeId
+- [ ] T109 [P] [US4] Create models/Objective.cpp with constructor, validation (positive magnification), persistence
+- [ ] T110 [P] [US4] Create models/Calibration.h with QString id, QString microscopeId, QString objectiveId, qreal pixelsPerMicron, QSize imageResolution, QDateTime createdAt
+- [ ] T111 [P] [US4] Create models/Calibration.cpp with constructor, validation (positive pixelsPerMicron), calculateScale(pixels) method, persistence
+- [ ] T112 [P] [US4] Create models/Measurement.h with QString id, enum Type (Line, Circle, Polygon, Angle), QList<QPointF> points, qreal value, QString unit
+- [ ] T113 [P] [US4] Create models/Measurement.cpp with calculateLength(), calculateArea(), calculateAngle() methods using Calibration::pixelsPerMicron
+- [ ] T114 [P] [US4] Create models/MeasurementDataset.h with QString id/name, QList<Measurement> measurements, statistics (mean, stdDev, min, max)
+- [ ] T115 [P] [US4] Create models/MeasurementDataset.cpp with addMeasurement(), removeMeasurement(), calculateStatistics() methods
+- [ ] T116 [P] [US4] Create services/CalibrationService.h with QObject subclass, methods for createMicroscope(), createObjective(), saveCalibration(), loadCalibration()
+- [ ] T117 [US4] Create services/CalibrationService.cpp implementing persistence to QSettings with key format "microscopes/{id}/objectives/{id}/calibration"
+- [ ] T118 [P] [US4] Create controllers/CalibrationController.h with slots for createMicroscope(), addObjective(), selectObjective(), drawCalibrationLine(), saveCalibration()
+- [ ] T119 [US4] Create controllers/CalibrationController.cpp implementing calibration workflow: capture reference distance in pixels, real-world value in µm, calculate pixelsPerMicron
+- [ ] T120 [P] [US4] Create controllers/MeasurementController.h with slots for startLineMeasurement(), startCircleMeasurement(), startPolygonMeasurement(), finishMeasurement()
+- [ ] T121 [US4] Create controllers/MeasurementController.cpp implementing measurement tools with live preview overlay, final value calculation using active Calibration
+- [ ] T122 [P] [US4] Create ui/CalibrationDialog.h with TileDialog subclass, microscope/objective selection combos, calibration input fields (pixel distance, real distance)
+- [ ] T123 [US4] Create ui/CalibrationDialog.cpp with UI layout, validation (positive values), save button connecting to CalibrationController::saveCalibration
+- [ ] T124 [P] [US4] Create ui/MeasurementOverlay.h with QGraphicsItem subclass for rendering measurement annotations with outlined style (semi-transparent outline, bright fill, antialiasing)
+- [ ] T125 [US4] Create ui/MeasurementOverlay.cpp implementing outlined rendering per contracts/annotation-rendering.md (yellow lines, cyan area measurements, text via QPainterPath)
+- [ ] T126 [US4] Add scale bar overlay to VideoGraphicsScene rendering calibration scale (e.g., "100 µm" with white line, outlined style)
+- [ ] T127 [US4] Implement scale bar auto-display when Calibration exists for current microscope/objective combination
+- [ ] T128 [US4] Create measurement tools tile panel (TileButton for line, circle, polygon tools) in MainWindow _rightTiles
+- [ ] T129 [US4] Connect measurement tool buttons to MeasurementController, display measurement values in tooltip or overlay label
+- [ ] T130 [US4] Implement dataset management: create dataset, add measurements, calculate statistics (mean, std dev, min, max)
+- [ ] T131 [US4] Add export dataset to CSV with columns (ID, Type, Value, Unit, Timestamp)
+- [ ] T132 [US4] Test calibration workflow: create microscope "Olympus BX43", add objective "10x Plan", calibrate with 1mm = 1000px, verify pixelsPerMicron = 1.0
+- [ ] T133 [US4] Test measurement accuracy: measure 100µm line, verify displayed value within 1% error
+- [ ] T134 [US4] Implement automatic scale bar detection on external image load: connect CapturedImage::load signal to OCRService::detectScaleBar, display confidence score with detected scale region highlighted, prompt user to validate/correct before applying calibration (implements FR-017.1.1)
 
-**Checkpoint**: User Stories 1, 2, AND 3 all work independently
+**Checkpoint**: User Stories 1, 2 (zoom), 3 (camera controls), AND 4 (calibration) all work independently
 
 ---
 

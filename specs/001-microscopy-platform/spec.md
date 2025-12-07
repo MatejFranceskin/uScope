@@ -79,6 +79,27 @@ The following tiles comprise the main UI:
 - Behavior: Click toggles recording state
 - Visual Feedback: Recording state shows animated indicator or different background color
 
+**Zoom** (Anchor: Right, Position: 0,6, Size: 1×1)
+- Purpose: Shows current zoom factor and opens zoom controls panel
+- Display: Shows current zoom level (e.g., "1.5x", "Fit", "100%")
+- Icon: Magnifying glass or zoom icon
+- State: Normal when zoom controls hidden, Active when zoom controls panel is visible
+- Behavior: Click toggles zoom controls panel (3 sub-tiles appear/disappear)
+- Zoom Controls Panel (appears when Zoom tile is Active):
+  - **1:1 / 100%** (Sub-tile 1): Sets video to 1:1 pixel mapping (1 video pixel = 1 screen pixel), zoom = 1.0x
+  - **Fit Width** (Sub-tile 2): Scales video to match viewport width, maintains aspect ratio
+  - **Fit Height** (Sub-tile 3): Scales video to match viewport height, maintains aspect ratio
+- Panel Behavior:
+  - When any zoom control is clicked, zoom changes and panel automatically closes
+  - When zoom changes via mouse wheel/pinch, panel automatically closes if open
+  - Panel tiles positioned near Zoom tile (e.g., Right, Position: 1,6 through 3,6)
+- Mouse Wheel / Touch Pinch: Zoom in/out continuously (1.0x to 10.0x range)
+  - Mouse wheel up = zoom in (increase zoom factor by 0.1x per scroll)
+  - Mouse wheel down = zoom out (decrease zoom factor by 0.1x per scroll)
+  - Touch pinch in/out = zoom out/in proportionally
+  - Zoom always centers on current viewport center
+- Visual Feedback: Zoom factor updates in Zoom tile display in real-time
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Live Camera Preview and Basic Capture (Priority: P1) 🎯 MVP
@@ -99,7 +120,32 @@ A researcher connects their USB microscope camera, sees a live video feed immedi
 
 ---
 
-### User Story 2 - Manual Camera Controls for Image Quality (Priority: P2)
+### User Story 2 - Zoom and Pan for Detailed Inspection (Priority: P2)
+
+A researcher zooms into specific regions of the live video feed or captured images to inspect fine details, using mouse wheel or touch gestures for intuitive control.
+
+**Why this priority**: Digital zoom is essential for examining specimen details without changing physical objectives. Provides quick inspection capability that complements physical magnification.
+
+**Independent Test**: With live preview running, scroll mouse wheel to zoom in 3x, verify video magnifies smoothly. Use mouse to pan around zoomed view. Click "Fit Width" button, verify video scales to viewport width.
+
+**Acceptance Scenarios**:
+
+1. **Given** live preview or captured image is displayed, **When** user scrolls mouse wheel up, **Then** video zooms in by 0.1x increment, centered on current viewport center
+2. **Given** video is zoomed in, **When** user scrolls mouse wheel down, **Then** video zooms out by 0.1x decrement, minimum zoom is "Fit Width" or "Fit Height" (whichever is smaller)
+3. **Given** video is zoomed in beyond viewport, **When** user drags with mouse, **Then** video pans smoothly in drag direction
+4. **Given** touch screen device is used, **When** user performs pinch gesture, **Then** video zooms in/out proportionally to pinch distance
+5. **Given** zoom controls panel is hidden, **When** user clicks Zoom tile, **Then** panel appears showing three buttons: "1:1 (100%)", "Fit Width", "Fit Height", and Zoom tile state becomes Active
+6. **Given** zoom controls panel is visible, **When** user clicks "1:1 (100%)" button, **Then** video scales to 1:1 pixel mapping (1 video pixel = 1 screen pixel, zoom factor = 1.0x), panel closes, Zoom tile returns to Normal state
+7. **Given** zoom controls panel is visible, **When** user clicks "Fit Width" button, **Then** video scales to match viewport width while maintaining aspect ratio, panel closes, Zoom tile displays "Fit W"
+8. **Given** zoom controls panel is visible, **When** user clicks "Fit Height" button, **Then** video scales to match viewport height while maintaining aspect ratio, panel closes, Zoom tile displays "Fit H"
+9. **Given** zoom controls panel is visible, **When** user zooms via mouse wheel, **Then** panel automatically closes and Zoom tile displays current zoom factor (e.g., "2.3x")
+10. **Given** video is at 1:1 zoom, **When** Zoom tile is displayed, **Then** tile shows "100%" or "1:1" label
+11. **Given** video is zoomed to 2.5x, **When** user views Zoom tile, **Then** tile displays "2.5x"
+12. **Given** zoom factor is set, **When** user captures image, **Then** captured image is at full camera resolution (not affected by display zoom)
+
+---
+
+### User Story 3 - Manual Camera Controls for Image Quality (Priority: P3)
 
 A researcher adjusts exposure, white balance, and color settings to achieve optimal image quality for their specific specimen and lighting conditions.
 
@@ -117,7 +163,7 @@ A researcher adjusts exposure, white balance, and color settings to achieve opti
 
 ---
 
-### User Story 3 - Accurate Measurement and Calibration (Priority: P3)
+### User Story 4 - Accurate Measurement and Calibration (Priority: P4)
 
 A researcher calibrates the system using a stage micrometer, then measures specimen features (length, area, angles) with scientific accuracy.
 
@@ -144,7 +190,7 @@ A researcher calibrates the system using a stage micrometer, then measures speci
 
 ---
 
-### User Story 4 - Video Recording and Time-Lapse (Priority: P4)
+### User Story 5 - Video Recording and Time-Lapse (Priority: P5)
 
 A researcher records dynamic processes (e.g., cell movement, crystal formation) as video or time-lapse sequences for later analysis.
 
@@ -162,7 +208,7 @@ A researcher records dynamic processes (e.g., cell movement, crystal formation) 
 
 ---
 
-### User Story 5 - Automated Object Detection and Measurement (Priority: P5)
+### User Story 6 - Automated Object Detection and Measurement (Priority: P6)
 
 A mycologist or researcher photographs spores or other similar microscopic objects, runs automated detection to identify all instances, manually corrects any missed or false detections, then generates comprehensive measurement statistics across all detected objects.
 
@@ -183,7 +229,7 @@ A mycologist or researcher photographs spores or other similar microscopic objec
 
 ---
 
-### User Story 6 - Image Enhancement and Analysis (Priority: P6)
+### User Story 7 - Image Enhancement and Analysis (Priority: P7)
 
 A researcher applies filters (sharpen, edge detection, histogram equalization) and performs basic segmentation to highlight specimen features.
 
