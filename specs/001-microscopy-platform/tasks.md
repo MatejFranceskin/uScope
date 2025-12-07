@@ -87,8 +87,10 @@
 - [X] T040 [P] Create TileCombo.cpp with QComboBox creation, proxy widget setup, signal forwarding
 - [X] T041 [P] Create TileSlider.h with Tile subclass, QGraphicsProxyWidget for embedded QSlider, valueChanged signal
 - [X] T042 [P] Create TileSlider.cpp with QSlider creation, orientation setup, signal forwarding
-- [X] T043 [P] Create TileDialog.h with Tile subclass for modal centered dialogs, dimOverlay QGraphicsRectItem member, show/hide methods
-- [X] T044 [P] Create TileDialog.cpp with semi-transparent black overlay (alpha 180), centered positioning, Esc key handling
+- [X] T043 [P] Create TileDialog.h with Tile subclass for modal centered dialogs, dimOverlay QGraphicsRectItem member, show/hide methods taking baseTileSize and sceneWidth parameters, virtual updateGeometry override
+- [X] T044 [P] Create TileDialog.cpp with semi-transparent black overlay (alpha 180), centered positioning with gridY parameter, Esc key handling emitting rejected() signal, updateGeometry override to resize dim overlay
+- [X] T044a [P] Make Tile::updateGeometry virtual to enable TileDialog override for dim overlay updates during window resize
+- [X] T044b [P] Add dialogs to MainWindow::_centerTiles list to ensure they receive geometry updates on window resize
 - [X] T045 Update MainWindow.h with QGraphicsView* _view, VideoGraphicsScene* _scene, QList<Tile*> _leftTiles/_rightTiles/_centerTiles, calculateBaseTileSize() method, resizeEvent override
 - [X] T046 Update MainWindow.cpp setupUi to create QGraphicsView, set VideoGraphicsScene, configure view (no scrollbars, antialiasing), add to central widget
 - [X] T047 Implement MainWindow::calculateBaseTileSize() returning height() / 12

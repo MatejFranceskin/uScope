@@ -29,6 +29,8 @@ signals:
 private slots:
     void onCameraSelected(int index);
     void onCaptureClicked();
+    void onOkClicked();
+    void onCancelClicked();
 
 protected:
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = nullptr) override;
@@ -39,6 +41,8 @@ private:
     CameraController* _controller;
     TileCombo* _cameraSelector;
     TileButton* _captureButton;
+    TileButton* _okButton;
+    TileButton* _cancelButton;
     QList<CameraProfile> _availableCameras;
 };
 

@@ -7,24 +7,35 @@
 #include <QFont>
 
 CameraControlsPanel::CameraControlsPanel(CameraController* controller, QGraphicsItem* parent)
-    : TileDialog(3.0f, 4.0f, parent)
+    : TileDialog(6.0f, 4.0f, 1, parent)  // 6×4 tiles, positioned at Y=1 from top
     , _controller(controller)
     , _cameraSelector(nullptr)
     , _captureButton(nullptr)
+    , _okButton(nullptr)
+    , _cancelButton(nullptr)
 {
     setupUI();
 }
 
 void CameraControlsPanel::setupUI()
 {
-    // Create camera selector combo (centered, grid position 0,0)
-    _cameraSelector = new TileCombo(2.5f, 0.8f, Tile::Anchor::Center, 0, 0, this);
+    // All positions are in dialog's local grid coordinates
+    // Dialog is 6 tiles wide × 4 tiles tall
+    
+    // Camera selector combo - centered horizontally at top (Y=0)
+    _cameraSelector = new TileCombo(4.0f, 1.0f, Tile::Anchor::Center, 0, 0, this);
     connect(_cameraSelector, QOverload<int>::of(&TileCombo::currentIndexChanged),
             this, &CameraControlsPanel::onCameraSelected);
     
-    // Create capture button (centered, grid position 0,1)
-    _captureButton = new TileButton(":/images/media-record.svg", "Snap", 2.0f, 1.2f, Tile::Anchor::Center, 0, 1, this);
-    connect(_captureButton, &TileButton::clicked, this, &CameraControlsPanel::onCaptureClicked);
+    // Capture button removed - user will select camera and click OK
+    
+    // OK button - left side at bottom (Y=3)
+    _okButton = new TileButton("", "OK", 2.0f, 1.0f, Tile::Anchor::Center, -1, 3, this);
+    connect(_okButton, &TileButton::clicked, this, &CameraControlsPanel::onOkClicked);
+    
+    // Cancel button - right side at bottom (Y=3)
+    _cancelButton = new TileButton("", "Cancel", 2.0f, 1.0f, Tile::Anchor::Center, 1, 3, this);
+    connect(_cancelButton, &TileButton::clicked, this, &CameraControlsPanel::onCancelClicked);
     
     // Initial camera refresh
     refreshCameras();
@@ -38,12 +49,12 @@ void CameraControlsPanel::refreshCameras()
     
     if (_availableCameras.isEmpty()) {
         _cameraSelector->addItem("No cameras detected");
-        _captureButton->setState(TileState::Disabled);
+        _okButton->setState(TileState::Disabled);
     } else {
         for (const CameraProfile& camera : _availableCameras) {
             _cameraSelector->addItem(camera.name(), camera.id());
         }
-        _captureButton->setState(TileState::Idle);
+        _okButton->setState(TileState::Idle);
     }
 }
 
@@ -58,6 +69,19 @@ void CameraControlsPanel::onCameraSelected(int index)
 void CameraControlsPanel::onCaptureClicked()
 {
     emit captureRequested();
+}
+
+void CameraControlsPanel::onOkClicked()
+{
+    // Camera already started by onCameraSelected
+    hide();
+    emit accepted();
+}
+
+void CameraControlsPanel::onCancelClicked()
+{
+    hide();
+    emit rejected();
 }
 
 void CameraControlsPanel::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
@@ -77,7 +101,7 @@ void CameraControlsPanel::paint(QPainter* painter, const QStyleOptionGraphicsIte
     painter->setFont(titleFont);
     
     QRectF titleRect(rect.left() + 20, rect.top() + 20, rect.width() - 40, rect.height() * 0.1f);
-    painter->drawText(titleRect, Qt::AlignLeft | Qt::AlignVCenter, "Camera Controls");
+    painter->drawText(titleRect, Qt::AlignLeft | Qt::AlignVCenter, "Select Camera");
     
     // Position child tiles
     if (_cameraSelector) {

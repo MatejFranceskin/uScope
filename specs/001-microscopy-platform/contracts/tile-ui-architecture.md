@@ -114,7 +114,10 @@ public:
     
     // Geometry management (QGraphicsObject requires boundingRect)
     QRectF boundingRect() const override { return QRectF(0, 0, _width, _height); }
-    void updateGeometry(int windowWidth, int windowHeight, int baseTileSize);
+    
+    // CRITICAL: Must be virtual for TileDialog to properly override and update dim overlay
+    virtual void updateGeometry(int windowWidth, int windowHeight, int baseTileSize);
+    
     float widthMultiplier() const { return _widthMult; }
     float heightMultiplier() const { return _heightMult; }
     Anchor anchor() const { return _anchor; }
@@ -272,6 +275,13 @@ private:
 
 ### TileDialog: Modal Centered Dialog
 
+**CRITICAL Implementation Notes**:
+1. **Virtual updateGeometry**: Base Tile class MUST declare `updateGeometry()` as virtual for proper polymorphic behavior
+2. **Tile List Integration**: Dialogs MUST be added to MainWindow's `_centerTiles` list to receive resize updates
+3. **Dim Overlay Management**: Created as separate QGraphicsRectItem added to scene, not as child of dialog
+4. **Resize Synchronization**: Override `updateGeometry()` to update both dialog and dim overlay on window resize
+5. **Tile Size Calculation**: Use consistent baseTileSize from MainWindow (height/8), passed to show() method
+
 ```cpp
 class TileDialog : public Tile {
     Q_OBJECT
@@ -279,44 +289,60 @@ class TileDialog : public Tile {
 public:
     /**
      * @brief Construct a modal dialog tile
-     * @param widthMult Dialog width (typically 3-5)
-     * @param heightMult Dialog height (typically 3-5)
-     * @param title Dialog title text
+     * @param widthMultiplier Dialog width in tiles (typically 4-8)
+     * @param heightMultiplier Dialog height in tiles (typically 3-6)
+     * @param gridY Vertical grid position (Y coordinate in tile units, 0=top)
      * @param parent Parent QGraphicsItem
+     * 
+     * Dialog is centered horizontally (Anchor::Center) and positioned 
+     * vertically at gridY * baseTileSize from top of scene.
      */
-    TileDialog(int widthMult, int heightMult, const QString& title,
-               QGraphicsItem* parent = nullptr);
+    TileDialog(float widthMultiplier = 4.0f, float heightMultiplier = 6.0f,
+               int gridY = 0, QGraphicsItem* parent = nullptr);
     
-    // Content management
-    void setContent(QGraphicsWidget* contentWidget);
-    void addSubTile(Tile* subTile);  // Add sub-tiles to dialog content area
+    virtual ~TileDialog();
     
     // Modal behavior
-    void show();
+    void show(float baseTileSize, float sceneWidth);  // Pass consistent sizing from MainWindow
     void hide();
     bool isVisible() const;
     
-    // Scrolling (if content > dialog area)
-    void enableScrolling(bool enable);
+    // CRITICAL: Override to update dim overlay when window resizes
+    void updateGeometry(float baseTileSize, float sceneWidth) override;
     
 signals:
     void accepted();
     void rejected();
-    void closed();
     
 protected:
     void paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) override;
-    void keyPressEvent(QKeyEvent* event) override;  // Esc to close
+    void keyPressEvent(QKeyEvent* event) override;  // Esc to close -> emit rejected()
     
 private:
-    QString _title;
-    QGraphicsWidget* _contentArea = nullptr;
-    QGraphicsProxyWidget* _scrollProxy = nullptr;  // For scrolling
-    QScrollArea* _scrollArea = nullptr;
-    QList<Tile*> _subTiles;
-    bool _scrollingEnabled = false;
+    QGraphicsRectItem* _dimOverlay = nullptr;  // Semi-transparent overlay covering entire scene
     
-    void updateContentLayout();
+    // Child tiles added as children of dialog, positioned in dialog's local coordinate system
+    // updateGeometry() automatically updates all child Tile items
+};
+```
+
+**Implementation Pattern for Subclassed Dialogs**:
+```cpp
+class CameraControlsPanel : public TileDialog {
+public:
+    CameraControlsPanel(CameraController* controller, QGraphicsItem* parent = nullptr)
+        : TileDialog(6.0f, 4.0f, 1, parent)  // 6×4 tiles, Y=1 from top
+    {
+        setupUI();
+    }
+    
+private:
+    void setupUI() {
+        // Child tiles use local grid coordinates (0,0 = top-left of dialog)
+        _cameraSelector = new TileCombo(4.0f, 1.0f, Anchor::Center, 0, 0, this);
+        _okButton = new TileButton("", "OK", 2.0f, 1.0f, Anchor::Center, -1, 3, this);
+        _cancelButton = new TileButton("", "Cancel", 2.0f, 1.0f, Anchor::Center, 1, 3, this);
+    }
 };
 ```
 
@@ -346,23 +372,46 @@ private:
     QGraphicsView* _view = nullptr;
     VideoGraphicsScene* _scene = nullptr;
     
-    // Tile collections
+    // Tile collections - CRITICAL: Dialogs MUST be in _centerTiles to receive resize updates
     QList<Tile*> _leftTiles;
     QList<Tile*> _rightTiles;
-    TileDialog* _activeDialog = nullptr;
-    QGraphicsRectItem* _dialogOverlay = nullptr;  // Dimming overlay
+    QList<Tile*> _centerTiles;  // Contains centered elements including TileDialogs
     
     // Layout management
     void updateTileLayout();
-    int calculateBaseTileSize() const;
-    void positionTiles(QList<Tile*>& tiles, Tile::Anchor anchor);
+    float calculateBaseTileSize() const { return height() / 8.0f; }  // Consistent calculation
     
     // Constants
-    static constexpr int BASE_TILE_DIVISOR = 12;
+    static constexpr int BASE_TILE_DIVISOR = 8;  // height / 8 for base tile size
     static constexpr int TILE_MARGIN = 15;
     static constexpr int TILE_SPACING = 10;
 };
 ```
+
+### Dialog Integration Pattern
+
+```cpp
+void MainWindow::createTiles() {
+    // Create dialog and ADD TO _centerTiles for resize updates
+    _cameraPanel = new CameraControlsPanel(_cameraController);
+    _scene->addItem(_cameraPanel);
+    _centerTiles.append(_cameraPanel);  // CRITICAL: Must be in tile list
+    _cameraPanel->hide();
+    
+    connect(_cameraPanel, &CameraControlsPanel::accepted, ...);
+    connect(_cameraPanel, &CameraControlsPanel::rejected, ...);
+}
+
+void MainWindow::onCameraButtonClicked() {
+    if (_cameraPanel->isVisible()) {
+        _cameraPanel->hide();
+    } else {
+        // Pass consistent tile sizing from MainWindow
+        float baseTileSize = calculateBaseTileSize();
+        QRectF sceneRect = _scene->sceneRect();
+        _cameraPanel->show(baseTileSize, sceneRect.width());
+    }
+}
 
 ### Layout Algorithm
 

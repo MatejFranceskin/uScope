@@ -107,6 +107,7 @@ void MainWindow::createTiles()
     // Create camera controls panel (hidden initially)
     _cameraPanel = new CameraControlsPanel(_cameraController);
     _scene->addItem(_cameraPanel);
+    _centerTiles.append(_cameraPanel);  // Add to center tiles so it gets resized
     _cameraPanel->hide();
     
     connect(_cameraPanel, &CameraControlsPanel::captureRequested,
@@ -162,7 +163,9 @@ void MainWindow::onCameraButtonClicked()
         _cameraPanel->hide();
     } else {
         _cameraPanel->refreshCameras();
-        _cameraPanel->show();
+        float baseTileSize = calculateBaseTileSize();
+        QRectF sceneRect = _scene->sceneRect();
+        _cameraPanel->show(baseTileSize, sceneRect.width());
     }
 }
 

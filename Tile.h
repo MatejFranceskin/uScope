@@ -44,7 +44,7 @@ public:
      * @param baseTileSize Base tile size (screenHeight / 12)
      * @param sceneWidth Width of the scene for positioning calculations
      */
-    void updateGeometry(float baseTileSize, float sceneWidth);
+    virtual void updateGeometry(float baseTileSize, float sceneWidth);
 
     /**
      * Get corner radius for rounded tile appearance
