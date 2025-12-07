@@ -8,13 +8,15 @@
 
 class ZoomState;
 class QGraphicsView;
+class VideoGraphicsScene;
 
 /**
  * @brief Controller coordinating zoom and pan operations
  * 
  * ZoomController acts as the coordination layer between user input
  * (mouse wheel, gestures, buttons) and the ZoomState model. It manages
- * the zoom state and applies the resulting transform to the QGraphicsView.
+ * the zoom state and applies the resulting transform to the video background
+ * layer only, keeping tiles at their original positions.
  * 
  * Responsibilities:
  * - Handle zoom factor changes with validation
@@ -157,13 +159,14 @@ private slots:
 
 private:
     /**
-     * @brief Apply current zoom transform to the graphics view
+     * @brief Apply current zoom transform to the video background layer
      */
     void applyTransform();
 
-    ZoomState* _zoomState;        ///< Zoom state model
-    QGraphicsView* _view;          ///< Graphics view to transform
-    QSizeF _contentSize;           ///< Content size for fit calculations
+    ZoomState* _zoomState;            ///< Zoom state model
+    QGraphicsView* _view;              ///< Graphics view (for viewport size)
+    VideoGraphicsScene* _scene;        ///< Graphics scene (for video transform)
+    QSizeF _contentSize;               ///< Content size for fit calculations
 };
 
 #endif // ZOOMCONTROLLER_H

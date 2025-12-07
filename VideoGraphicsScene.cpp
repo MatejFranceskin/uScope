@@ -4,6 +4,7 @@
 
 VideoGraphicsScene::VideoGraphicsScene(QObject *parent)
     : QGraphicsScene(parent)
+    , _videoTransform()
 {
 }
 
@@ -20,11 +21,24 @@ void VideoGraphicsScene::updateVideoFrame(const QVideoFrame& frame)
     }
 }
 
+void VideoGraphicsScene::setVideoTransform(const QTransform& transform)
+{
+    _videoTransform = transform;
+    // Invalidate background to redraw with new transform
+    invalidate(sceneRect(), QGraphicsScene::BackgroundLayer);
+}
+
 void VideoGraphicsScene::drawBackground(QPainter *painter, const QRectF &rect)
 {
     painter->fillRect(rect, Qt::black);
     
     if (!_currentFrame.isNull()) {
+        // Save painter state
+        painter->save();
+        
+        // Apply video transform (zoom/pan)
+        painter->setTransform(_videoTransform, true);
+        
         // Scale video frame to fit scene while maintaining aspect ratio
         QRectF targetRect = rect;
         QSizeF frameSize = _currentFrame.size();
@@ -46,5 +60,8 @@ void VideoGraphicsScene::drawBackground(QPainter *painter, const QRectF &rect)
         }
         
         painter->drawImage(targetRect, _currentFrame);
+        
+        // Restore painter state
+        painter->restore();
     }
 }

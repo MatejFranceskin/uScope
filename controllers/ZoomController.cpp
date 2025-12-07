@@ -1,13 +1,20 @@
 #include "ZoomController.h"
 #include "../models/ZoomState.h"
+#include "../VideoGraphicsScene.h"
 #include <QGraphicsView>
 
 ZoomController::ZoomController(QGraphicsView* view, QObject* parent)
     : QObject(parent)
     , _zoomState(new ZoomState(this))
     , _view(view)
+    , _scene(nullptr)
     , _contentSize(1920, 1080)  // Default content size
 {
+    // Get the scene from the view
+    if (view) {
+        _scene = qobject_cast<VideoGraphicsScene*>(view->scene());
+    }
+    
     // Connect ZoomState signals to controller slots
     connect(_zoomState, &ZoomState::stateChanged,
             this, &ZoomController::onZoomStateChanged);
@@ -93,7 +100,7 @@ void ZoomController::onZoomStateChanged()
 
 void ZoomController::applyTransform()
 {
-    if (!_view) {
+    if (!_scene) {
         return;
     }
 
@@ -103,6 +110,6 @@ void ZoomController::applyTransform()
     // Calculate transform from ZoomState
     QTransform transform = _zoomState->calculateViewTransform(viewportSize, _contentSize);
     
-    // Apply to view
-    _view->setTransform(transform);
+    // Apply to video background layer only (not to tiles)
+    _scene->setVideoTransform(transform);
 }
