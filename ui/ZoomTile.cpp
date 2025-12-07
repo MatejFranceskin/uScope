@@ -69,17 +69,16 @@ void ZoomTile::updateGeometry(float baseTileSize, float sceneWidth)
 {
     // Update zoom tile geometry
     TileButton::updateGeometry(baseTileSize, sceneWidth);
-    
-    // Update panel buttons geometry if they exist
-    if (_oneToOneButton) {
-        _oneToOneButton->updateGeometry(baseTileSize, sceneWidth);
-    }
-    if (_fitWidthButton) {
-        _fitWidthButton->updateGeometry(baseTileSize, sceneWidth);
-    }
-    if (_fitHeightButton) {
-        _fitHeightButton->updateGeometry(baseTileSize, sceneWidth);
-    }
+    // Panel buttons managed by MainWindow
+}
+
+QList<TileButton*> ZoomTile::panelButtons() const
+{
+    QList<TileButton*> buttons;
+    if (_oneToOneButton) buttons.append(_oneToOneButton);
+    if (_fitWidthButton) buttons.append(_fitWidthButton);
+    if (_fitHeightButton) buttons.append(_fitHeightButton);
+    return buttons;
 }
 
 void ZoomTile::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
@@ -87,10 +86,15 @@ void ZoomTile::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, 
     // Call base class to paint button background
     TileButton::paint(painter, option, widget);
     
-    // Paint zoom display text in the center
+    // Paint zoom display text in the icon area (top 60% of tile)
     painter->setRenderHint(QPainter::Antialiasing, true);
     
     QRectF bounds = boundingRect();
+    
+    // Icon area is top 60% of tile (matching TileLabel layout)
+    float iconHeight = bounds.height() * 0.6f;
+    QRectF iconRect(bounds.left(), bounds.top(), bounds.width(), iconHeight);
+    
     QFont font = painter->font();
     font.setPixelSize(bounds.height() * 0.25);
     font.setBold(true);
@@ -98,7 +102,7 @@ void ZoomTile::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, 
     
     // Use white text
     painter->setPen(Qt::white);
-    painter->drawText(bounds, Qt::AlignCenter, _displayText);
+    painter->drawText(iconRect, Qt::AlignCenter, _displayText);
 }
 
 void ZoomTile::onZoomTileClicked()
@@ -140,17 +144,7 @@ void ZoomTile::onFitHeightClicked()
 void ZoomTile::showPanel()
 {
     if (_oneToOneButton && _fitWidthButton && _fitHeightButton) {
-        // Add buttons to scene if not already added
-        if (!_oneToOneButton->scene()) {
-            scene()->addItem(_oneToOneButton);
-        }
-        if (!_fitWidthButton->scene()) {
-            scene()->addItem(_fitWidthButton);
-        }
-        if (!_fitHeightButton->scene()) {
-            scene()->addItem(_fitHeightButton);
-        }
-        
+        // Buttons already in scene from MainWindow, just show them
         _oneToOneButton->show();
         _fitWidthButton->show();
         _fitHeightButton->show();

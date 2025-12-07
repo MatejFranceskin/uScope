@@ -89,6 +89,7 @@ The following tiles comprise the main UI:
   - **1:1** (Sub-tile 1, Right 1,6): Sets video to 1:1 pixel mapping (1 video pixel = 1 screen pixel), zoom = 1.0x
   - **Fit W** (Sub-tile 2, Right 2,6): Scales video to match viewport width, maintains aspect ratio
   - **Fit H** (Sub-tile 3, Right 3,6): Scales video to match viewport height, maintains aspect ratio
+  - Panel tiles managed by MainWindow in _rightTiles list for proper geometry updates
 - Panel Behavior:
   - When any zoom control is clicked, zoom changes and panel automatically closes
   - When zoom changes via mouse wheel/pinch, panel automatically closes if open (switches to Custom mode)

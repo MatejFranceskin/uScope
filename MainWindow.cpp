@@ -148,6 +148,12 @@ void MainWindow::createTiles()
     _zoomTile = new ZoomTile(_zoomController);
     _scene->addItem(_zoomTile);
     _rightTiles.append(_zoomTile);
+    
+    // Add zoom panel buttons to scene and tile list
+    for (TileButton* button : _zoomTile->panelButtons()) {
+        _scene->addItem(button);
+        _rightTiles.append(button);
+    }
 }
 
 void MainWindow::onCameraButtonClicked()

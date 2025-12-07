@@ -40,6 +40,11 @@ public:
      * @param sceneWidth Width of the scene
      */
     void updateGeometry(float baseTileSize, float sceneWidth);
+    
+    /**
+     * @brief Get the panel buttons for MainWindow to manage
+     */
+    QList<TileButton*> panelButtons() const;
 
 protected:
     /**
