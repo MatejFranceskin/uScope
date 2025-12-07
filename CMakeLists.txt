@@ -63,6 +63,8 @@ set(PROJECT_SOURCES
     MainWindow.h
     VideoGraphicsScene.cpp
     VideoGraphicsScene.h
+    ZoomableGraphicsView.cpp
+    ZoomableGraphicsView.h
     Tile.cpp
     Tile.h
     TileLabel.cpp

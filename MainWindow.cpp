@@ -1,11 +1,12 @@
 #include "MainWindow.h"
 #include "VideoGraphicsScene.h"
+#include "ZoomableGraphicsView.h"
 #include "Tile.h"
 #include "TileButton.h"
 #include "controllers/CameraController.h"
+#include "controllers/ZoomController.h"
 #include "ui/CameraControlsPanel.h"
 #include "models/CapturedImage.h"
-#include <QGraphicsView>
 #include <QResizeEvent>
 #include <QShowEvent>
 #include <QMessageBox>
@@ -15,6 +16,7 @@ MainWindow::MainWindow(QWidget *parent)
     , _view(nullptr)
     , _scene(nullptr)
     , _cameraController(nullptr)
+    , _zoomController(nullptr)
     , _cameraPanel(nullptr)
     , _fullscreenToggle(nullptr)
     , _recordButton(nullptr)
@@ -40,8 +42,8 @@ void MainWindow::setupUi()
     _scene = new VideoGraphicsScene(this);
     _scene->setItemIndexMethod(QGraphicsScene::NoIndex);  // Disable BSP tree for better performance with video
     
-    // Create graphics view
-    _view = new QGraphicsView(_scene, this);
+    // Create zoomable graphics view
+    _view = new ZoomableGraphicsView(_scene, this);
     _view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     _view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     _view->setRenderHint(QPainter::Antialiasing, true);
@@ -80,6 +82,15 @@ void MainWindow::createControllers()
             this, &MainWindow::onImageCaptured);
     connect(_cameraController, &CameraController::error,
             this, &MainWindow::onCameraError);
+    
+    // Create zoom controller
+    _zoomController = new ZoomController(_view, this);
+    
+    // Connect zoom controller to view
+    _view->setZoomController(_zoomController);
+    
+    // Set initial content size (will be updated when camera starts)
+    _zoomController->setContentSize(QSizeF(1920, 1080));
 }
 
 void MainWindow::createTiles()

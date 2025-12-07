@@ -2,13 +2,14 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QGraphicsView>
 #include <QList>
 
 class VideoGraphicsScene;
+class ZoomableGraphicsView;
 class Tile;
 class TileButton;
 class CameraController;
+class ZoomController;
 class CameraControlsPanel;
 class CapturedImage;
 
@@ -41,9 +42,10 @@ private:
     void updateTileLayout();
     void setFullscreenMode(bool enabled);
 
-    QGraphicsView *_view;
+    ZoomableGraphicsView *_view;
     VideoGraphicsScene *_scene;
     CameraController *_cameraController;
+    ZoomController *_zoomController;
     CameraControlsPanel *_cameraPanel;
     
     TileButton* _fullscreenToggle;
