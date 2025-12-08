@@ -444,8 +444,8 @@ void CameraControlsPanel::onSaturationChanged(int value)
 
 void CameraControlsPanel::onAutoWhiteBalanceClicked()
 {
-    // Auto white balance - set to automatic mode
-    _controller->setWhiteBalance(static_cast<int>(QCamera::WhiteBalanceAuto));
+    // Auto white balance - sample center region and adjust color temperature
+    _controller->autoWhiteBalance();
 }
 
 void CameraControlsPanel::onFlipHorizontalClicked()

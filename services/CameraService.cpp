@@ -277,3 +277,87 @@ void CameraService::setFlipVertical(bool enabled)
     Q_UNUSED(enabled);
 }
 
+void CameraService::autoWhiteBalance()
+{
+    if (!_camera || !_lastFrame.isValid()) {
+        qDebug() << "CameraService::autoWhiteBalance - no valid frame available";
+        return;
+    }
+    
+    // Convert frame to image for processing
+    QImage frame = _lastFrame.toImage();
+    if (frame.isNull()) {
+        qDebug() << "CameraService::autoWhiteBalance - failed to convert frame to image";
+        return;
+    }
+    
+    // Sample center 10% region of the frame
+    int centerX = frame.width() / 2;
+    int centerY = frame.height() / 2;
+    int sampleWidth = frame.width() / 10;
+    int sampleHeight = frame.height() / 10;
+    
+    int startX = centerX - sampleWidth / 2;
+    int startY = centerY - sampleHeight / 2;
+    int endX = centerX + sampleWidth / 2;
+    int endY = centerY + sampleHeight / 2;
+    
+    // Calculate average RGB values in the sampled region
+    qint64 sumR = 0, sumG = 0, sumB = 0;
+    int pixelCount = 0;
+    
+    for (int y = startY; y < endY && y < frame.height(); ++y) {
+        for (int x = startX; x < endX && x < frame.width(); ++x) {
+            QRgb pixel = frame.pixel(x, y);
+            sumR += qRed(pixel);
+            sumG += qGreen(pixel);
+            sumB += qBlue(pixel);
+            ++pixelCount;
+        }
+    }
+    
+    if (pixelCount == 0) {
+        qDebug() << "CameraService::autoWhiteBalance - no pixels sampled";
+        return;
+    }
+    
+    // Calculate averages
+    double avgR = static_cast<double>(sumR) / pixelCount;
+    double avgG = static_cast<double>(sumG) / pixelCount;
+    double avgB = static_cast<double>(sumB) / pixelCount;
+    
+    qDebug() << "CameraService::autoWhiteBalance - sampled" << pixelCount << "pixels, avg RGB:" 
+             << avgR << avgG << avgB;
+    
+    // Calculate color temperature adjustment
+    // Higher red means warmer (lower color temp needed)
+    // Higher blue means cooler (higher color temp needed)
+    double colorRatio = avgB / (avgR + 1.0);  // +1 to avoid division by zero
+    
+    // Map ratio to color temperature (typical range 2500K-9000K)
+    // Neutral white is around 6500K
+    int colorTemp = 6500;
+    
+    if (colorRatio > 1.1) {
+        // Too much blue - increase temperature (warmer)
+        colorTemp = 6500 + static_cast<int>((colorRatio - 1.0) * 2000);
+    } else if (colorRatio < 0.9) {
+        // Too much red - decrease temperature (cooler)
+        colorTemp = 6500 - static_cast<int>((1.0 - colorRatio) * 2000);
+    }
+    
+    // Clamp to reasonable range
+    colorTemp = qBound(2500, colorTemp, 9000);
+    
+    qDebug() << "CameraService::autoWhiteBalance - setting color temperature to" << colorTemp << "K";
+    
+    // Apply color temperature adjustment
+    if (_camera->isWhiteBalanceModeSupported(QCamera::WhiteBalanceManual)) {
+        _camera->setWhiteBalanceMode(QCamera::WhiteBalanceManual);
+        _camera->setColorTemperature(colorTemp);
+    } else {
+        qDebug() << "CameraService::autoWhiteBalance - manual white balance not supported, using auto mode";
+        _camera->setWhiteBalanceMode(QCamera::WhiteBalanceAuto);
+    }
+}
+

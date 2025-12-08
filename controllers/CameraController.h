@@ -66,6 +66,7 @@ public slots:
     void setSaturation(int value);
     void setFlipHorizontal(bool enabled);
     void setFlipVertical(bool enabled);
+    void autoWhiteBalance();  // Auto white balance using current frame
 
 signals:
     void frameReady(const QVideoFrame& frame);

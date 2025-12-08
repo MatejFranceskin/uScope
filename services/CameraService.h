@@ -44,6 +44,7 @@ public:
     void setSaturation(int value);           // -100 to 100
     void setFlipHorizontal(bool enabled);
     void setFlipVertical(bool enabled);
+    void autoWhiteBalance();  // Auto white balance using current frame
 
 signals:
     void frameReady(const QVideoFrame& frame);

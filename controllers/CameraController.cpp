@@ -338,6 +338,11 @@ void CameraController::setFlipVertical(bool enabled)
     saveCameraControls(currentCameraId());
 }
 
+void CameraController::autoWhiteBalance()
+{
+    _service->autoWhiteBalance();
+}
+
 void CameraController::saveCameraControls(const QString& cameraId)
 {
     if (cameraId.isEmpty()) {

@@ -214,7 +214,7 @@
 - [X] T100 [US3] Connect camera control sliders in CameraControlsPanel to CameraController slots (setExposure, setBrightness, setContrast, setSaturation) with proper value ranges and signal forwarding
 - [X] T101 [P] [US3] Add QPushButton widgets in CameraControlsPanel for auto white balance (one-click on center of frame), flip horizontal, flip vertical following TileDialog Qt controls pattern
 - [X] T104 [US3] Add persistence of camera settings to QSettings per camera ID via CameraController::saveCameraControls() and restoreCameraControls(), restore on camera selection in CameraControlsPanel::onCameraSelected(), store with key pattern "camera/{cameraId}/controls/{setting}", includes QLabel value indicators for sliders and reduced dialog transparency (alpha 180 background, alpha 60 dim overlay) for visual feedback
-- [ ] T102 [US3] Implement auto white balance by sampling center region of current frame, calculating color correction, applying via QCamera::setColorTemperature()
+- [X] T102 [US3] Implement auto white balance by sampling center region of current frame (10% area), calculating RGB averages, adjusting color temperature (2500K-9000K) based on blue/red ratio, applying via QCamera::setWhiteBalanceMode(Manual) + setColorTemperature()
 - [ ] T103 [US3] Verify <200ms latency for exposure/brightness/contrast/saturation adjustments (SC-004 requirement)
 - [ ] T105 [US3] Test manual controls: verify real-time updates, flip works correctly, white balance corrects color cast
 
