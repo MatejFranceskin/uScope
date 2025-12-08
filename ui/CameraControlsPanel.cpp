@@ -5,6 +5,7 @@
 #include <QFont>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QGridLayout>
 #include <QLabel>
 #include <QWidget>
 #include <QCamera>
@@ -17,13 +18,18 @@ CameraControlsPanel::CameraControlsPanel(CameraController* cameraController,
     , _controller(cameraController)
     , _zoomController(zoomController)
     , _cameraCombo(nullptr)
-    , _formatCombo(nullptr)
+    , _resolutionCombo(nullptr)
+    , _fpsCombo(nullptr)
     , _contentWidget(nullptr)
     , _exposureSlider(nullptr)
     , _brightnessSlider(nullptr)
     , _contrastSlider(nullptr)
     , _saturationSlider(nullptr)
-    , _autoWhiteBalanceBtn(nullptr)
+    , _whiteBalanceSlider(nullptr)
+    , _autoExposureCheck(nullptr)
+    , _autoWhiteBalanceCheck(nullptr)
+    , _autoExposureEnabled(true)
+    , _autoWhiteBalanceEnabled(true)
     , _flipHorizontalBtn(nullptr)
     , _flipVerticalBtn(nullptr)
     , _resetDefaultsBtn(nullptr)
@@ -52,9 +58,8 @@ void CameraControlsPanel::setupUI()
     layout->setSpacing(3);
     
     // Camera selection label
-    QLabel* cameraLabel = new QLabel("Select Camera:");
-    cameraLabel->setFixedHeight(20);
-    cameraLabel->setStyleSheet("color: white; font-weight: bold;");
+    QLabel* cameraLabel = new QLabel("Camera:");
+    cameraLabel->setStyleSheet("color: white;");
     
     // Camera combo box
     _cameraCombo = new QComboBox();
@@ -86,14 +91,9 @@ void CameraControlsPanel::setupUI()
     connect(_cameraCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &CameraControlsPanel::onCameraSelected);
     
-    // Format selection label
-    QLabel* formatLabel = new QLabel("Resolution & Frame Rate:");
-    formatLabel->setFixedHeight(20);
-    formatLabel->setStyleSheet("color: white; font-weight: bold;");
-    
     // Format combo box
-    _formatCombo = new QComboBox();
-    _formatCombo->setStyleSheet(
+    _resolutionCombo = new QComboBox();
+    _resolutionCombo->setStyleSheet(
         "QComboBox {"
         "   background-color: rgba(60, 60, 60, 200);"
         "   color: white;"
@@ -118,13 +118,48 @@ void CameraControlsPanel::setupUI()
         "   selection-background-color: rgba(80, 150, 80, 220);"
         "}"
     );
-    connect(_formatCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &CameraControlsPanel::onFormatSelected);
+    connect(_resolutionCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &CameraControlsPanel::onResolutionSelected);
     
-    // Exposure slider with value label
-    _exposureLabel = new QLabel("Exposure: 100 ms");
+    _fpsCombo = new QComboBox();
+    _fpsCombo->setStyleSheet(
+        "QComboBox { "
+        "   background-color: rgba(60, 60, 60, 200); "
+        "   color: white; "
+        "   border: 1px solid rgba(80, 80, 80, 200); "
+        "   border-radius: 4px; "
+        "   padding: 4px; "
+        "   min-width: 100px; "
+        "} "
+        "QComboBox:hover { "
+        "   background-color: rgba(70, 70, 70, 200); "
+        "   border: 1px solid rgba(100, 100, 100, 200); "
+        "} "
+        "QComboBox::drop-down { "
+        "   border: none; "
+        "} "
+        "QComboBox::down-arrow { "
+        "   image: url(:/icons/down-arrow.png); "
+        "   width: 12px; "
+        "   height: 12px; "
+        "} "
+        "QComboBox QAbstractItemView { "
+        "   background-color: rgba(60, 60, 60, 240); "
+        "   color: white; "
+        "   selection-background-color: rgba(0, 120, 215, 200); "
+        "   border: 1px solid rgba(80, 80, 80, 200); "
+        "} "
+    );
+    connect(_fpsCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &CameraControlsPanel::onFpsSelected);
+    
+    // Exposure slider with separate name and value labels (hidden when auto exposure is on)
+    _exposureLabel = new QLabel("Exposure:");
     _exposureLabel->setStyleSheet("color: white;");
-    _exposureLabel->setFixedHeight(20);
+    _exposureLabel->setVisible(false);  // Hidden when auto exposure is on
+    _exposureValueLabel = new QLabel("100 ms");
+    _exposureValueLabel->setStyleSheet("color: white;");
+    _exposureValueLabel->setVisible(false);  // Hidden when auto exposure is on
     _exposureSlider = new QSlider(Qt::Horizontal);
     _exposureSlider->setRange(10, 1000);  // 10-1000ms
     _exposureSlider->setValue(100);
@@ -132,58 +167,113 @@ void CameraControlsPanel::setupUI()
         "QSlider::groove:horizontal { background: rgba(100, 100, 100, 200); height: 4px; border-radius: 2px; }"
         "QSlider::handle:horizontal { background: rgba(80, 150, 80, 220); width: 12px; margin: -4px 0; border-radius: 6px; }"
     );
+    _exposureSlider->setVisible(false);  // Hidden when auto exposure is on
     connect(_exposureSlider, &QSlider::valueChanged, this, &CameraControlsPanel::onExposureChanged);
     
-    // Brightness slider with value label
-    _brightnessLabel = new QLabel("Brightness: 0");
+    // Auto exposure checkbox
+    _autoExposureCheck = new QCheckBox();
+    _autoExposureCheck->setStyleSheet(
+        "QCheckBox::indicator { "
+        "   width: 18px; "
+        "   height: 18px; "
+        "   border: 2px solid rgba(100, 100, 100, 200); "
+        "   border-radius: 3px; "
+        "   background-color: rgba(60, 60, 60, 200); "
+        "} "
+        "QCheckBox::indicator:checked { "
+        "   background-color: rgba(80, 150, 80, 220); "
+        "   border: 2px solid rgba(80, 150, 80, 220); "
+        "} "
+        "QCheckBox::indicator:hover { "
+        "   border: 2px solid rgba(120, 120, 120, 220); "
+        "}"
+    );
+    _autoExposureCheck->setChecked(true);  // On by default
+    connect(_autoExposureCheck, &QCheckBox::toggled, this, &CameraControlsPanel::onAutoExposureClicked);
+    
+    // Brightness slider with separate name and value labels
+    _brightnessLabel = new QLabel("Brightness:");
     _brightnessLabel->setStyleSheet("color: white;");
-    _brightnessLabel->setFixedHeight(20);
+    _brightnessValueLabel = new QLabel("128");
+    _brightnessValueLabel->setStyleSheet("color: white;");
     _brightnessSlider = new QSlider(Qt::Horizontal);
-    _brightnessSlider->setRange(-100, 100);
-    _brightnessSlider->setValue(0);
+    _brightnessSlider->setRange(0, 255);  // V4L2 brightness range
+    _brightnessSlider->setValue(128);     // Default to middle
     _brightnessSlider->setStyleSheet(
         "QSlider::groove:horizontal { background: rgba(100, 100, 100, 200); height: 4px; border-radius: 2px; }"
         "QSlider::handle:horizontal { background: rgba(80, 150, 80, 220); width: 12px; margin: -4px 0; border-radius: 6px; }"
     );
     connect(_brightnessSlider, &QSlider::valueChanged, this, &CameraControlsPanel::onBrightnessChanged);
     
-    // Contrast slider with value label
-    _contrastLabel = new QLabel("Contrast: 0");
+    // Contrast slider with separate name and value labels
+    _contrastLabel = new QLabel("Contrast:");
     _contrastLabel->setStyleSheet("color: white;");
-    _contrastLabel->setFixedHeight(20);
+    _contrastValueLabel = new QLabel("32");
+    _contrastValueLabel->setStyleSheet("color: white;");
     _contrastSlider = new QSlider(Qt::Horizontal);
-    _contrastSlider->setRange(-100, 100);
-    _contrastSlider->setValue(0);
+    _contrastSlider->setRange(0, 100);  // V4L2 contrast range
+    _contrastSlider->setValue(32);      // Default
     _contrastSlider->setStyleSheet(
         "QSlider::groove:horizontal { background: rgba(100, 100, 100, 200); height: 4px; border-radius: 2px; }"
         "QSlider::handle:horizontal { background: rgba(80, 150, 80, 220); width: 12px; margin: -4px 0; border-radius: 6px; }"
     );
     connect(_contrastSlider, &QSlider::valueChanged, this, &CameraControlsPanel::onContrastChanged);
     
-    // Saturation slider with value label
-    _saturationLabel = new QLabel("Saturation: 0");
+    // Saturation slider with separate name and value labels
+    _saturationLabel = new QLabel("Saturation:");
     _saturationLabel->setStyleSheet("color: white;");
-    _saturationLabel->setFixedHeight(20);
+    _saturationValueLabel = new QLabel("64");
+    _saturationValueLabel->setStyleSheet("color: white;");
     _saturationSlider = new QSlider(Qt::Horizontal);
-    _saturationSlider->setRange(-100, 100);
-    _saturationSlider->setValue(0);
+    _saturationSlider->setRange(0, 100);  // V4L2 saturation range
+    _saturationSlider->setValue(64);      // Default
     _saturationSlider->setStyleSheet(
         "QSlider::groove:horizontal { background: rgba(100, 100, 100, 200); height: 4px; border-radius: 2px; }"
         "QSlider::handle:horizontal { background: rgba(80, 150, 80, 220); width: 12px; margin: -4px 0; border-radius: 6px; }"
     );
     connect(_saturationSlider, &QSlider::valueChanged, this, &CameraControlsPanel::onSaturationChanged);
     
+    // Auto white balance checkbox
+    _autoWhiteBalanceCheck = new QCheckBox();
+    _autoWhiteBalanceCheck->setStyleSheet(
+        "QCheckBox::indicator { "
+        "   width: 18px; "
+        "   height: 18px; "
+        "   border: 2px solid rgba(100, 100, 100, 200); "
+        "   border-radius: 3px; "
+        "   background-color: rgba(60, 60, 60, 200); "
+        "} "
+        "QCheckBox::indicator:checked { "
+        "   background-color: rgba(80, 150, 80, 220); "
+        "   border: 2px solid rgba(80, 150, 80, 220); "
+        "} "
+        "QCheckBox::indicator:hover { "
+        "   border: 2px solid rgba(120, 120, 120, 220); "
+        "}"
+    );
+    _autoWhiteBalanceCheck->setChecked(true);  // On by default
+    connect(_autoWhiteBalanceCheck, &QCheckBox::toggled, this, &CameraControlsPanel::onAutoWhiteBalanceClicked);
+    
+    // White balance temperature slider (2800-6500K, hidden by default when auto WB is on)
+    _whiteBalanceLabel = new QLabel("WB Temp:");
+    _whiteBalanceLabel->setStyleSheet("color: white;");
+    _whiteBalanceLabel->setVisible(false);  // Hidden when auto WB is on
+    _whiteBalanceValueLabel = new QLabel("4600K");
+    _whiteBalanceValueLabel->setStyleSheet("color: white;");
+    _whiteBalanceValueLabel->setVisible(false);  // Hidden when auto WB is on
+    _whiteBalanceSlider = new QSlider(Qt::Horizontal);
+    _whiteBalanceSlider->setRange(2800, 6500);
+    _whiteBalanceSlider->setValue(4600);
+    _whiteBalanceSlider->setStyleSheet(
+        "QSlider::groove:horizontal { background: rgba(100, 100, 100, 200); height: 4px; border-radius: 2px; }"
+        "QSlider::handle:horizontal { background: rgba(80, 150, 80, 220); width: 12px; margin: -4px 0; border-radius: 6px; }"
+    );
+    _whiteBalanceSlider->setVisible(false);  // Hidden when auto WB is on
+    connect(_whiteBalanceSlider, &QSlider::valueChanged, this, &CameraControlsPanel::onWhiteBalanceChanged);
+    
     // Control buttons
     QHBoxLayout* buttonLayout = new QHBoxLayout();
     buttonLayout->setSpacing(5);
-    
-    _autoWhiteBalanceBtn = new QPushButton("Auto WB");
-    _autoWhiteBalanceBtn->setStyleSheet(
-        "QPushButton { background-color: rgba(80, 150, 80, 220); color: white; border-radius: 5px; padding: 5px; }"
-        "QPushButton:hover { background-color: rgba(100, 170, 100, 240); }"
-        "QPushButton:pressed { background-color: rgba(60, 130, 60, 240); }"
-    );
-    connect(_autoWhiteBalanceBtn, &QPushButton::clicked, this, &CameraControlsPanel::onAutoWhiteBalanceClicked);
     
     _flipHorizontalBtn = new QPushButton("Flip H");
     _flipHorizontalBtn->setCheckable(true);
@@ -203,7 +293,7 @@ void CameraControlsPanel::setupUI()
     );
     connect(_flipVerticalBtn, &QPushButton::clicked, this, &CameraControlsPanel::onFlipVerticalClicked);
     
-    _resetDefaultsBtn = new QPushButton("Reset Defaults");
+    _resetDefaultsBtn = new QPushButton("Default");
     _resetDefaultsBtn->setStyleSheet(
         "QPushButton { background-color: rgba(150, 80, 80, 220); color: white; border-radius: 5px; padding: 5px; }"
         "QPushButton:hover { background-color: rgba(170, 100, 100, 240); }"
@@ -211,24 +301,91 @@ void CameraControlsPanel::setupUI()
     );
     connect(_resetDefaultsBtn, &QPushButton::clicked, this, &CameraControlsPanel::onResetDefaultsClicked);
     
-    buttonLayout->addWidget(_autoWhiteBalanceBtn);
     buttonLayout->addWidget(_flipHorizontalBtn);
     buttonLayout->addWidget(_flipVerticalBtn);
     buttonLayout->addWidget(_resetDefaultsBtn);
     
-    // Assemble layout
-    layout->addWidget(cameraLabel);
-    layout->addWidget(_cameraCombo);
-    layout->addWidget(formatLabel);
-    layout->addWidget(_formatCombo);
-    layout->addWidget(_exposureLabel);
-    layout->addWidget(_exposureSlider);
-    layout->addWidget(_brightnessLabel);
-    layout->addWidget(_brightnessSlider);
-    layout->addWidget(_contrastLabel);
-    layout->addWidget(_contrastSlider);
-    layout->addWidget(_saturationLabel);
-    layout->addWidget(_saturationSlider);
+    // Create grid layout for automatic column alignment
+    // Columns: 0=label, 1=value, 2=control
+    QGridLayout* controlsGrid = new QGridLayout();
+    controlsGrid->setColumnStretch(0, 0);  // Label column: no stretch
+    controlsGrid->setColumnStretch(1, 0);  // Value column: no stretch  
+    controlsGrid->setColumnStretch(2, 1);  // Control column: stretch to fill
+    controlsGrid->setHorizontalSpacing(12);  // Space between label/value and control
+    controlsGrid->setVerticalSpacing(12);  // Half of control height (~25px controls)
+    
+    int row = 0;
+    
+    // Camera selection (spans value column since no value label)
+    controlsGrid->addWidget(cameraLabel, row, 0, Qt::AlignLeft);
+    controlsGrid->addWidget(_cameraCombo, row, 1, 1, 2);  // Span columns 1-2
+    row++;
+    
+    // Resolution selection (spans value column since no value label)
+    QLabel* resolutionLabel = new QLabel("Resolution:");
+    resolutionLabel->setStyleSheet("color: white;");
+    controlsGrid->addWidget(resolutionLabel, row, 0, Qt::AlignLeft);
+    controlsGrid->addWidget(_resolutionCombo, row, 1, 1, 2);  // Span columns 1-2
+    row++;
+    
+    // Frame rate selection (spans value column since no value label)
+    QLabel* fpsLabel = new QLabel("Frame Rate:");
+    fpsLabel->setStyleSheet("color: white;");
+    controlsGrid->addWidget(fpsLabel, row, 0, Qt::AlignLeft);
+    controlsGrid->addWidget(_fpsCombo, row, 1, 1, 2);  // Span columns 1-2
+    row++;
+    
+    // Auto exposure checkbox (spans value column)
+    QLabel* autoExposureLabel = new QLabel("Auto Exposure:");
+    autoExposureLabel->setStyleSheet("color: white;");
+    controlsGrid->addWidget(autoExposureLabel, row, 0, Qt::AlignLeft);
+    controlsGrid->addWidget(_autoExposureCheck, row, 1, Qt::AlignLeft);
+    row++;
+    
+    // Exposure slider with value label
+    controlsGrid->addWidget(_exposureLabel, row, 0, Qt::AlignLeft);
+    _exposureValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    controlsGrid->addWidget(_exposureValueLabel, row, 1, Qt::AlignRight);
+    controlsGrid->addWidget(_exposureSlider, row, 2);
+    row++;
+    
+    // Brightness slider with value label
+    controlsGrid->addWidget(_brightnessLabel, row, 0, Qt::AlignLeft);
+    _brightnessValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    controlsGrid->addWidget(_brightnessValueLabel, row, 1, Qt::AlignRight);
+    controlsGrid->addWidget(_brightnessSlider, row, 2);
+    row++;
+    
+    // Contrast slider with value label
+    controlsGrid->addWidget(_contrastLabel, row, 0, Qt::AlignLeft);
+    _contrastValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    controlsGrid->addWidget(_contrastValueLabel, row, 1, Qt::AlignRight);
+    controlsGrid->addWidget(_contrastSlider, row, 2);
+    row++;
+    
+    // Saturation slider with value label
+    controlsGrid->addWidget(_saturationLabel, row, 0, Qt::AlignLeft);
+    _saturationValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    controlsGrid->addWidget(_saturationValueLabel, row, 1, Qt::AlignRight);
+    controlsGrid->addWidget(_saturationSlider, row, 2);
+    row++;
+    
+    // Auto white balance checkbox (spans value column)
+    QLabel* autoWhiteBalanceLabel = new QLabel("Auto WB:");
+    autoWhiteBalanceLabel->setStyleSheet("color: white;");
+    controlsGrid->addWidget(autoWhiteBalanceLabel, row, 0, Qt::AlignLeft);
+    controlsGrid->addWidget(_autoWhiteBalanceCheck, row, 1, Qt::AlignLeft);
+    row++;
+    
+    // White balance slider with value label
+    controlsGrid->addWidget(_whiteBalanceLabel, row, 0, Qt::AlignLeft);
+    _whiteBalanceValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    controlsGrid->addWidget(_whiteBalanceValueLabel, row, 1, Qt::AlignRight);
+    controlsGrid->addWidget(_whiteBalanceSlider, row, 2);
+    row++;
+    
+    // Add grid to main layout
+    layout->addLayout(controlsGrid);
     layout->addLayout(buttonLayout);
     
     // Store reference to content widget
@@ -266,13 +423,21 @@ void CameraControlsPanel::refreshCameras()
         }
         
         _cameraCombo->setCurrentIndex(selectedRow);
+        
+        // Manually trigger camera selection to populate resolutions and FPS
+        // (setCurrentIndex doesn't always trigger the signal)
+        onCameraSelected(selectedRow);
     }
 }
 
 void CameraControlsPanel::onCameraSelected(int index)
 {
+    qDebug() << "CameraControlsPanel::onCameraSelected - index:" << index;
+    
     if (index >= 0 && index < _availableCameras.size()) {
         QString cameraId = _availableCameras[index].id();
+        
+        qDebug() << "CameraControlsPanel::onCameraSelected - cameraId:" << cameraId;
         
         // Restore camera controls from settings for this camera
         _controller->restoreCameraControls(cameraId);
@@ -282,6 +447,9 @@ void CameraControlsPanel::onCameraSelected(int index)
         _brightnessSlider->blockSignals(true);
         _contrastSlider->blockSignals(true);
         _saturationSlider->blockSignals(true);
+        _whiteBalanceSlider->blockSignals(true);
+        _autoExposureCheck->blockSignals(true);
+        _autoWhiteBalanceCheck->blockSignals(true);
         _flipHorizontalBtn->blockSignals(true);
         _flipVerticalBtn->blockSignals(true);
         
@@ -289,104 +457,193 @@ void CameraControlsPanel::onCameraSelected(int index)
         _brightnessSlider->setValue(_controller->brightness());
         _contrastSlider->setValue(_controller->contrast());
         _saturationSlider->setValue(_controller->saturation());
+        _whiteBalanceSlider->setValue(_controller->whiteBalance());
+        _autoExposureCheck->setChecked(_controller->autoExposure());
+        _autoWhiteBalanceCheck->setChecked(_controller->autoWhiteBalance());
         _flipHorizontalBtn->setChecked(_controller->flipHorizontal());
         _flipVerticalBtn->setChecked(_controller->flipVertical());
         
-        // Update labels
-        _exposureLabel->setText(QString("Exposure: %1 ms").arg(_controller->exposure()));
-        _brightnessLabel->setText(QString("Brightness: %1").arg(_controller->brightness()));
-        _contrastLabel->setText(QString("Contrast: %1").arg(_controller->contrast()));
-        _saturationLabel->setText(QString("Saturation: %1").arg(_controller->saturation()));
+        // Update value labels
+        _exposureValueLabel->setText(QString("%1 ms").arg(_controller->exposure()));
+        _brightnessValueLabel->setText(QString("%1").arg(_controller->brightness()));
+        _contrastValueLabel->setText(QString("%1").arg(_controller->contrast()));
+        _saturationValueLabel->setText(QString("%1").arg(_controller->saturation()));
+        _whiteBalanceValueLabel->setText(QString("%1K").arg(_controller->whiteBalance()));
+        
+        // Update visibility of exposure and white balance sliders based on auto modes
+        _autoExposureEnabled = _controller->autoExposure();
+        _autoWhiteBalanceEnabled = _controller->autoWhiteBalance();
+        _exposureLabel->setVisible(!_autoExposureEnabled);
+        _exposureValueLabel->setVisible(!_autoExposureEnabled);
+        _exposureSlider->setVisible(!_autoExposureEnabled);
+        _whiteBalanceLabel->setVisible(!_autoWhiteBalanceEnabled);
+        _whiteBalanceValueLabel->setVisible(!_autoWhiteBalanceEnabled);
+        _whiteBalanceSlider->setVisible(!_autoWhiteBalanceEnabled);
         
         _exposureSlider->blockSignals(false);
         _brightnessSlider->blockSignals(false);
         _contrastSlider->blockSignals(false);
         _saturationSlider->blockSignals(false);
+        _whiteBalanceSlider->blockSignals(false);
+        _autoExposureCheck->blockSignals(false);
+        _autoWhiteBalanceCheck->blockSignals(false);
         _flipHorizontalBtn->blockSignals(false);
         _flipVerticalBtn->blockSignals(false);
         
-        // Get available formats for this camera
-        _availableFormats = _controller->availableFormats(cameraId);
+        // Get available resolutions for this camera
+        _availableResolutions = _controller->availableResolutions(cameraId);
         
-        // Populate format combo
-        _formatCombo->clear();
+        // Block resolution combo signals while populating
+        _resolutionCombo->blockSignals(true);
         
-        if (_availableFormats.isEmpty()) {
-            _formatCombo->addItem("No formats available");
+        // Populate resolution combo
+        _resolutionCombo->clear();
+        
+        int selectedIndex = 0;  // Declare outside if-else for later use
+        
+        if (_availableResolutions.isEmpty()) {
+            _resolutionCombo->addItem("No resolutions available");
+            _fpsCombo->clear();
+            _fpsCombo->addItem("No frame rates available");
         } else {
-            // Sort formats: higher resolution first, then higher frame rate
-            std::sort(_availableFormats.begin(), _availableFormats.end(), 
-                [](const QCameraFormat& a, const QCameraFormat& b) {
-                    QSize resA = a.resolution();
-                    QSize resB = b.resolution();
-                    int pixelsA = resA.width() * resA.height();
-                    int pixelsB = resB.width() * resB.height();
-                    
-                    if (pixelsA != pixelsB) {
-                        return pixelsA > pixelsB;  // Higher resolution first
-                    }
-                    return a.maxFrameRate() > b.maxFrameRate();  // Higher fps first
+            // Sort resolutions: higher resolution first
+            std::sort(_availableResolutions.begin(), _availableResolutions.end(), 
+                [](const QSize& a, const QSize& b) {
+                    int pixelsA = a.width() * a.height();
+                    int pixelsB = b.width() * b.height();
+                    return pixelsA > pixelsB;  // Higher resolution first
                 });
             
-            // Get current format if camera is active
-            QCameraFormat currentFormat = _controller->currentFormat();
-            int selectedIndex = 0;
+            // Get saved resolution for this camera, or current resolution if active
+            QSize savedResolution = _controller->getSavedResolution(cameraId);
+            QSize currentResolution = _controller->currentResolution();
+            QSize preferredResolution = savedResolution.isValid() ? savedResolution : currentResolution;
             
-            for (int i = 0; i < _availableFormats.size(); ++i) {
-                const QCameraFormat& format = _availableFormats[i];
-                QSize resolution = format.resolution();
-                qreal fps = format.maxFrameRate();
+            for (int i = 0; i < _availableResolutions.size(); ++i) {
+                const QSize& resolution = _availableResolutions[i];
                 
-                QString formatText = QString("%1x%2 @ %3 fps")
+                QString formatText = QString("%1x%2")
                     .arg(resolution.width())
-                    .arg(resolution.height())
-                    .arg(fps, 0, 'f', 0);
+                    .arg(resolution.height());
                 
-                _formatCombo->addItem(formatText);
+                _resolutionCombo->addItem(formatText);
                 
-                // Check if this matches the current format
-                if (!currentFormat.isNull() &&
-                    currentFormat.resolution() == resolution &&
-                    qAbs(currentFormat.maxFrameRate() - fps) < 0.1) {
+                // Check if this matches the preferred resolution
+                if (preferredResolution.isValid() &&
+                    preferredResolution == resolution) {
                     selectedIndex = i;
                 }
             }
             
-            // Select current format or first one
-            _formatCombo->setCurrentIndex(selectedIndex);
+            // Select preferred resolution or first one
+            _resolutionCombo->setCurrentIndex(selectedIndex);
+        }
+        
+        // Unblock resolution combo signals
+        _resolutionCombo->blockSignals(false);
+        
+        // Populate FPS combo for the selected resolution and start camera if needed
+        if (selectedIndex >= 0 && selectedIndex < _availableResolutions.size()) {
+            // Check if we need to switch cameras
+            bool needsCameraSwitch = !_controller->isActive() || 
+                                     _controller->currentCameraId() != cameraId;
+            
+            if (needsCameraSwitch) {
+                // Populate FPS combo then start the camera
+                onResolutionSelected(selectedIndex);
+                // onResolutionSelected will call onFpsSelected which starts the camera
+            } else {
+                // Just update the FPS combo, don't restart camera
+                onResolutionSelected(selectedIndex);
+            }
         }
     }
 }
 
-void CameraControlsPanel::onFormatSelected(int index)
+void CameraControlsPanel::onResolutionSelected(int index)
 {
-    if (index >= 0 && index < _availableFormats.size()) {
+    if (index >= 0 && index < _availableResolutions.size()) {
+        QSize resolution = _availableResolutions[index];
+        
+        // Update frame rate combo for this resolution
         int cameraIndex = _cameraCombo->currentIndex();
         if (cameraIndex >= 0 && cameraIndex < _availableCameras.size()) {
             QString cameraId = _availableCameras[cameraIndex].id();
-            QCameraFormat format = _availableFormats[index];
             
-            // Check if this is already the current camera and format
+            _fpsCombo->blockSignals(true);
+            _fpsCombo->clear();
+            
+            _availableFrameRates = _controller->availableFrameRates(cameraId, resolution);
+            
+            if (_availableFrameRates.isEmpty()) {
+                _fpsCombo->addItem("No frame rates available");
+            } else {
+                double currentFps = _controller->currentFrameRate();
+                int selectedFpsIndex = 0;
+                
+                for (int i = 0; i < _availableFrameRates.size(); ++i) {
+                    double fps = _availableFrameRates[i];
+                    QString fpsText = QString("%1 fps").arg(fps, 0, 'f', fps == static_cast<int>(fps) ? 0 : 1);
+                    _fpsCombo->addItem(fpsText);
+                    
+                    if (qAbs(currentFps - fps) < 0.1) {
+                        selectedFpsIndex = i;
+                    }
+                }
+                
+                _fpsCombo->setCurrentIndex(selectedFpsIndex);
+            }
+            
+            _fpsCombo->blockSignals(false);
+            
+            // Trigger FPS selection to apply the change
+            // (only if FPS combo has valid selection)
+            if (_fpsCombo->currentIndex() >= 0 && !_availableFrameRates.isEmpty()) {
+                onFpsSelected(_fpsCombo->currentIndex());
+            }
+        }
+    }
+}
+
+void CameraControlsPanel::onFpsSelected(int index)
+{
+    if (index >= 0 && index < _availableFrameRates.size()) {
+        int cameraIndex = _cameraCombo->currentIndex();
+        int resIndex = _resolutionCombo->currentIndex();
+        
+        if (cameraIndex >= 0 && cameraIndex < _availableCameras.size() &&
+            resIndex >= 0 && resIndex < _availableResolutions.size()) {
+            
+            QString cameraId = _availableCameras[cameraIndex].id();
+            QSize resolution = _availableResolutions[resIndex];
+            double frameRate = _availableFrameRates[index];
+            
+            // Check if this is already the current camera, resolution and frame rate
             if (_controller->isActive() && 
-                _controller->currentCameraId() == cameraId &&
-                !_controller->currentFormat().isNull()) {
-                QCameraFormat currentFormat = _controller->currentFormat();
-                if (currentFormat.resolution() == format.resolution() &&
-                    qAbs(currentFormat.maxFrameRate() - format.maxFrameRate()) < 0.1) {
-                    // Already on this camera and format, don't restart or save
-                    qDebug() << "CameraControlsPanel::onFormatSelected - already on this camera/format, skipping";
-                    return;
+                _controller->currentCameraId() == cameraId) {
+                
+                // Same camera - check if resolution and fps are also the same
+                if (_controller->currentResolution() == resolution) {
+                    double currentFps = _controller->currentFrameRate();
+                    if (qAbs(currentFps - frameRate) < 0.1) {
+                        // Already on this camera/resolution/fps, don't restart
+                        qDebug() << "CameraControlsPanel::onFpsSelected - already on this configuration, skipping";
+                        return;
+                    }
                 }
             }
             
-            // User is changing to a different camera/format - save and start
-            qDebug() << "CameraControlsPanel::onFormatSelected - switching to camera:" << cameraId << "format:" << format.resolution();
+            // User is changing configuration - save and start
+            qDebug() << "CameraControlsPanel::onFpsSelected - switching to camera:" << cameraId << "resolution:" << resolution << "@" << frameRate << "fps";
             
-            // Save the user's selection immediately
-            _controller->saveCameraSelection(cameraId, format);
+            // Save the user's selection
+            _controller->saveCameraSelection(cameraId, resolution);
             
-            // Start camera with selected format
-            _controller->startCamera(cameraId, format);
+            // Start camera with selected resolution and frame rate
+            _controller->startCamera(cameraId, resolution, frameRate);
+            
+            // Save camera controls (including resolution) for this camera
+            _controller->saveCameraControls(cameraId);
             
             // Apply fit-to-width zoom for new camera
             if (_zoomController) {
@@ -420,32 +677,82 @@ void CameraControlsPanel::paint(QPainter* painter, const QStyleOptionGraphicsIte
 // Camera control slots (T100)
 void CameraControlsPanel::onExposureChanged(int value)
 {
-    _exposureLabel->setText(QString("Exposure: %1 ms").arg(value));
+    _exposureValueLabel->setText(QString("%1 ms").arg(value));
     _controller->setExposure(static_cast<qreal>(value));
 }
 
 void CameraControlsPanel::onBrightnessChanged(int value)
 {
-    _brightnessLabel->setText(QString("Brightness: %1").arg(value));
+    _brightnessValueLabel->setText(QString("%1").arg(value));
     _controller->setBrightness(value);
 }
 
 void CameraControlsPanel::onContrastChanged(int value)
 {
-    _contrastLabel->setText(QString("Contrast: %1").arg(value));
+    _contrastValueLabel->setText(QString("%1").arg(value));
     _controller->setContrast(value);
 }
 
 void CameraControlsPanel::onSaturationChanged(int value)
 {
-    _saturationLabel->setText(QString("Saturation: %1").arg(value));
+    _saturationValueLabel->setText(QString("%1").arg(value));
     _controller->setSaturation(value);
+}
+
+void CameraControlsPanel::onWhiteBalanceChanged(int value)
+{
+    _whiteBalanceValueLabel->setText(QString("%1K").arg(value));
+    _controller->setWhiteBalance(value);
+}
+
+void CameraControlsPanel::onAutoExposureClicked()
+{
+    // Get checkbox state
+    _autoExposureEnabled = _autoExposureCheck->isChecked();
+    _controller->setAutoExposure(_autoExposureEnabled);
+    
+    // If disabling auto mode, set to a reasonable default value
+    // (Camera doesn't expose the actual auto exposure value via OpenCV)
+    if (!_autoExposureEnabled) {
+        int defaultExposure = 100;  // 100ms is a good starting point
+        _exposureSlider->blockSignals(true);
+        _exposureSlider->setValue(defaultExposure);
+        _exposureValueLabel->setText(QString("%1 ms").arg(defaultExposure));
+        _exposureSlider->blockSignals(false);
+        
+        // Apply the value to ensure camera uses it
+        _controller->setExposure(static_cast<qreal>(defaultExposure));
+    }
+    
+    // Show/hide exposure slider (visible when auto is OFF)
+    _exposureLabel->setVisible(!_autoExposureEnabled);
+    _exposureValueLabel->setVisible(!_autoExposureEnabled);
+    _exposureSlider->setVisible(!_autoExposureEnabled);
 }
 
 void CameraControlsPanel::onAutoWhiteBalanceClicked()
 {
-    // Auto white balance - sample center region and adjust color temperature
-    _controller->autoWhiteBalance();
+    // Get checkbox state
+    _autoWhiteBalanceEnabled = _autoWhiteBalanceCheck->isChecked();
+    _controller->setAutoWhiteBalance(_autoWhiteBalanceEnabled);
+    
+    // If disabling auto mode, set to a reasonable default value
+    // (Camera doesn't expose the actual auto WB value via OpenCV)
+    if (!_autoWhiteBalanceEnabled) {
+        int defaultWhiteBalance = 4600;  // 4600K is neutral daylight
+        _whiteBalanceSlider->blockSignals(true);
+        _whiteBalanceSlider->setValue(defaultWhiteBalance);
+        _whiteBalanceValueLabel->setText(QString("%1K").arg(defaultWhiteBalance));
+        _whiteBalanceSlider->blockSignals(false);
+        
+        // Apply the value to ensure camera uses it
+        _controller->setWhiteBalance(defaultWhiteBalance);
+    }
+    
+    // Show/hide white balance temperature slider (visible when auto is OFF)
+    _whiteBalanceLabel->setVisible(!_autoWhiteBalanceEnabled);
+    _whiteBalanceValueLabel->setVisible(!_autoWhiteBalanceEnabled);
+    _whiteBalanceSlider->setVisible(!_autoWhiteBalanceEnabled);
 }
 
 void CameraControlsPanel::onFlipHorizontalClicked()
@@ -460,21 +767,93 @@ void CameraControlsPanel::onFlipVerticalClicked()
 
 void CameraControlsPanel::onResetDefaultsClicked()
 {
-    // Reset all sliders to default values
-    _exposureSlider->setValue(100);      // Default exposure 100ms
-    _brightnessSlider->setValue(0);      // Default brightness 0
-    _contrastSlider->setValue(0);        // Default contrast 0
-    _saturationSlider->setValue(0);      // Default saturation 0
+    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - starting";
     
-    // Labels are updated automatically via valueChanged signals
+    // Block signals to avoid triggering handlers during reset
+    if (_cameraCombo) _cameraCombo->blockSignals(true);
+    if (_resolutionCombo) _resolutionCombo->blockSignals(true);
+    if (_fpsCombo) _fpsCombo->blockSignals(true);
+    if (_autoExposureCheck) _autoExposureCheck->blockSignals(true);
+    if (_autoWhiteBalanceCheck) _autoWhiteBalanceCheck->blockSignals(true);
+    if (_exposureSlider) _exposureSlider->blockSignals(true);
+    if (_brightnessSlider) _brightnessSlider->blockSignals(true);
+    if (_contrastSlider) _contrastSlider->blockSignals(true);
+    if (_saturationSlider) _saturationSlider->blockSignals(true);
+    if (_whiteBalanceSlider) _whiteBalanceSlider->blockSignals(true);
+    
+    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - signals blocked";
+    
+    // Re-enable auto modes for best default behavior
+    _autoExposureEnabled = true;
+    _autoWhiteBalanceEnabled = true;
+    
+    // Update checkboxes
+    if (_autoExposureCheck) _autoExposureCheck->setChecked(true);
+    if (_autoWhiteBalanceCheck) _autoWhiteBalanceCheck->setChecked(true);
+    
+    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - checkboxes updated";
+    
+    // Hide exposure and white balance sliders (auto modes are on)
+    if (_exposureLabel) _exposureLabel->setVisible(false);
+    if (_exposureValueLabel) _exposureValueLabel->setVisible(false);
+    if (_exposureSlider) _exposureSlider->setVisible(false);
+    if (_whiteBalanceLabel) _whiteBalanceLabel->setVisible(false);
+    if (_whiteBalanceValueLabel) _whiteBalanceValueLabel->setVisible(false);
+    if (_whiteBalanceSlider) _whiteBalanceSlider->setVisible(false);
+    
+    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - sliders hidden";
+    
+    // Reset all sliders to default values
+    if (_exposureSlider) _exposureSlider->setValue(100);      // Default exposure 100ms
+    if (_brightnessSlider) _brightnessSlider->setValue(128);    // Default brightness (middle of 0-255)
+    if (_contrastSlider) _contrastSlider->setValue(32);       // Default contrast
+    if (_saturationSlider) _saturationSlider->setValue(64);     // Default saturation
+    if (_whiteBalanceSlider) _whiteBalanceSlider->setValue(4600); // Default WB temperature
+    
+    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - slider values set";
+    
+    // Update value labels manually since signals are blocked
+    if (_exposureValueLabel) _exposureValueLabel->setText("100 ms");
+    if (_brightnessValueLabel) _brightnessValueLabel->setText("128");
+    if (_contrastValueLabel) _contrastValueLabel->setText("32");
+    if (_saturationValueLabel) _saturationValueLabel->setText("64");
+    if (_whiteBalanceValueLabel) _whiteBalanceValueLabel->setText("4600K");
+    
+    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - labels updated";
     
     // Reset flip buttons
-    _flipHorizontalBtn->setChecked(false);
-    _flipVerticalBtn->setChecked(false);
-    _controller->setFlipHorizontal(false);
-    _controller->setFlipVertical(false);
+    if (_flipHorizontalBtn) _flipHorizontalBtn->setChecked(false);
+    if (_flipVerticalBtn) _flipVerticalBtn->setChecked(false);
     
-    // Set auto white balance
-    _controller->setWhiteBalance(static_cast<int>(QCamera::WhiteBalanceAuto));
+    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - flip buttons reset";
+    
+    // Unblock signals
+    if (_cameraCombo) _cameraCombo->blockSignals(false);
+    if (_resolutionCombo) _resolutionCombo->blockSignals(false);
+    if (_fpsCombo) _fpsCombo->blockSignals(false);
+    if (_autoExposureCheck) _autoExposureCheck->blockSignals(false);
+    if (_autoWhiteBalanceCheck) _autoWhiteBalanceCheck->blockSignals(false);
+    if (_exposureSlider) _exposureSlider->blockSignals(false);
+    if (_brightnessSlider) _brightnessSlider->blockSignals(false);
+    if (_contrastSlider) _contrastSlider->blockSignals(false);
+    if (_saturationSlider) _saturationSlider->blockSignals(false);
+    if (_whiteBalanceSlider) _whiteBalanceSlider->blockSignals(false);
+    
+    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - signals unblocked";
+    
+    // Now apply settings to controller
+    if (_controller) {
+        qDebug() << "CameraControlsPanel::onResetDefaultsClicked - applying to controller";
+        _controller->setAutoExposure(true);
+        _controller->setAutoWhiteBalance(true);
+        _controller->setBrightness(128);
+        _controller->setContrast(32);
+        _controller->setSaturation(64);
+        _controller->setFlipHorizontal(false);
+        _controller->setFlipVertical(false);
+        qDebug() << "CameraControlsPanel::onResetDefaultsClicked - controller updated";
+    }
+    
+    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - completed";
 }
 

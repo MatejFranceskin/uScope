@@ -1,19 +1,17 @@
 #include "CameraService.h"
+#include "CaptureThread.h"
 #include <QMediaDevices>
 #include <QCameraDevice>
-#include <QCameraFormat>
+#include <QDebug>
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
 
 CameraService::CameraService(QObject* parent)
     : QObject(parent)
-    , _camera(nullptr)
-    , _captureSession(nullptr)
     , _videoSink(nullptr)
+    , _captureThread(nullptr)
 {
-    _captureSession = new QMediaCaptureSession(this);
     _videoSink = new QVideoSink(this);
-    
-    connect(_videoSink, &QVideoSink::videoFrameChanged, 
-            this, &CameraService::onVideoFrameChanged);
 }
 
 CameraService::~CameraService()
@@ -44,135 +42,236 @@ QList<CameraProfile> CameraService::enumerateCameras()
     return cameras;
 }
 
-QList<QCameraFormat> CameraService::availableFormats(const QString& cameraId)
+QList<QSize> CameraService::availableResolutions(const QString& cameraId)
 {
-    const QList<QCameraDevice> devices = QMediaDevices::videoInputs();
+    QList<QSize> resolutions;
+    QSet<QSize> uniqueResolutions;  // To avoid duplicates
     
+    // Find the camera device
+    const QList<QCameraDevice> devices = QMediaDevices::videoInputs();
     for (const QCameraDevice& device : devices) {
         if (device.id() == cameraId.toUtf8()) {
-            return device.videoFormats();
+            // Get all video formats
+            const QList<QCameraFormat> formats = device.videoFormats();
+            for (const QCameraFormat& format : formats) {
+                QSize resolution = format.resolution();
+                if (resolution.isValid() && !uniqueResolutions.contains(resolution)) {
+                    uniqueResolutions.insert(resolution);
+                    resolutions.append(resolution);
+                }
+            }
+            break;
         }
     }
     
-    return QList<QCameraFormat>();
+    // If no formats found, provide common fallback resolutions
+    if (resolutions.isEmpty()) {
+        resolutions << QSize(640, 480)
+                    << QSize(800, 600)
+                    << QSize(1280, 720)
+                    << QSize(1920, 1080);
+    }
+    
+    return resolutions;
 }
 
-QCameraFormat CameraService::currentFormat() const
+QList<double> CameraService::availableFrameRates(const QString& cameraId, const QSize& resolution)
 {
-    if (_camera) {
-        return _camera->cameraFormat();
+    QList<double> frameRates;
+    QSet<double> uniqueRates;  // To avoid duplicates
+    
+    // Find the camera device
+    const QList<QCameraDevice> devices = QMediaDevices::videoInputs();
+    for (const QCameraDevice& device : devices) {
+        if (device.id() == cameraId.toUtf8()) {
+            // Get all video formats matching this resolution
+            const QList<QCameraFormat> formats = device.videoFormats();
+            for (const QCameraFormat& format : formats) {
+                if (format.resolution() == resolution) {
+                    // We use MJPEG in OpenCV (fourcc 'MJPG'), so filter for Motion-JPEG formats
+                    // Qt's QVideoFrameFormat::Format_Jpeg corresponds to MJPEG
+                    QVideoFrameFormat::PixelFormat pixelFormat = format.pixelFormat();
+                    
+                    qDebug() << "CameraService::availableFrameRates - resolution:" << resolution 
+                             << "pixelFormat:" << pixelFormat 
+                             << "fps:" << format.minFrameRate() << "-" << format.maxFrameRate();
+                    
+                    // Only include MJPEG/JPEG formats since that's what we configure in startCamera
+                    if (pixelFormat == QVideoFrameFormat::Format_Jpeg) {
+                        double minFps = format.minFrameRate();
+                        double maxFps = format.maxFrameRate();
+                        
+                        // Add the max frame rate (most useful)
+                        if (maxFps > 0 && !uniqueRates.contains(maxFps)) {
+                            uniqueRates.insert(maxFps);
+                            frameRates.append(maxFps);
+                        }
+                        
+                        // Also add min if it's different
+                        if (minFps > 0 && minFps != maxFps && !uniqueRates.contains(minFps)) {
+                            uniqueRates.insert(minFps);
+                            frameRates.append(minFps);
+                        }
+                    }
+                }
+            }
+            break;
+        }
     }
-    return QCameraFormat();
+    
+    // Sort in descending order (highest FPS first)
+    std::sort(frameRates.begin(), frameRates.end(), std::greater<double>());
+    
+    // If no MJPEG frame rates found, fall back to 30fps (most common for MJPEG)
+    if (frameRates.isEmpty()) {
+        frameRates << 30.0;
+    }
+    
+    return frameRates;
+}
+
+QSize CameraService::currentResolution() const
+{
+    return _currentResolution;
+}
+
+double CameraService::currentFrameRate() const
+{
+    return _currentFrameRate;
 }
 
 bool CameraService::startCamera(const QString& cameraId)
 {
-    stopCamera();
-    
-    // Find camera device by ID
-    const QList<QCameraDevice> devices = QMediaDevices::videoInputs();
-    QCameraDevice selectedDevice;
-    
-    for (const QCameraDevice& device : devices) {
-        if (device.id() == cameraId.toUtf8()) {
-            selectedDevice = device;
-            break;
-        }
-    }
-    
-    if (selectedDevice.isNull()) {
-        emit error(QString("Camera not found: %1").arg(cameraId));
-        return false;
-    }
-    
-    // Create camera instance
-    _camera = new QCamera(selectedDevice, this);
-    
-    // Connect error signal
-    connect(_camera, &QCamera::errorOccurred, 
-            this, &CameraService::onCameraErrorOccurred);
-    
-    // Configure capture session
-    _captureSession->setCamera(_camera);
-    _captureSession->setVideoSink(_videoSink);
-    
-    // Start camera
-    _camera->start();
-    
-    if (_camera->isActive()) {
-        _currentCameraId = cameraId;
-        emit cameraConnected(cameraId, selectedDevice.description());
-        return true;
-    } else {
-        delete _camera;
-        _camera = nullptr;
-        emit error("Failed to start camera");
-        return false;
-    }
+    return startCamera(cameraId, QSize(1280, 720), 30.0);  // Default to 720p @ 30fps
 }
 
-bool CameraService::startCamera(const QString& cameraId, const QCameraFormat& format)
+bool CameraService::startCamera(const QString& cameraId, const QSize& resolution, double frameRate)
 {
-    stopCamera();
+    // Check if we're restarting the same camera (just changing resolution/fps)
+    bool isRestart = (_currentCameraId == cameraId && _cvCapture.isOpened());
     
-    qDebug() << "CameraService::startCamera - requested format:" << format.resolution() << "@" << format.maxFrameRate();
+    // Stop current camera silently (don't emit disconnect since we're starting another)
+    // User is intentionally switching cameras, not experiencing a disconnect
+    if (_captureThread && _captureThread->isRunning()) {
+        _captureThread->stop();
+        _captureThread->wait(1000);
+        delete _captureThread;
+        _captureThread = nullptr;
+    }
+    if (_cvCapture.isOpened()) {
+        _cvCapture.release();
+        // Don't emit disconnect - we're switching cameras intentionally
+        _currentCameraId.clear();
+    }
     
-    // Find camera device by ID
+    qDebug() << "CameraService::startCamera - requested resolution:" << resolution << "@" << frameRate << "fps";
+    
+    // Extract camera index from device ID (e.g., "/dev/video0" -> 0)
+    int cameraIndex = getCameraIndex(cameraId);
+    if (cameraIndex < 0) {
+        emit error(QString("Invalid camera ID: %1").arg(cameraId));
+        return false;
+    }
+    
+    // Open camera with OpenCV using V4L2 backend directly
+    if (!_cvCapture.open(cameraIndex, cv::CAP_V4L2)) {
+        emit error(QString("Failed to open camera index %1").arg(cameraIndex));
+        return false;
+    }
+    
+    // Set MJPEG format for 30fps (YUYV is limited to 10fps at 720p)
+    _cvCapture.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
+    
+    // Request RGB format directly from decoder (avoid BGR->RGB conversion)
+    _cvCapture.set(cv::CAP_PROP_CONVERT_RGB, 1);
+    
+    // Set resolution
+    _cvCapture.set(cv::CAP_PROP_FRAME_WIDTH, resolution.width());
+    _cvCapture.set(cv::CAP_PROP_FRAME_HEIGHT, resolution.height());
+    
+    // Set requested frame rate
+    _cvCapture.set(cv::CAP_PROP_FPS, frameRate);
+    
+    // Try different auto exposure settings
+    // 1 = manual mode, 3 = aperture priority mode
+    qDebug() << "CameraService::startCamera - current auto_exposure:" << _cvCapture.get(cv::CAP_PROP_AUTO_EXPOSURE);
+    _cvCapture.set(cv::CAP_PROP_AUTO_EXPOSURE, 3);  // Try aperture priority
+    qDebug() << "CameraService::startCamera - auto_exposure after setting to 3:" << _cvCapture.get(cv::CAP_PROP_AUTO_EXPOSURE);
+    
+    // Try to read a test frame to verify camera is working
+    cv::Mat testFrame;
+    if (!_cvCapture.read(testFrame) || testFrame.empty()) {
+        _cvCapture.release();
+        emit error(QString("Camera opened but cannot read frames from index %1").arg(cameraIndex));
+        return false;
+    }
+    
+    // Read back actual resolution and fps
+    double actualWidth = _cvCapture.get(cv::CAP_PROP_FRAME_WIDTH);
+    double actualHeight = _cvCapture.get(cv::CAP_PROP_FRAME_HEIGHT);
+    double actualFps = _cvCapture.get(cv::CAP_PROP_FPS);
+    
+    _currentResolution = QSize(static_cast<int>(actualWidth), static_cast<int>(actualHeight));
+    _currentFrameRate = actualFps;
+    _currentCameraId = cameraId;
+    
+    qDebug() << "CameraService::startCamera - actual resolution:" << _currentResolution << "@" << actualFps << "fps";
+    qDebug() << "CameraService::startCamera - format:" << _cvCapture.get(cv::CAP_PROP_FOURCC);
+    qDebug() << "CameraService::startCamera - test frame channels:" << testFrame.channels() << "type:" << testFrame.type();
+    
+    // Set all controls to automatic for best default image quality
+    _cvCapture.set(cv::CAP_PROP_AUTO_EXPOSURE, 3);  // Aperture priority mode
+    _cvCapture.set(cv::CAP_PROP_AUTO_WB, 1);        // Auto white balance
+    _cvCapture.set(cv::CAP_PROP_AUTOFOCUS, 1);      // Auto focus (if supported)
+    
+    // Set default values for manual controls
+    _cvCapture.set(cv::CAP_PROP_BRIGHTNESS, 128);   // Default brightness
+    _cvCapture.set(cv::CAP_PROP_CONTRAST, 32);      // Default contrast  
+    _cvCapture.set(cv::CAP_PROP_SATURATION, 64);    // Default saturation
+    
+    qDebug() << "CameraService::startCamera - auto_exposure:" << _cvCapture.get(cv::CAP_PROP_AUTO_EXPOSURE);
+    qDebug() << "CameraService::startCamera - auto_wb:" << _cvCapture.get(cv::CAP_PROP_AUTO_WB);
+    qDebug() << "CameraService::startCamera - brightness:" << _cvCapture.get(cv::CAP_PROP_BRIGHTNESS);
+    qDebug() << "CameraService::startCamera - contrast:" << _cvCapture.get(cv::CAP_PROP_CONTRAST);
+    qDebug() << "CameraService::startCamera - saturation:" << _cvCapture.get(cv::CAP_PROP_SATURATION);
+    
+    // Process the test frame to display it immediately
+    processFrame(testFrame);
+    
+    // Start capture thread for continuous frame reading
+    _captureThread = new CaptureThread(&_cvCapture, this);
+    connect(_captureThread, &CaptureThread::frameCaptured, 
+            this, &CameraService::onFrameCaptured);
+    _captureThread->start();
+    
+    // Find camera name for signal
+    QString cameraName = cameraId;
     const QList<QCameraDevice> devices = QMediaDevices::videoInputs();
-    QCameraDevice selectedDevice;
-    
     for (const QCameraDevice& device : devices) {
         if (device.id() == cameraId.toUtf8()) {
-            selectedDevice = device;
+            cameraName = device.description();
             break;
         }
     }
     
-    if (selectedDevice.isNull()) {
-        emit error(QString("Camera not found: %1").arg(cameraId));
-        return false;
+    // Only emit connected signal if this is not a restart
+    if (!isRestart) {
+        emit cameraConnected(cameraId, cameraName);
     }
-    
-    // Create camera instance
-    _camera = new QCamera(selectedDevice, this);
-    
-    // Set the specific format
-    _camera->setCameraFormat(format);
-    qDebug() << "CameraService::startCamera - format set, camera format is now:" << _camera->cameraFormat().resolution() << "@" << _camera->cameraFormat().maxFrameRate();
-    
-    // Connect error signal
-    connect(_camera, &QCamera::errorOccurred, 
-            this, &CameraService::onCameraErrorOccurred);
-    
-    // Configure capture session
-    _captureSession->setCamera(_camera);
-    _captureSession->setVideoSink(_videoSink);
-    
-    // Start camera
-    _camera->start();
-    
-    qDebug() << "CameraService::startCamera - camera started, active:" << _camera->isActive();
-    qDebug() << "CameraService::startCamera - camera format after start:" << _camera->cameraFormat().resolution() << "@" << _camera->cameraFormat().maxFrameRate();
-    
-    if (_camera->isActive()) {
-        _currentCameraId = cameraId;
-        emit cameraConnected(cameraId, selectedDevice.description());
-        return true;
-    } else {
-        delete _camera;
-        _camera = nullptr;
-        emit error("Failed to start camera");
-        return false;
-    }
+    return true;
 }
 
 void CameraService::stopCamera()
 {
-    if (_camera) {
-        _camera->stop();
-        _captureSession->setCamera(nullptr);
-        delete _camera;
-        _camera = nullptr;
+    if (_captureThread && _captureThread->isRunning()) {
+        _captureThread->stop();
+        _captureThread->wait(1000);  // Wait up to 1 second
+        delete _captureThread;
+        _captureThread = nullptr;
+    }
+    
+    if (_cvCapture.isOpened()) {
+        _cvCapture.release();
         
         if (!_currentCameraId.isEmpty()) {
             emit cameraDisconnected(_currentCameraId);
@@ -183,47 +282,124 @@ void CameraService::stopCamera()
 
 bool CameraService::isActive() const
 {
-    return _camera && _camera->isActive();
+    return _cvCapture.isOpened() && _captureThread && _captureThread->isRunning();
 }
 
 QImage CameraService::captureFrame()
 {
-    if (_lastFrame.isValid()) {
-        return _lastFrame.toImage();
+    if (!_cvCapture.isOpened()) {
+        return QImage();
     }
+    
+    cv::Mat frame;
+    if (_cvCapture.read(frame) && !frame.empty()) {
+        // Convert BGR to RGB
+        cv::Mat rgbFrame;
+        cv::cvtColor(frame, rgbFrame, cv::COLOR_BGR2RGB);
+        
+        // Convert to QImage
+        QImage image(rgbFrame.data, rgbFrame.cols, rgbFrame.rows, 
+                     rgbFrame.step, QImage::Format_RGB888);
+        return image.copy();  // Deep copy to avoid data invalidation
+    }
+    
     return QImage();
 }
 
-void CameraService::onVideoFrameChanged(const QVideoFrame& frame)
+// Slot called when capture thread emits a new frame
+void CameraService::onFrameCaptured(const cv::Mat& frame)
 {
-    if (frame.isValid()) {
-        _lastFrame = frame;
-        
+    processFrame(frame);
+}
+
+// T105c1: Process frame from any capture source (OpenCV, libgphoto2, etc.)
+void CameraService::processFrame(const cv::Mat& frame)
+{
+    cv::Mat processedFrame = frame.clone();
+    
+    // Apply flip transformations if needed
+    if (_flipHorizontal && _flipVertical) {
+        cv::flip(processedFrame, processedFrame, -1);  // Both axes
+    } else if (_flipHorizontal) {
+        cv::flip(processedFrame, processedFrame, 1);   // Horizontal
+    } else if (_flipVertical) {
+        cv::flip(processedFrame, processedFrame, 0);   // Vertical
+    }
+    
 #ifdef ENABLE_LATENCY_MEASUREMENT
-        // Measure latency for SC-004 verification (<200ms requirement)
-        if (_controlChangeTimer.isValid() && !_lastControlChange.isEmpty()) {
-            qint64 latencyMs = _controlChangeTimer.elapsed();
-            qDebug() << "CameraService::onVideoFrameChanged - control change latency:"
-                     << _lastControlChange << "took" << latencyMs << "ms"
-                     << (latencyMs < 200 ? "✓ PASS" : "✗ FAIL");
-            _lastControlChange.clear();
-        }
+    // Measure latency for SC-004 verification (<200ms requirement)
+    if (_controlChangeTimer.isValid() && !_lastControlChange.isEmpty()) {
+        qint64 latencyMs = _controlChangeTimer.elapsed();
+        qDebug() << "CameraService::processFrame - control change latency:"
+                 << _lastControlChange << "took" << latencyMs << "ms"
+                 << (latencyMs < 200 ? "✓ PASS" : "✗ FAIL");
+        _lastControlChange.clear();
+    }
 #endif
-        
-        emit frameReady(frame);
+    
+    // T105d: Convert to QVideoFrame and emit
+    QVideoFrame videoFrame = cvMatToQVideoFrame(processedFrame);
+    if (videoFrame.isValid()) {
+        emit frameReady(videoFrame);
     }
 }
 
-void CameraService::onCameraErrorOccurred(QCamera::Error error, const QString& errorString)
+// T105d: Convert cv::Mat to QVideoFrame via QImage intermediate
+QVideoFrame CameraService::cvMatToQVideoFrame(const cv::Mat& mat)
 {
-    Q_UNUSED(error);
-    emit this->error(QString("Camera error: %1").arg(errorString));
+    static bool firstFrame = true;
+    if (firstFrame) {
+        qDebug() << "CameraService::cvMatToQVideoFrame - first frame: channels=" << mat.channels() 
+                 << "type=" << mat.type() << "size=" << mat.cols << "x" << mat.rows;
+        firstFrame = false;
+    }
+    
+    cv::Mat rgbFrame;
+    
+    // CAP_PROP_CONVERT_RGB doesn't always work with V4L2
+    // OpenCV V4L2 backend typically outputs BGR, so always convert
+    if (mat.channels() == 3) {
+        cv::cvtColor(mat, rgbFrame, cv::COLOR_BGR2RGB);
+    } else if (mat.channels() == 1) {
+        cv::cvtColor(mat, rgbFrame, cv::COLOR_GRAY2RGB);
+    } else if (mat.channels() == 4) {
+        cv::cvtColor(mat, rgbFrame, cv::COLOR_BGRA2RGB);
+    } else {
+        rgbFrame = mat;
+    }
+    
+    // Create QImage from cv::Mat data (should be RGB at this point)
+    QImage image(rgbFrame.data, rgbFrame.cols, rgbFrame.rows,
+                 static_cast<int>(rgbFrame.step), QImage::Format_RGB888);
+    
+    // Deep copy to avoid data invalidation when cv::Mat goes out of scope
+    QImage imageCopy = image.copy();
+    
+    // Create QVideoFrame directly from RGB888 QImage
+    QVideoFrame frame(imageCopy);
+    
+    return frame;
 }
 
-// Camera controls (US3)
-void CameraService::setExposure(qreal value)
+// Helper to extract camera index from device ID (e.g., "/dev/video0" -> 0)
+int CameraService::getCameraIndex(const QString& cameraId)
 {
-    if (!_camera || !_camera->isActive()) {
+    // Extract number from "/dev/videoX" format
+    if (cameraId.startsWith("/dev/video")) {
+        bool ok;
+        int index = cameraId.mid(10).toInt(&ok);  // Skip "/dev/video"
+        if (ok) {
+            return index;
+        }
+    }
+    return -1;
+}
+
+// Camera controls (US3) - Using OpenCV VideoCapture for hardware control
+void CameraService::setExposure(int value)
+{
+    if (!_cvCapture.isOpened()) {
+        qDebug() << "CameraService::setExposure - camera not open";
         return;
     }
     
@@ -232,26 +408,52 @@ void CameraService::setExposure(qreal value)
     _controlChangeTimer.start();
 #endif
     
-    if (_camera->isExposureModeSupported(QCamera::ExposureManual)) {
-        _camera->setExposureMode(QCamera::ExposureManual);
-        _camera->setManualExposureTime(value);
+    // Disable auto exposure first (set to manual mode)
+    _cvCapture.set(cv::CAP_PROP_AUTO_EXPOSURE, 1);  // 1 = manual mode
+    
+    // Set exposure (typically -13 to -1, where -1 is longest exposure)
+    if (_cvCapture.set(cv::CAP_PROP_EXPOSURE, value)) {
+        qDebug() << "CameraService::setExposure - set to" << value;
+        double readback = _cvCapture.get(cv::CAP_PROP_EXPOSURE);
+        qDebug() << "CameraService::setExposure - readback:" << readback;
+    } else {
+        qDebug() << "CameraService::setExposure - failed to set";
     }
 }
 
-void CameraService::setWhiteBalance(QCamera::WhiteBalanceMode mode)
+void CameraService::setGain(int value)
 {
-    if (!_camera || !_camera->isActive()) {
+    if (!_cvCapture.isOpened()) {
         return;
     }
     
-    if (_camera->isWhiteBalanceModeSupported(mode)) {
-        _camera->setWhiteBalanceMode(mode);
+    if (_cvCapture.set(cv::CAP_PROP_GAIN, value)) {
+        qDebug() << "CameraService::setGain - set to" << value;
+    } else {
+        qDebug() << "CameraService::setGain - failed to set";
+    }
+}
+
+void CameraService::setWhiteBalance(int value)
+{
+    if (!_cvCapture.isOpened()) {
+        return;
+    }
+    
+    // Disable auto white balance first
+    _cvCapture.set(cv::CAP_PROP_AUTO_WB, 0);
+    
+    // Set white balance temperature (2800-6500K typically)
+    if (_cvCapture.set(cv::CAP_PROP_WB_TEMPERATURE, value)) {
+        qDebug() << "CameraService::setWhiteBalance - set to" << value << "K";
+    } else {
+        qDebug() << "CameraService::setWhiteBalance - failed to set";
     }
 }
 
 void CameraService::setBrightness(int value)
 {
-    if (!_camera || !_camera->isActive()) {
+    if (!_cvCapture.isOpened()) {
         return;
     }
     
@@ -260,14 +462,17 @@ void CameraService::setBrightness(int value)
     _controlChangeTimer.start();
 #endif
     
-    // Clamp to -100..100 range
-    qreal normalized = qBound(-1.0, value / 100.0, 1.0);
-    _camera->setColorTemperature(6500 + (normalized * 2000));  // Basic brightness via color temp
+    // OpenCV brightness is 0-255
+    if (_cvCapture.set(cv::CAP_PROP_BRIGHTNESS, value)) {
+        qDebug() << "CameraService::setBrightness - set to" << value;
+    } else {
+        qDebug() << "CameraService::setBrightness - failed to set";
+    }
 }
 
 void CameraService::setContrast(int value)
 {
-    if (!_camera || !_camera->isActive()) {
+    if (!_cvCapture.isOpened()) {
         return;
     }
     
@@ -276,14 +481,17 @@ void CameraService::setContrast(int value)
     _controlChangeTimer.start();
 #endif
     
-    // Qt6 doesn't have direct contrast control
-    // This would need QVideoSink shader processing
-    Q_UNUSED(value);
+    // OpenCV contrast is 0-255
+    if (_cvCapture.set(cv::CAP_PROP_CONTRAST, value)) {
+        qDebug() << "CameraService::setContrast - set to" << value;
+    } else {
+        qDebug() << "CameraService::setContrast - failed to set";
+    }
 }
 
 void CameraService::setSaturation(int value)
 {
-    if (!_camera || !_camera->isActive()) {
+    if (!_cvCapture.isOpened()) {
         return;
     }
     
@@ -292,104 +500,74 @@ void CameraService::setSaturation(int value)
     _controlChangeTimer.start();
 #endif
     
-    // Qt6 doesn't have direct saturation control
-    // This would need QVideoSink shader processing
-    Q_UNUSED(value);
+    // OpenCV saturation is 0-255
+    if (_cvCapture.set(cv::CAP_PROP_SATURATION, value)) {
+        qDebug() << "CameraService::setSaturation - set to" << value;
+    } else {
+        qDebug() << "CameraService::setSaturation - failed to set";
+    }
 }
 
 void CameraService::setFlipHorizontal(bool enabled)
 {
-    // TODO: Implement via QVideoSink transformation
-    Q_UNUSED(enabled);
+    _flipHorizontal = enabled;
+    qDebug() << "CameraService::setFlipHorizontal - set to" << enabled;
 }
 
 void CameraService::setFlipVertical(bool enabled)
 {
-    // TODO: Implement via QVideoSink transformation
-    Q_UNUSED(enabled);
+    _flipVertical = enabled;
+    qDebug() << "CameraService::setFlipVertical - set to" << enabled;
 }
 
-void CameraService::autoWhiteBalance()
+void CameraService::setAutoWhiteBalance(bool enabled)
 {
-    if (!_camera || !_lastFrame.isValid()) {
-        qDebug() << "CameraService::autoWhiteBalance - no valid frame available";
+    if (!_cvCapture.isOpened()) {
         return;
     }
     
-    // Convert frame to image for processing
-    QImage frame = _lastFrame.toImage();
-    if (frame.isNull()) {
-        qDebug() << "CameraService::autoWhiteBalance - failed to convert frame to image";
-        return;
-    }
-    
-    // Sample center 10% region of the frame
-    int centerX = frame.width() / 2;
-    int centerY = frame.height() / 2;
-    int sampleWidth = frame.width() / 10;
-    int sampleHeight = frame.height() / 10;
-    
-    int startX = centerX - sampleWidth / 2;
-    int startY = centerY - sampleHeight / 2;
-    int endX = centerX + sampleWidth / 2;
-    int endY = centerY + sampleHeight / 2;
-    
-    // Calculate average RGB values in the sampled region
-    qint64 sumR = 0, sumG = 0, sumB = 0;
-    int pixelCount = 0;
-    
-    for (int y = startY; y < endY && y < frame.height(); ++y) {
-        for (int x = startX; x < endX && x < frame.width(); ++x) {
-            QRgb pixel = frame.pixel(x, y);
-            sumR += qRed(pixel);
-            sumG += qGreen(pixel);
-            sumB += qBlue(pixel);
-            ++pixelCount;
-        }
-    }
-    
-    if (pixelCount == 0) {
-        qDebug() << "CameraService::autoWhiteBalance - no pixels sampled";
-        return;
-    }
-    
-    // Calculate averages
-    double avgR = static_cast<double>(sumR) / pixelCount;
-    double avgG = static_cast<double>(sumG) / pixelCount;
-    double avgB = static_cast<double>(sumB) / pixelCount;
-    
-    qDebug() << "CameraService::autoWhiteBalance - sampled" << pixelCount << "pixels, avg RGB:" 
-             << avgR << avgG << avgB;
-    
-    // Calculate color temperature adjustment
-    // Higher red means warmer (lower color temp needed)
-    // Higher blue means cooler (higher color temp needed)
-    double colorRatio = avgB / (avgR + 1.0);  // +1 to avoid division by zero
-    
-    // Map ratio to color temperature (typical range 2500K-9000K)
-    // Neutral white is around 6500K
-    int colorTemp = 6500;
-    
-    if (colorRatio > 1.1) {
-        // Too much blue - increase temperature (warmer)
-        colorTemp = 6500 + static_cast<int>((colorRatio - 1.0) * 2000);
-    } else if (colorRatio < 0.9) {
-        // Too much red - decrease temperature (cooler)
-        colorTemp = 6500 - static_cast<int>((1.0 - colorRatio) * 2000);
-    }
-    
-    // Clamp to reasonable range
-    colorTemp = qBound(2500, colorTemp, 9000);
-    
-    qDebug() << "CameraService::autoWhiteBalance - setting color temperature to" << colorTemp << "K";
-    
-    // Apply color temperature adjustment
-    if (_camera->isWhiteBalanceModeSupported(QCamera::WhiteBalanceManual)) {
-        _camera->setWhiteBalanceMode(QCamera::WhiteBalanceManual);
-        _camera->setColorTemperature(colorTemp);
+    if (_cvCapture.set(cv::CAP_PROP_AUTO_WB, enabled ? 1 : 0)) {
+        qDebug() << "CameraService::setAutoWhiteBalance - set to" << (enabled ? "ON" : "OFF");
     } else {
-        qDebug() << "CameraService::autoWhiteBalance - manual white balance not supported, using auto mode";
-        _camera->setWhiteBalanceMode(QCamera::WhiteBalanceAuto);
+        qDebug() << "CameraService::setAutoWhiteBalance - failed to set";
     }
 }
 
+void CameraService::setAutoExposure(bool enabled)
+{
+    if (!_cvCapture.isOpened()) {
+        return;
+    }
+    
+    // CAP_PROP_AUTO_EXPOSURE for V4L2: 1 = manual mode, 3 = aperture priority (auto)
+    int mode = enabled ? 3 : 1;
+    if (_cvCapture.set(cv::CAP_PROP_AUTO_EXPOSURE, mode)) {
+        qDebug() << "CameraService::setAutoExposure - set to" << (enabled ? "AUTO (3)" : "MANUAL (1)");
+    } else {
+        qDebug() << "CameraService::setAutoExposure - failed to set";
+    }
+}
+
+int CameraService::getCurrentExposure() const
+{
+    if (!_cvCapture.isOpened()) {
+        qDebug() << "CameraService::getCurrentExposure - camera not open, returning 100";
+        return 100;  // Default value
+    }
+    
+    double exposure = _cvCapture.get(cv::CAP_PROP_EXPOSURE);
+    qDebug() << "CameraService::getCurrentExposure - read value:" << exposure;
+    return static_cast<int>(exposure);
+}
+
+int CameraService::getCurrentWhiteBalance() const
+{
+    if (!_cvCapture.isOpened()) {
+        qDebug() << "CameraService::getCurrentWhiteBalance - camera not open, returning 4600";
+        return 4600;  // Default value
+    }
+    
+    double wb = _cvCapture.get(cv::CAP_PROP_WB_TEMPERATURE);
+    qDebug() << "CameraService::getCurrentWhiteBalance - read value:" << wb;
+    return static_cast<int>(wb);
+}

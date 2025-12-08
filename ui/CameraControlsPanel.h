@@ -7,7 +7,8 @@
 #include <QPushButton>
 #include <QSlider>
 #include <QLabel>
-#include <QCameraFormat>
+#include <QCheckBox>
+#include <QSize>
 
 class CameraController;
 class ZoomController;
@@ -36,11 +37,14 @@ signals:
 
 private slots:
     void onCameraSelected(int index);
-    void onFormatSelected(int index);
+    void onResolutionSelected(int index);
+    void onFpsSelected(int index);
     void onExposureChanged(int value);
     void onBrightnessChanged(int value);
     void onContrastChanged(int value);
     void onSaturationChanged(int value);
+    void onWhiteBalanceChanged(int value);
+    void onAutoExposureClicked();
     void onAutoWhiteBalanceClicked();
     void onFlipHorizontalClicked();
     void onFlipVerticalClicked();
@@ -56,24 +60,36 @@ private:
     CameraController* _controller;
     ZoomController* _zoomController;
     QComboBox* _cameraCombo;
-    QComboBox* _formatCombo;
+    QComboBox* _resolutionCombo;
+    QComboBox* _fpsCombo;
     QWidget* _contentWidget;
     QList<CameraProfile> _availableCameras;
-    QList<QCameraFormat> _availableFormats;
+    QList<QSize> _availableResolutions;
+    QList<double> _availableFrameRates;
     
     // Camera control widgets
     QSlider* _exposureSlider;
     QSlider* _brightnessSlider;
     QSlider* _contrastSlider;
     QSlider* _saturationSlider;
+    QSlider* _whiteBalanceSlider;
     QLabel* _exposureLabel;
     QLabel* _brightnessLabel;
     QLabel* _contrastLabel;
     QLabel* _saturationLabel;
-    QPushButton* _autoWhiteBalanceBtn;
+    QLabel* _whiteBalanceLabel;
+    QLabel* _exposureValueLabel;
+    QLabel* _brightnessValueLabel;
+    QLabel* _contrastValueLabel;
+    QLabel* _saturationValueLabel;
+    QLabel* _whiteBalanceValueLabel;
+    QCheckBox* _autoExposureCheck;
+    QCheckBox* _autoWhiteBalanceCheck;
     QPushButton* _flipHorizontalBtn;
     QPushButton* _flipVerticalBtn;
     QPushButton* _resetDefaultsBtn;
+    bool _autoExposureEnabled;
+    bool _autoWhiteBalanceEnabled;
 };
 
 #endif // CAMERACONTROLSPANEL_H

@@ -7,12 +7,14 @@ CameraController::CameraController(QObject* parent)
     : QObject(parent)
     , _monitorTimer(nullptr)
     , _exposure(100.0)  // Default 100ms
-    , _brightness(0)
-    , _contrast(0)
-    , _saturation(0)
+    , _brightness(128)  // Default brightness
+    , _contrast(32)     // Default contrast
+    , _saturation(64)   // Default saturation
     , _flipHorizontal(false)
     , _flipVertical(false)
-    , _whiteBalance(static_cast<int>(QCamera::WhiteBalanceAuto))
+    , _whiteBalance(4600)  // Default 4600K
+    , _autoExposure(true)   // Auto exposure on by default
+    , _autoWhiteBalance(true)  // Auto white balance on by default
 {
     _service = new CameraService(this);
     
@@ -42,14 +44,24 @@ QList<CameraProfile> CameraController::availableCameras()
     return _service->enumerateCameras();
 }
 
-QList<QCameraFormat> CameraController::availableFormats(const QString& cameraId)
+QList<QSize> CameraController::availableResolutions(const QString& cameraId)
 {
-    return _service->availableFormats(cameraId);
+    return _service->availableResolutions(cameraId);
 }
 
-QCameraFormat CameraController::currentFormat() const
+QList<double> CameraController::availableFrameRates(const QString& cameraId, const QSize& resolution)
 {
-    return _service->currentFormat();
+    return _service->availableFrameRates(cameraId, resolution);
+}
+
+QSize CameraController::currentResolution() const
+{
+    return _service->currentResolution();
+}
+
+double CameraController::currentFrameRate() const
+{
+    return _service->currentFrameRate();
 }
 
 bool CameraController::isActive() const
@@ -64,20 +76,15 @@ QString CameraController::currentCameraId() const
 
 void CameraController::startCamera(const QString& cameraId)
 {
-    qDebug() << "CameraController::startCamera (no format) - cameraId:" << cameraId;
-    qDebug() << "Stack trace: called from somewhere - this should only be called for fallback!";
-    _lastResolution = QSize();
-    _lastFrameRate = 0.0;
+    qDebug() << "CameraController::startCamera (no resolution) - cameraId:" << cameraId;
     _service->startCamera(cameraId);
 }
 
-void CameraController::startCamera(const QString& cameraId, const QCameraFormat& format)
+void CameraController::startCamera(const QString& cameraId, const QSize& resolution, double frameRate)
 {
-    qDebug() << "CameraController::startCamera (with format) - cameraId:" << cameraId 
-             << "resolution:" << format.resolution() << "fps:" << format.maxFrameRate();
-    _lastResolution = format.resolution();
-    _lastFrameRate = format.maxFrameRate();
-    _service->startCamera(cameraId, format);
+    qDebug() << "CameraController::startCamera (with resolution) - cameraId:" << cameraId 
+             << "resolution:" << resolution << "@" << frameRate << "fps";
+    _service->startCamera(cameraId, resolution, frameRate);
 }
 
 void CameraController::stopCamera()
@@ -91,18 +98,9 @@ void CameraController::saveCurrentCamera()
     settings.setValue("camera/lastCameraName", _lastCameraName);
     
     qDebug() << "CameraController::saveCurrentCamera - cameraName:" << _lastCameraName;
-    
-    if (_lastResolution.isValid() && _lastFrameRate > 0) {
-        settings.setValue("camera/lastResolutionWidth", _lastResolution.width());
-        settings.setValue("camera/lastResolutionHeight", _lastResolution.height());
-        settings.setValue("camera/lastFrameRate", _lastFrameRate);
-        qDebug() << "CameraController::saveCurrentCamera - resolution:" << _lastResolution << "fps:" << _lastFrameRate;
-    } else {
-        qDebug() << "CameraController::saveCurrentCamera - no valid format to save";
-    }
 }
 
-void CameraController::saveCameraSelection(const QString& cameraId, const QCameraFormat& format)
+void CameraController::saveCameraSelection(const QString& cameraId, const QSize& resolution)
 {
     // Find camera name from available cameras
     QString cameraName;
@@ -115,10 +113,8 @@ void CameraController::saveCameraSelection(const QString& cameraId, const QCamer
     }
     
     qDebug() << "CameraController::saveCameraSelection - cameraId:" << cameraId 
-             << "name:" << cameraName << "resolution:" << format.resolution() << "fps:" << format.maxFrameRate();
+             << "name:" << cameraName << "resolution:" << resolution;
     _lastCameraName = cameraName;
-    _lastResolution = format.resolution();
-    _lastFrameRate = format.maxFrameRate();
     saveCurrentCamera();
 }
 
@@ -134,14 +130,6 @@ void CameraController::restoreLastCamera()
         return;  // No saved camera
     }
     
-    _lastResolution = QSize(
-        settings.value("camera/lastResolutionWidth", 0).toInt(),
-        settings.value("camera/lastResolutionHeight", 0).toInt()
-    );
-    _lastFrameRate = settings.value("camera/lastFrameRate", 0.0).toDouble();
-    
-    qDebug() << "CameraController::restoreLastCamera - resolution:" << _lastResolution << "fps:" << _lastFrameRate;
-    
     // Try to start the last camera immediately by searching for the name
     QList<CameraProfile> cameras = availableCameras();
     qDebug() << "CameraController::restoreLastCamera - found" << cameras.size() << "available cameras";
@@ -149,21 +137,21 @@ void CameraController::restoreLastCamera()
     for (const CameraProfile& camera : cameras) {
         if (camera.name() == _lastCameraName) {
             qDebug() << "CameraController::restoreLastCamera - found saved camera:" << camera.name() << "id:" << camera.id();
-            // Camera found, try to restore with same format
-            if (_lastResolution.isValid() && _lastFrameRate > 0) {
-                QList<QCameraFormat> formats = availableFormats(camera.id());
-                qDebug() << "CameraController::restoreLastCamera - checking" << formats.size() << "formats for exact match";
-                for (const QCameraFormat& format : formats) {
-                    if (format.resolution() == _lastResolution && 
-                        qAbs(format.maxFrameRate() - _lastFrameRate) < 0.1) {
-                        qDebug() << "CameraController::restoreLastCamera - found matching format, starting camera";
-                        startCamera(camera.id(), format);
+            // Camera found, try to restore with same resolution
+            QSize savedResolution = getSavedResolution(camera.id());
+            if (savedResolution.isValid()) {
+                QList<QSize> resolutions = availableResolutions(camera.id());
+                qDebug() << "CameraController::restoreLastCamera - checking" << resolutions.size() << "resolutions for match";
+                for (const QSize& res : resolutions) {
+                    if (res == savedResolution) {
+                        qDebug() << "CameraController::restoreLastCamera - found matching resolution, starting camera";
+                        startCamera(camera.id(), res);
                         return;
                     }
                 }
-                qDebug() << "CameraController::restoreLastCamera - exact format not found, starting with default";
+                qDebug() << "CameraController::restoreLastCamera - exact resolution not found, starting with default";
             }
-            // Format not found, start with default
+            // Resolution not found, start with default
             startCamera(camera.id());
             return;
         }
@@ -202,17 +190,17 @@ void CameraController::checkForLastCamera()
             // Found the camera, try to restore it
             stopCameraMonitoring();
             
-            if (_lastResolution.isValid() && _lastFrameRate > 0) {
-                QList<QCameraFormat> formats = availableFormats(camera.id());
-                for (const QCameraFormat& format : formats) {
-                    if (format.resolution() == _lastResolution && 
-                        qAbs(format.maxFrameRate() - _lastFrameRate) < 0.1) {
-                        startCamera(camera.id(), format);
+            QSize savedResolution = getSavedResolution(camera.id());
+            if (savedResolution.isValid()) {
+                QList<QSize> resolutions = availableResolutions(camera.id());
+                for (const QSize& res : resolutions) {
+                    if (res == savedResolution) {
+                        startCamera(camera.id(), res);
                         return;
                     }
                 }
             }
-            // Format not found, start with default
+            // Resolution not found, start with default
             startCamera(camera.id());
             return;
         }
@@ -268,6 +256,26 @@ void CameraController::onFrameReady(const QVideoFrame& frame)
 
 void CameraController::onCameraConnected(const QString& cameraId, const QString& name)
 {
+    // Restore saved camera controls for this camera
+    restoreCameraControls(cameraId);
+    
+    // Apply the restored settings to the camera
+    _service->setAutoExposure(_autoExposure);
+    _service->setAutoWhiteBalance(_autoWhiteBalance);
+    _service->setBrightness(_brightness);
+    _service->setContrast(_contrast);
+    _service->setSaturation(_saturation);
+    _service->setFlipHorizontal(_flipHorizontal);
+    _service->setFlipVertical(_flipVertical);
+    
+    // Only apply manual settings if auto modes are disabled
+    if (!_autoExposure) {
+        _service->setExposure(_exposure);
+    }
+    if (!_autoWhiteBalance) {
+        _service->setWhiteBalance(_whiteBalance);
+    }
+    
     emit cameraConnected(cameraId, name);
 }
 
@@ -288,18 +296,26 @@ void CameraController::onServiceError(const QString& message)
     emit error(message);
 }
 
-// Camera controls (US3)
-void CameraController::setExposure(qreal value)
+// Camera controls (US3) - OpenCV-based
+void CameraController::setExposure(int value)
 {
     _exposure = value;
+    _autoExposure = false;  // Disable auto when manually adjusting
     _service->setExposure(value);
     saveCameraControls(currentCameraId());
 }
 
-void CameraController::setWhiteBalance(int mode)
+void CameraController::setGain(int value)
 {
-    _whiteBalance = mode;
-    _service->setWhiteBalance(static_cast<QCamera::WhiteBalanceMode>(mode));
+    _service->setGain(value);
+    // Note: Gain not currently persisted
+}
+
+void CameraController::setWhiteBalance(int value)
+{
+    _whiteBalance = value;
+    _autoWhiteBalance = false;  // Disable auto when manually adjusting
+    _service->setWhiteBalance(value);
     saveCameraControls(currentCameraId());
 }
 
@@ -324,6 +340,20 @@ void CameraController::setSaturation(int value)
     saveCameraControls(currentCameraId());
 }
 
+void CameraController::setAutoExposure(bool enabled)
+{
+    _autoExposure = enabled;
+    _service->setAutoExposure(enabled);
+    saveCameraControls(currentCameraId());
+}
+
+void CameraController::setAutoWhiteBalance(bool enabled)
+{
+    _autoWhiteBalance = enabled;
+    _service->setAutoWhiteBalance(enabled);
+    saveCameraControls(currentCameraId());
+}
+
 void CameraController::setFlipHorizontal(bool enabled)
 {
     _flipHorizontal = enabled;
@@ -336,11 +366,6 @@ void CameraController::setFlipVertical(bool enabled)
     _flipVertical = enabled;
     _service->setFlipVertical(enabled);
     saveCameraControls(currentCameraId());
-}
-
-void CameraController::autoWhiteBalance()
-{
-    _service->autoWhiteBalance();
 }
 
 void CameraController::saveCameraControls(const QString& cameraId)
@@ -359,8 +384,15 @@ void CameraController::saveCameraControls(const QString& cameraId)
     settings.setValue(prefix + "flipHorizontal", _flipHorizontal);
     settings.setValue(prefix + "flipVertical", _flipVertical);
     settings.setValue(prefix + "whiteBalance", _whiteBalance);
+    settings.setValue(prefix + "autoExposure", _autoExposure);
+    settings.setValue(prefix + "autoWhiteBalance", _autoWhiteBalance);
     
-    qDebug() << "CameraController::saveCameraControls - saved for" << cameraId;
+    // Save resolution for this camera
+    if (currentResolution().isValid()) {
+        settings.setValue(prefix + "resolution", currentResolution());
+    }
+    
+    // Removed excessive debug output
 }
 
 void CameraController::restoreCameraControls(const QString& cameraId)
@@ -374,14 +406,37 @@ void CameraController::restoreCameraControls(const QString& cameraId)
     
     // Restore with defaults if not found
     _exposure = settings.value(prefix + "exposure", 100.0).toReal();
-    _brightness = settings.value(prefix + "brightness", 0).toInt();
-    _contrast = settings.value(prefix + "contrast", 0).toInt();
-    _saturation = settings.value(prefix + "saturation", 0).toInt();
+    _brightness = settings.value(prefix + "brightness", 128).toInt();
+    _contrast = settings.value(prefix + "contrast", 32).toInt();
+    _saturation = settings.value(prefix + "saturation", 64).toInt();
     _flipHorizontal = settings.value(prefix + "flipHorizontal", false).toBool();
     _flipVertical = settings.value(prefix + "flipVertical", false).toBool();
-    _whiteBalance = settings.value(prefix + "whiteBalance", static_cast<int>(QCamera::WhiteBalanceAuto)).toInt();
+    _whiteBalance = settings.value(prefix + "whiteBalance", 4600).toInt();  // Default 4600K
+    _autoExposure = settings.value(prefix + "autoExposure", true).toBool();
+    _autoWhiteBalance = settings.value(prefix + "autoWhiteBalance", true).toBool();
     
     qDebug() << "CameraController::restoreCameraControls - restored for" << cameraId
              << "exposure:" << _exposure << "brightness:" << _brightness;
 }
 
+QSize CameraController::getSavedResolution(const QString& cameraId) const
+{
+    if (cameraId.isEmpty()) {
+        return QSize();  // Invalid
+    }
+    
+    QSettings settings("uScope", "uScope");
+    QString prefix = QString("camera/%1/controls/").arg(cameraId);
+    
+    return settings.value(prefix + "resolution", QSize()).toSize();
+}
+
+int CameraController::getCurrentExposure() const
+{
+    return _service->getCurrentExposure();
+}
+
+int CameraController::getCurrentWhiteBalance() const
+{
+    return _service->getCurrentWhiteBalance();
+}

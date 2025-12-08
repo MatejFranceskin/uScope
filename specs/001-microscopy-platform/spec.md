@@ -181,7 +181,7 @@ A researcher adjusts exposure, white balance, and color settings to achieve opti
 3. **Given** image needs adjustment, **When** user modifies brightness/contrast/saturation sliders, **Then** changes appear immediately on live feed
 4. **Given** camera is mounted inverted, **When** user toggles horizontal/vertical flip, **Then** image orientation corrects instantly
 5. **Given** low-light specimen, **When** user increases gain/ISO, **Then** image becomes brighter with acceptable noise levels
-6. **Given** user has adjusted multiple camera settings, **When** user clicks "Reset Defaults" button, **Then** all manual controls (exposure, brightness, contrast, saturation, flip settings) return to default values
+6. **Given** user has adjusted multiple camera settings, **When** user clicks "Reset" button, **Then** all manual controls (exposure, brightness, contrast, saturation, flip settings) return to default values
 7. **Given** user is adjusting camera controls, **When** user drags any slider, **Then** current numeric value is displayed in a label next to the slider (e.g., "Exposure: 250 ms", "Brightness: -20")
 8. **Given** camera controls dialog is open, **When** user views the video feed through the semi-transparent dialog, **Then** the video remains clearly visible with minimal dimming (dialog background alpha 180, dim overlay alpha 60) allowing real-time visual feedback of control changes
 9. **Given** user has adjusted camera settings for a specific camera, **When** user closes app and reopens, selects same camera, **Then** all camera control settings (exposure, brightness, contrast, saturation, flip states) are restored to their previous values per camera ID
@@ -659,6 +659,56 @@ A naturalist or mycologist links their imaging session to an iNaturalist observa
 - OpenCV library is available for advanced features (object detection, stitching, EDF) or can be integrated as dependency
 - Automated object detection works best with well-contrasted specimens on uniform backgrounds (e.g., spores on stage micrometer)
 - Users understand that detection accuracy varies with specimen type and may require parameter tuning
+
+## Technical Architecture Decisions
+
+### Camera Capture and Control: OpenCV VideoCapture
+
+**Decision**: Use OpenCV's `cv::VideoCapture` as the primary camera capture mechanism instead of Qt6's `QCamera` and `QMediaCaptureSession`.
+
+**Rationale**:
+
+1. **Hardware Control Access**: Qt6 removed hardware control APIs for brightness, contrast, and saturation. QCamera only exposes limited exposure control. Manual camera controls (User Story 3) require direct hardware access, which OpenCV provides via V4L2 properties on Linux, DirectShow on Windows, and AVFoundation on macOS.
+
+2. **Exclusive Camera Access Conflict**: QCamera and OpenCV VideoCapture cannot simultaneously open the same camera device. Attempting a hybrid approach (QCamera for capture, OpenCV for controls) results in device access errors. Using OpenCV exclusively eliminates this conflict.
+
+3. **Future Image Processing Requirements**: Multiple user stories (US4: Calibration and Measurement, US5: Object Detection, US9: Stitching, US10: Extended Depth of Focus) require OpenCV for image processing algorithms. Having frames already in `cv::Mat` format eliminates conversion overhead and simplifies the processing pipeline.
+
+4. **Consistent API**: OpenCV provides uniform camera property access across platforms via `CAP_PROP_*` properties (exposure, brightness, contrast, saturation, white balance temperature, auto exposure, auto white balance, gain). This ensures consistent behavior across Linux, Windows, macOS, and Android.
+
+**Implementation**:
+
+- **Camera Enumeration**: Use Qt's `QMediaDevices` for user-friendly camera listing (name, description), extract device index from device ID (`/dev/videoN` on Linux) to pass to OpenCV VideoCapture.
+- **Frame Capture**: OpenCV `VideoCapture::read()` called in timer loop (30 fps), frames captured as `cv::Mat`.
+- **Frame Delivery**: Convert `cv::Mat` → `QImage` → `QVideoFrame`, emit via existing `frameReady` signal to `VideoGraphicsScene` for display via `QVideoSink`.
+- **Hardware Controls**: All camera controls implemented via `VideoCapture::set()` with `CAP_PROP_*` properties:
+  - Exposure: `CAP_PROP_EXPOSURE` (-13 to -1, log₂ scale)
+  - Brightness: `CAP_PROP_BRIGHTNESS` (0-255)
+  - Contrast: `CAP_PROP_CONTRAST` (0-255)
+  - Saturation: `CAP_PROP_SATURATION` (0-255)
+  - White Balance: `CAP_PROP_WB_TEMPERATURE` (2800-6500K)
+  - Auto Exposure: `CAP_PROP_AUTO_EXPOSURE` (0.75=auto, 0.25=manual)
+  - Auto White Balance: `CAP_PROP_AUTO_WB` (1=on, 0=off)
+  - Gain: `CAP_PROP_GAIN` (0-100)
+- **Display Pipeline**: Qt's `QVideoSink` retained for efficient GPU-accelerated video rendering in `QGraphicsView`.
+
+**Alternatives Considered**:
+
+- **Qt6 QCamera Only**: Rejected due to missing brightness/contrast/saturation APIs and manual exposure control limitations.
+- **Hybrid QCamera + OpenCV Controls**: Rejected due to exclusive camera access conflict.
+- **Platform-Specific Native APIs** (V4L2, DirectShow, AVFoundation): Rejected due to code duplication and maintenance burden.
+
+**Trade-offs**:
+
+- ✅ **Pros**: Full hardware control, unified codebase for future image processing, eliminates conversion overhead for processing tasks.
+- ⚠️ **Cons**: OpenCV dependency required for core camera functionality (not just advanced features), slight increase in complexity for frame format conversion (`cv::Mat` → `QImage` → `QVideoFrame`).
+
+**Dependencies**: OpenCV 4.x with `core`, `imgproc`, `videoio`, `imgcodecs` components.
+
+---
+
+## Assumptions (continued)
+
 - Network connectivity is not required for core functionality (offline-capable)
 - Classroom collaboration feature requires local network (LAN or Wi-Fi) connectivity for teacher and students
 - Teacher's computer has sufficient network bandwidth to stream video to multiple students (minimum 10 Mbps upload recommended for 10 students at 720p)

@@ -4,7 +4,7 @@
 #include <QObject>
 #include <QVideoFrame>
 #include <QList>
-#include <QCameraFormat>
+#include <QSize>
 #include "../models/CameraProfile.h"
 #include "../models/CapturedImage.h"
 
@@ -24,8 +24,10 @@ public:
 
     // Camera discovery
     QList<CameraProfile> availableCameras();
-    QList<QCameraFormat> availableFormats(const QString& cameraId);
-    QCameraFormat currentFormat() const;
+    QList<QSize> availableResolutions(const QString& cameraId);
+    QList<double> availableFrameRates(const QString& cameraId, const QSize& resolution);
+    QSize currentResolution() const;
+    double currentFrameRate() const;
     
     // Camera lifecycle
     bool isActive() const;
@@ -33,10 +35,11 @@ public:
     
     // Settings persistence
     void saveCurrentCamera();
-    void saveCameraSelection(const QString& cameraId, const QCameraFormat& format);
+    void saveCameraSelection(const QString& cameraId, const QSize& resolution);
     void restoreLastCamera();
     void saveCameraControls(const QString& cameraId);
     void restoreCameraControls(const QString& cameraId);
+    QSize getSavedResolution(const QString& cameraId) const;
     
     // Camera control getters (for UI restoration)
     qreal exposure() const { return _exposure; }
@@ -46,6 +49,12 @@ public:
     bool flipHorizontal() const { return _flipHorizontal; }
     bool flipVertical() const { return _flipVertical; }
     int whiteBalance() const { return _whiteBalance; }
+    bool autoExposure() const { return _autoExposure; }
+    bool autoWhiteBalance() const { return _autoWhiteBalance; }
+    
+    // Read current values from camera hardware
+    int getCurrentExposure() const;
+    int getCurrentWhiteBalance() const;
     
     // Camera monitoring for reconnection
     void startCameraMonitoring();
@@ -53,20 +62,22 @@ public:
 
 public slots:
     void startCamera(const QString& cameraId);
-    void startCamera(const QString& cameraId, const QCameraFormat& format);
+    void startCamera(const QString& cameraId, const QSize& resolution, double frameRate = 30.0);
     void stopCamera();
     void captureImage();
     void autoStartCamera();  // Auto-start first available camera
     
-    // Camera controls (US3)
-    void setExposure(qreal value);
-    void setWhiteBalance(int mode);  // QCamera::WhiteBalanceMode as int
-    void setBrightness(int value);
-    void setContrast(int value);
-    void setSaturation(int value);
+    // Camera controls (US3) - OpenCV-based hardware control
+    void setExposure(int value);         // -13 to -1 (log2 exposure)
+    void setGain(int value);             // 0-100
+    void setWhiteBalance(int value);     // Color temperature 2800-6500K
+    void setBrightness(int value);       // 0-255
+    void setContrast(int value);         // 0-255
+    void setSaturation(int value);       // 0-255
     void setFlipHorizontal(bool enabled);
     void setFlipVertical(bool enabled);
-    void autoWhiteBalance();  // Auto white balance using current frame
+    void setAutoWhiteBalance(bool enabled);  // Toggle auto WB
+    void setAutoExposure(bool enabled);      // Toggle auto exposure
 
 signals:
     void frameReady(const QVideoFrame& frame);
@@ -85,9 +96,7 @@ private slots:
 private:
     CameraService* _service;
     QString _lastCameraName;  // Last successfully connected camera name
-    QSize _lastResolution;  // Last used resolution
-    qreal _lastFrameRate;   // Last used frame rate
-    QTimer* _monitorTimer;  // Timer for camera reconnection monitoring
+    QTimer* _monitorTimer;    // Timer for camera reconnection monitoring
     
     // Camera control values (for persistence)
     qreal _exposure;        // Exposure time in ms (10-1000)
@@ -97,6 +106,8 @@ private:
     bool _flipHorizontal;   // Flip horizontal
     bool _flipVertical;     // Flip vertical
     int _whiteBalance;      // QCamera::WhiteBalanceMode as int
+    bool _autoExposure;     // Auto exposure enabled
+    bool _autoWhiteBalance; // Auto white balance enabled
 };
 
 #endif // CAMERACONTROLLER_H

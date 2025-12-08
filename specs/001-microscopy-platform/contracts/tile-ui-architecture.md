@@ -344,7 +344,7 @@ private:
         QVBoxLayout* layout = new QVBoxLayout(content);
         
         // Camera selection with QListWidget - instant camera switching
-        QLabel* cameraLabel = new QLabel("Select Camera:");
+        QLabel* cameraLabel = new QLabel("Camera:");
         _cameraList = new QListWidget();
         _cameraList->addItems(_controller->availableCameras());
         

@@ -17,6 +17,16 @@ find_package(Qt6 REQUIRED COMPONENTS
     Svg
 )
 
+# Find OpenCV
+find_package(OpenCV REQUIRED COMPONENTS
+    core
+    imgproc
+    videoio
+    imgcodecs
+)
+
+include_directories(${OpenCV_INCLUDE_DIRS})
+
 # Resources
 # Generate platform-specific icons from SVG
 # Modern ImageMagick (v7+) uses 'magick' command on all platforms
@@ -83,6 +93,8 @@ set(PROJECT_SOURCES
     # Services
     services/CameraService.cpp
     services/CameraService.h
+    services/CaptureThread.cpp
+    services/CaptureThread.h
     # Controllers
     controllers/CameraController.cpp
     controllers/CameraController.h
@@ -112,6 +124,7 @@ target_link_libraries(uScope PRIVATE
     Qt6::Widgets
     Qt6::Multimedia
     Qt6::Svg
+    ${OpenCV_LIBS}
 )
 
 # Platform-specific configuration

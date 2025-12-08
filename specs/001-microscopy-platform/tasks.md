@@ -218,11 +218,28 @@
 - [X] T103 [US3] Verify <200ms latency for exposure/brightness/contrast/saturation adjustments (SC-004 requirement) - implemented QElapsedTimer instrumentation in CameraService to measure control-to-frame latency, automatic PASS/FAIL logging in console, documented in docs/testing/T103-latency-testing.md
 - [ ] T105 [US3] Test manual controls: verify real-time updates, flip works correctly, white balance corrects color cast
 
-**Checkpoint**: User Stories 1, 2 (zoom), AND 3 (camera controls) all work independently
+### Refactoring: OpenCV-based Camera Capture (Technical Debt)
+
+**Rationale**: Qt6 QCamera API removed hardware control APIs (brightness, contrast, saturation, direct exposure control). Manual camera controls (US3) require hardware access. OpenCV will be needed extensively for future image processing (calibration, measurement, stitching, EDF). Refactor now to use OpenCV VideoCapture as primary capture mechanism, pass frames to Qt for display.
+
+- [ ] T105a [P] [REFACTOR] Remove QCamera/QMediaCaptureSession from CameraService, keep only QVideoSink for display
+- [ ] T105b [P] [REFACTOR] Refactor CameraService::startCamera() to use cv::VideoCapture, open camera by index extracted from device ID
+- [ ] T105c [REFACTOR] Add frame capture loop: create QTimer in CameraService that calls cv::VideoCapture::read() at target FPS (30fps)
+- [ ] T105c1 [REFACTOR] Design frame pipeline to support alternative capture sources: create processFrame(cv::Mat) method that accepts frames from any source (OpenCV VideoCapture, libgphoto2 PTP, future network streams), allowing custom capture implementations to bypass cv::VideoCapture::read() while reusing common OpenCV processing pipeline
+- [ ] T105d [REFACTOR] Convert cv::Mat to QVideoFrame: implement cvMatToQVideoFrame() helper using QImage intermediate (cv::Mat -> QImage -> QVideoFrame)
+- [ ] T105e [REFACTOR] Emit QVideoFrame via existing frameReady signal, ensure VideoGraphicsScene receives and displays frames correctly
+- [ ] T105f [REFACTOR] Update enumerateCameras() to use OpenCV camera enumeration or keep Qt enumeration for device list, map to indices
+- [ ] T105g [REFACTOR] Verify camera controls now work: exposure (CAP_PROP_EXPOSURE), brightness (CAP_PROP_BRIGHTNESS), contrast (CAP_PROP_CONTRAST), saturation (CAP_PROP_SATURATION), white balance (CAP_PROP_WB_TEMPERATURE)
+- [ ] T105h [REFACTOR] Test: verify live preview still works, camera selection works, all existing functionality preserved
+- [ ] T105i [REFACTOR] Update CameraControlsPanel slider ranges to match OpenCV property ranges (exposure: -13 to -1, brightness/contrast/saturation: 0-255)
+- [ ] T105j [REFACTOR] Add color temperature slider to CameraControlsPanel (2800-6500K range)
+
+**Checkpoint**: OpenCV-based capture working, hardware controls functional, all US1-US3 features preserved
 
 ---
 
 ## Phase 8: User Story 4 - Calibration and Measurement (Priority: P4)
+
 
 **Goal**: Researcher calibrates with stage micrometer, measures specimen features in micrometers with scientific accuracy
 
