@@ -3,18 +3,46 @@
 ## Objective
 Verify that camera control adjustments meet the SC-004 requirement: changes to exposure, brightness, contrast, and saturation must reflect in the live preview within 200ms.
 
+## Enabling Latency Measurement
+
+The latency measurement instrumentation is **disabled by default** in production builds and must be explicitly enabled for testing.
+
+### Enable via CMake
+Add the compile definition when configuring the build:
+```bash
+cd /home/matej/uScope/build
+cmake .. -DENABLE_LATENCY_MEASUREMENT=ON
+make -j$(nproc)
+```
+
+### Enable via CMakeLists.txt
+Add this line to your `CMakeLists.txt` for persistent testing builds:
+```cmake
+add_compile_definitions(ENABLE_LATENCY_MEASUREMENT)
+```
+
+### Enable via Compiler Flag
+Manually add the flag when building:
+```bash
+cd /home/matej/uScope/build
+make CXXFLAGS="-DENABLE_LATENCY_MEASUREMENT" -j$(nproc)
+```
+
+**Note**: Production builds should NOT define `ENABLE_LATENCY_MEASUREMENT` to avoid overhead and debug output.
+
 ## Implementation
 
 ### Latency Measurement Instrumentation
 Added timing instrumentation to `CameraService` to measure the delay between control changes and when they take effect in the video stream:
 
-1. **Timing Members** (CameraService.h):
+1. **Timing Members** (CameraService.h - conditional compilation):
    - `QElapsedTimer _controlChangeTimer` - High-resolution timer
    - `QString _lastControlChange` - Tracks which control was changed
+   - Only included when `ENABLE_LATENCY_MEASUREMENT` is defined
 
 2. **Control Methods** (CameraService.cpp):
    - `setExposure()`, `setBrightness()`, `setContrast()`, `setSaturation()`
-   - Each method starts the timer when called
+   - Each method starts the timer when called (if instrumentation enabled)
    - Records the control name and value
 
 3. **Frame Handler** (CameraService.cpp):

@@ -1,6 +1,28 @@
 #!/bin/bash
 # Test script for T103 - Verify <200ms latency for camera control adjustments
 
+echo "========================================"
+echo "Camera Control Latency Testing (T103)"
+echo "========================================"
+echo ""
+
+# Check if latency measurement is enabled
+if ! strings /home/matej/uScope/build/uScope | grep -q "control change latency"; then
+    echo "WARNING: Latency measurement instrumentation is NOT enabled!"
+    echo ""
+    echo "To enable it, rebuild with:"
+    echo "  cd /home/matej/uScope/build"
+    echo "  cmake .. -DENABLE_LATENCY_MEASUREMENT=ON"
+    echo "  make -j\$(nproc)"
+    echo ""
+    echo "Or add to CMakeLists.txt:"
+    echo "  add_compile_definitions(ENABLE_LATENCY_MEASUREMENT)"
+    echo ""
+    exit 1
+fi
+
+echo "Latency measurement instrumentation: ENABLED ✓"
+echo ""
 echo "Starting uScope to test camera control latency (SC-004 requirement)..."
 echo "Please perform the following actions:"
 echo "1. Open Camera Controls dialog"

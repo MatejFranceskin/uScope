@@ -199,6 +199,7 @@ void CameraService::onVideoFrameChanged(const QVideoFrame& frame)
     if (frame.isValid()) {
         _lastFrame = frame;
         
+#ifdef ENABLE_LATENCY_MEASUREMENT
         // Measure latency for SC-004 verification (<200ms requirement)
         if (_controlChangeTimer.isValid() && !_lastControlChange.isEmpty()) {
             qint64 latencyMs = _controlChangeTimer.elapsed();
@@ -207,6 +208,7 @@ void CameraService::onVideoFrameChanged(const QVideoFrame& frame)
                      << (latencyMs < 200 ? "✓ PASS" : "✗ FAIL");
             _lastControlChange.clear();
         }
+#endif
         
         emit frameReady(frame);
     }
@@ -225,8 +227,10 @@ void CameraService::setExposure(qreal value)
         return;
     }
     
+#ifdef ENABLE_LATENCY_MEASUREMENT
     _lastControlChange = QString("exposure=%1").arg(value);
     _controlChangeTimer.start();
+#endif
     
     if (_camera->isExposureModeSupported(QCamera::ExposureManual)) {
         _camera->setExposureMode(QCamera::ExposureManual);
@@ -251,8 +255,10 @@ void CameraService::setBrightness(int value)
         return;
     }
     
+#ifdef ENABLE_LATENCY_MEASUREMENT
     _lastControlChange = QString("brightness=%1").arg(value);
     _controlChangeTimer.start();
+#endif
     
     // Clamp to -100..100 range
     qreal normalized = qBound(-1.0, value / 100.0, 1.0);
@@ -265,8 +271,10 @@ void CameraService::setContrast(int value)
         return;
     }
     
+#ifdef ENABLE_LATENCY_MEASUREMENT
     _lastControlChange = QString("contrast=%1").arg(value);
     _controlChangeTimer.start();
+#endif
     
     // Qt6 doesn't have direct contrast control
     // This would need QVideoSink shader processing
@@ -279,8 +287,10 @@ void CameraService::setSaturation(int value)
         return;
     }
     
+#ifdef ENABLE_LATENCY_MEASUREMENT
     _lastControlChange = QString("saturation=%1").arg(value);
     _controlChangeTimer.start();
+#endif
     
     // Qt6 doesn't have direct saturation control
     // This would need QVideoSink shader processing

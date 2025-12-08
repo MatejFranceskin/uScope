@@ -7,8 +7,11 @@
 #include <QVideoSink>
 #include <QVideoFrame>
 #include <QList>
-#include <QElapsedTimer>
 #include "../models/CameraProfile.h"
+
+#ifdef ENABLE_LATENCY_MEASUREMENT
+#include <QElapsedTimer>
+#endif
 
 /**
  * Camera backend service managing QCamera lifecycle
@@ -64,9 +67,11 @@ private:
     QString _currentCameraId;
     QVideoFrame _lastFrame;
     
-    // Latency measurement for SC-004 verification
+#ifdef ENABLE_LATENCY_MEASUREMENT
+    // Latency measurement for SC-004 verification (development/testing only)
     QElapsedTimer _controlChangeTimer;
     QString _lastControlChange;
+#endif
 };
 
 #endif // CAMERASERVICE_H
