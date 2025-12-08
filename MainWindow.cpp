@@ -113,6 +113,8 @@ void MainWindow::createControllers()
             this, &MainWindow::onImageCaptured);
     connect(_cameraController, &CameraController::error,
             this, &MainWindow::onCameraError);
+    connect(_cameraController, &CameraController::cameraDisconnected,
+            this, &MainWindow::onCameraDisconnected);
     
     // Create zoom controller
     _zoomController = new ZoomController(_view, this);
@@ -278,6 +280,13 @@ void MainWindow::onImageCaptured(const CapturedImage& image)
 void MainWindow::onCameraError(const QString& message)
 {
     QMessageBox::warning(this, "Camera Error", message);
+}
+
+void MainWindow::onCameraDisconnected(const QString& cameraId)
+{
+    QMessageBox::warning(this, "Camera Disconnected", 
+        QString("Camera disconnected: %1\n\nAttempting to reconnect automatically every 2 seconds...")
+        .arg(cameraId));
 }
 
 void MainWindow::onZoomChanged(qreal factor, int mode)

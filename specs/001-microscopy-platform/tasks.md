@@ -140,7 +140,7 @@
 - [X] T067i [US1] Fix camera selection UI state: update CameraControlsPanel::refreshCameras() to select currently active camera in list instead of always selecting first camera, preventing accidental settings overwrite when opening camera panel
 - [X] T067j [US1] Remove debug output: remove all qDebug() statements from TileDialog::updateProxyWidgetGeometry() to clean up production logs
 - [X] T068 [US1] Add visual feedback on capture: play camera shutter sound from sounds/camera-shutter.mp3 using QSoundEffect, show brief white flash overlay (QGraphicsRectItem with 200ms alpha, 100ms duration) on image capture
-- [ ] T069 [US1] Handle camera disconnect gracefully: show error dialog, attempt reconnection every 2 seconds
+- [X] T069 [US1] Handle camera disconnect gracefully: added MainWindow::onCameraDisconnected() slot showing warning dialog, message informs user of disconnect and mentions auto-reconnection every 2 seconds (reconnection monitoring implemented in T067h)
 - [ ] T070 [US1] Test with real UVC camera: verify 15+ fps preview, <1s capture latency, images saved with correct timestamp
 
 **Checkpoint**: User Story 1 fully functional - camera preview and image capture working

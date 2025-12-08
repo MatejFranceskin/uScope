@@ -36,6 +36,7 @@ private slots:
     void onSettingsButtonClicked();
     void onImageCaptured(const CapturedImage& image);
     void onCameraError(const QString& message);
+    void onCameraDisconnected(const QString& cameraId);
     void onZoomChanged(qreal factor, int mode);
 
 private:
