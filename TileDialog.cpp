@@ -43,10 +43,9 @@ TileDialog::TileDialog(float widthMultiplier, float heightMultiplier, int gridY,
 
 TileDialog::~TileDialog()
 {
-    if (_dimOverlay) {
-        delete _dimOverlay;
-    }
-    // Proxy widget is owned by scene, will be deleted automatically
+    // _dimOverlay is owned by the scene (added via scene()->addItem())
+    // Proxy widget is owned by this dialog (parent relationship)
+    // Qt's parent-child ownership handles cleanup automatically
 }
 
 void TileDialog::show(float baseTileSize, float sceneWidth)
