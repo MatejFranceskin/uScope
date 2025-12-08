@@ -71,8 +71,6 @@ set(PROJECT_SOURCES
     TileLabel.h
     TileButton.cpp
     TileButton.h
-    TileSlider.cpp
-    TileSlider.h
     TileDialog.cpp
     TileDialog.h
     # Models
