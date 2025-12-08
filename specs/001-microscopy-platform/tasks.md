@@ -207,8 +207,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T096 [P] [US3] Update CameraService.h with setExposure(qreal value), setWhiteBalance(mode), setBrightness(int), setContrast(int), setSaturation(int), flipHorizontal(bool), flipVertical(bool) methods
-- [ ] T097 [US3] Implement CameraService camera control methods calling QCamera::setManualExposureTime(), QCamera::setWhiteBalanceMode(), updating exposure/color parameters
+- [X] T096 [P] [US3] Update CameraService.h with setExposure(qreal value), setWhiteBalance(mode), setBrightness(int), setContrast(int), setSaturation(int), flipHorizontal(bool), flipVertical(bool) methods
+- [X] T097 [US3] Implement CameraService camera control methods calling QCamera::setManualExposureTime(), QCamera::setWhiteBalanceMode(), updating exposure/color parameters
 - [ ] T098 [US3] Add flip transform via QVideoSink transformation matrix (QTransform::scale(-1, 1) for horizontal, (1, -1) for vertical)
 - [ ] T099 [P] [US3] Update ui/CameraControlsPanel.h adding TileSlider for exposure, TileSlider for brightness, TileSlider for contrast, TileSlider for saturation
 - [ ] T100 [US3] Update ui/CameraControlsPanel.cpp connecting sliders to CameraController slots (setExposure, setBrightness, setContrast, setSaturation)

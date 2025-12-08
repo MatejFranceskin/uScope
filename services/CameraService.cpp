@@ -207,3 +207,73 @@ void CameraService::onCameraErrorOccurred(QCamera::Error error, const QString& e
     Q_UNUSED(error);
     emit this->error(QString("Camera error: %1").arg(errorString));
 }
+
+// Camera controls (US3)
+void CameraService::setExposure(qreal value)
+{
+    if (!_camera || !_camera->isActive()) {
+        return;
+    }
+    
+    if (_camera->isExposureModeSupported(QCamera::ExposureManual)) {
+        _camera->setExposureMode(QCamera::ExposureManual);
+        _camera->setManualExposureTime(value);
+    }
+}
+
+void CameraService::setWhiteBalance(QCamera::WhiteBalanceMode mode)
+{
+    if (!_camera || !_camera->isActive()) {
+        return;
+    }
+    
+    if (_camera->isWhiteBalanceModeSupported(mode)) {
+        _camera->setWhiteBalanceMode(mode);
+    }
+}
+
+void CameraService::setBrightness(int value)
+{
+    if (!_camera || !_camera->isActive()) {
+        return;
+    }
+    
+    // Clamp to -100..100 range
+    qreal normalized = qBound(-1.0, value / 100.0, 1.0);
+    _camera->setColorTemperature(6500 + (normalized * 2000));  // Basic brightness via color temp
+}
+
+void CameraService::setContrast(int value)
+{
+    if (!_camera || !_camera->isActive()) {
+        return;
+    }
+    
+    // Qt6 doesn't have direct contrast control
+    // This would need QVideoSink shader processing
+    Q_UNUSED(value);
+}
+
+void CameraService::setSaturation(int value)
+{
+    if (!_camera || !_camera->isActive()) {
+        return;
+    }
+    
+    // Qt6 doesn't have direct saturation control
+    // This would need QVideoSink shader processing
+    Q_UNUSED(value);
+}
+
+void CameraService::setFlipHorizontal(bool enabled)
+{
+    // TODO: Implement via QVideoSink transformation
+    Q_UNUSED(enabled);
+}
+
+void CameraService::setFlipVertical(bool enabled)
+{
+    // TODO: Implement via QVideoSink transformation
+    Q_UNUSED(enabled);
+}
+

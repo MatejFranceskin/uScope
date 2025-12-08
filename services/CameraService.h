@@ -35,6 +35,15 @@ public:
     // Frame capture
     QImage captureFrame();
     QString currentCameraId() const { return _currentCameraId; }
+    
+    // Camera controls (US3)
+    void setExposure(qreal value);           // Manual exposure time
+    void setWhiteBalance(QCamera::WhiteBalanceMode mode);
+    void setBrightness(int value);           // -100 to 100
+    void setContrast(int value);             // -100 to 100
+    void setSaturation(int value);           // -100 to 100
+    void setFlipHorizontal(bool enabled);
+    void setFlipVertical(bool enabled);
 
 signals:
     void frameReady(const QVideoFrame& frame);

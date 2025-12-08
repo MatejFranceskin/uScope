@@ -46,6 +46,15 @@ public slots:
     void stopCamera();
     void captureImage();
     void autoStartCamera();  // Auto-start first available camera
+    
+    // Camera controls (US3)
+    void setExposure(qreal value);
+    void setWhiteBalance(int mode);  // QCamera::WhiteBalanceMode as int
+    void setBrightness(int value);
+    void setContrast(int value);
+    void setSaturation(int value);
+    void setFlipHorizontal(bool enabled);
+    void setFlipVertical(bool enabled);
 
 signals:
     void frameReady(const QVideoFrame& frame);

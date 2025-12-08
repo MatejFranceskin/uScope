@@ -280,3 +280,40 @@ void CameraController::onServiceError(const QString& message)
 {
     emit error(message);
 }
+
+// Camera controls (US3)
+void CameraController::setExposure(qreal value)
+{
+    _service->setExposure(value);
+}
+
+void CameraController::setWhiteBalance(int mode)
+{
+    _service->setWhiteBalance(static_cast<QCamera::WhiteBalanceMode>(mode));
+}
+
+void CameraController::setBrightness(int value)
+{
+    _service->setBrightness(value);
+}
+
+void CameraController::setContrast(int value)
+{
+    _service->setContrast(value);
+}
+
+void CameraController::setSaturation(int value)
+{
+    _service->setSaturation(value);
+}
+
+void CameraController::setFlipHorizontal(bool enabled)
+{
+    _service->setFlipHorizontal(enabled);
+}
+
+void CameraController::setFlipVertical(bool enabled)
+{
+    _service->setFlipVertical(enabled);
+}
+
