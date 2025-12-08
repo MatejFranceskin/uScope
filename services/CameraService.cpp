@@ -375,8 +375,17 @@ QVideoFrame CameraService::cvMatToQVideoFrame(const cv::Mat& mat)
     // Deep copy to avoid data invalidation when cv::Mat goes out of scope
     QImage imageCopy = image.copy();
     
-    // Create QVideoFrame directly from RGB888 QImage
-    QVideoFrame frame(imageCopy);
+    // Create QVideoFrame from QImage
+    // Use QVideoFrameFormat constructor for Qt 6 compatibility
+    QVideoFrameFormat format(imageCopy.size(), QVideoFrameFormat::Format_RGBX8888);
+    QVideoFrame frame(format);
+    
+    if (frame.map(QVideoFrame::WriteOnly)) {
+        // Convert QImage to RGBX8888 and copy to frame buffer
+        QImage rgbxImage = imageCopy.convertToFormat(QImage::Format_RGBX8888);
+        memcpy(frame.bits(0), rgbxImage.constBits(), rgbxImage.sizeInBytes());
+        frame.unmap();
+    }
     
     return frame;
 }

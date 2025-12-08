@@ -29,6 +29,7 @@ jobs:
           qt6-qtbase-devel \
           qt6-qtmultimedia-devel \
           qt6-qtsvg-devel \
+          opencv-devel \
           rpm-build \
           ImageMagick \
           rpmdevtools
@@ -36,7 +37,6 @@ jobs:
     - name: Install optional dependencies
       run: |
         dnf install -y \
-          opencv-devel \
           tesseract-devel \
           gstreamer1-devel || true
           

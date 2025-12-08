@@ -40,11 +40,26 @@ jobs:
         modules: 'qtmultimedia'
         cache: true
         
+    - name: Build OpenCV for iOS
+      run: |
+        # Clone OpenCV
+        git clone --depth 1 --branch 4.10.0 https://github.com/opencv/opencv.git
+        cd opencv
+        
+        # Build XCFramework for iOS device only (arm64)
+        python3 platforms/apple/build_xcframework.py \
+          --iphoneos_archs arm64 \
+          --build_only_specified_archs \
+          --out ios_build
+          
+        # Set path to built xcframework
+        echo "OPENCV_FRAMEWORK=${{ github.workspace }}/opencv/ios_build/opencv2.xcframework" >> $GITHUB_ENV
+        
     - name: Configure for iOS
       run: |
         cmake -B build-ios \
           -DCMAKE_PREFIX_PATH=${{ github.workspace }}/../Qt/6.4.2/ios \
-          -DCMAKE_FIND_ROOT_PATH=${{ github.workspace }}/../Qt/6.4.2/ios \
+          -DCMAKE_FIND_ROOT_PATH="${{ github.workspace }}/../Qt/6.4.2/ios;${{ env.OPENCV_FRAMEWORK }}" \
           -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \
           -DQT_HOST_PATH=${{ env.QT_HOST_PATH }} \
           -DQT_HOST_PATH_CMAKE_DIR=${{ env.QT_HOST_PATH_CMAKE_DIR }} \

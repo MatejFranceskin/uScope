@@ -18,12 +18,38 @@ find_package(Qt6 REQUIRED COMPONENTS
 )
 
 # Find OpenCV
-find_package(OpenCV REQUIRED COMPONENTS
-    core
-    imgproc
-    videoio
-    imgcodecs
-)
+if(IOS)
+    # For iOS, use the xcframework built by the CI or local build
+    # CI builds to: opencv/ios_build/opencv2.xcframework
+    if(DEFINED ENV{OPENCV_FRAMEWORK})
+        set(OpenCV_FRAMEWORK "$ENV{OPENCV_FRAMEWORK}")
+        message(STATUS "Using OpenCV framework from environment: ${OpenCV_FRAMEWORK}")
+    elseif(EXISTS "${CMAKE_SOURCE_DIR}/opencv/ios_build/opencv2.xcframework")
+        set(OpenCV_FRAMEWORK "${CMAKE_SOURCE_DIR}/opencv/ios_build/opencv2.xcframework")
+        message(STATUS "Using OpenCV framework from opencv/ios_build: ${OpenCV_FRAMEWORK}")
+    endif()
+    
+    # For iOS, we need to use the framework directly, not find_package
+    # XCFramework contains the actual framework inside ios-arm64_armv7/
+    if(EXISTS "${OpenCV_FRAMEWORK}")
+        set(OpenCV_FOUND TRUE)
+        # XCFramework will be linked automatically by Xcode when we add it
+        # We just need to set the include path to the headers inside the xcframework
+        set(OpenCV_INCLUDE_DIRS "${OpenCV_FRAMEWORK}/ios-arm64/opencv2.framework/Headers")
+        # For linking, we need to tell CMake to use the framework
+        set(OpenCV_LIBS "${OpenCV_FRAMEWORK}/ios-arm64/opencv2.framework")
+    endif()
+endif()
+
+if(NOT IOS OR NOT OpenCV_FOUND)
+    # Desktop platforms or if iOS framework not found, use find_package
+    find_package(OpenCV REQUIRED COMPONENTS
+        core
+        imgproc
+        videoio
+        imgcodecs
+    )
+endif()
 
 include_directories(${OpenCV_INCLUDE_DIRS})
 

@@ -46,6 +46,12 @@ jobs:
         cache: true
       continue-on-error: false
         
+    - name: Download OpenCV Android SDK
+      run: |
+        wget -q https://github.com/opencv/opencv/releases/download/4.10.0/opencv-4.10.0-android-sdk.zip
+        unzip -q opencv-4.10.0-android-sdk.zip
+        echo "OPENCV_ANDROID=${{ github.workspace }}/OpenCV-android-sdk/sdk/native/jni" >> $GITHUB_ENV
+        
     - name: Install Android NDK
       run: |
         # Remove pre-installed platforms that Gradle 7.4.2 can't parse
@@ -60,6 +66,7 @@ jobs:
         cmake -B build-android \
           -DCMAKE_PREFIX_PATH=/home/runner/work/uScope/Qt/6.4.2/android_arm64_v8a \
           -DQt6_DIR=/home/runner/work/uScope/Qt/6.4.2/android_arm64_v8a/lib/cmake/Qt6 \
+          -DOpenCV_DIR=$OPENCV_ANDROID \
           -DQT_HOST_PATH=$QT_HOST_PATH \
           -DQT_HOST_PATH_CMAKE_DIR=/usr/lib/x86_64-linux-gnu/cmake \
           -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \

@@ -30,13 +30,13 @@ jobs:
           libgstreamer1.0-dev \
           imagemagick \
           libgstreamer-plugins-base1.0-dev \
+          libopencv-dev \
           debhelper \
           devscripts
           
     - name: Install optional dependencies
       run: |
         sudo apt-get install -y \
-          libopencv-dev \
           tesseract-ocr \
           libtesseract-dev \
           gstreamer1.0-plugins-base \
