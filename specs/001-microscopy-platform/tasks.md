@@ -159,11 +159,14 @@
 ### Implementation for User Story 2
 
 - [X] T078 [P] [US2] Create models/ZoomState.h with qreal zoomFactor, enum Mode (Custom, FitWidth, FitHeight, OneToOne), QPointF panOffset
-- [X] T079 [P] [US2] Create models/ZoomState.cpp with constructor, validation (zoom factor 0.1x to 10.0x), calculateViewTransform() method returning QTransform
+- [X] T079 [P] [US2] Create models/ZoomState.cpp with constructor, validation (zoom factor 0.1x to 10.0x), calculateViewTransform() method returning QTransform with correct order: scale, pan (content coords), center offset (scaled)
 - [X] T080 [P] [US2] Create controllers/ZoomController.h with QObject subclass, slots for setZoomFactor(qreal), zoomIn(), zoomOut(), setFitWidth(), setFitHeight(), setOneToOne(), setPanOffset(QPointF)
 - [X] T081 [US2] Create controllers/ZoomController.cpp implementing zoom logic: clamp factor to range, emit zoomChanged(qreal, Mode) signal, apply transform to VideoGraphicsScene (not QGraphicsView to preserve tile positions)
-- [X] T082 [US2] Implement mouse wheel event handler in ZoomableGraphicsView: wheelEvent override, calculate zoom delta (0.1x per scroll), zoom into cursor position by adjusting pan offset
-- [X] T083 [US2] Implement pan functionality: middle mouse or Ctrl+left drag to pan, update cursor to closed hand during panning
+- [X] T082 [US2] Implement mouse wheel event handler in ZoomableGraphicsView: wheelEvent override, calculate zoom delta (0.1x per scroll), zoom into cursor position by adjusting pan offset using formula `newPan = currentPan + mouseOffset * (1/newZoom - 1/oldZoom)` where mouseOffset is distance from mouse to viewport center
+- [X] T082a [US2] Fix zoom-to-point calculation: pan offset is in content coordinates, mouseOffset in viewport coordinates, formula keeps point under cursor fixed during zoom without curved movement
+- [X] T083 [US2] Implement pan functionality: left-click drag on video background to pan (detect non-interactive items), middle mouse drag alternative, convert viewport delta to content coordinates by dividing by zoom factor, update cursor to closed hand during panning
+- [X] T083a [US2] Fix pan coordinate space: pan offset applied in content space before scaling in transform, viewport delta must be scaled by 1/zoom to convert to content delta, ensures consistent pan behavior at all zoom levels
+- [X] T083b [US2] Fix transform order in ZoomState::calculateViewTransform: scale first, then apply pan (in content coordinates), then center offset (scaled), ensures pan offset is in content coordinate system
 - [X] T084 [US2] Implement touch pinch gesture: QGestureEvent handling with QPinchGesture, zoom into pinch center point by adjusting pan offset proportionally
 - [X] T085 [P] [US2] Create Zoom tile (TileButton) at Right,0,6 displaying current zoom factor (e.g., "2.3x", "Fit W", "100%")
 - [X] T086 [US2] Implement zoom controls panel: create 3 sub-tiles (TileButton instances) for "1:1 (100%)", "Fit Width", "Fit Height" positioned at Right,1,6 through Right,3,6

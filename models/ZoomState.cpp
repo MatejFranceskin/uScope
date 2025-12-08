@@ -76,10 +76,11 @@ QTransform ZoomState::calculateViewTransform(const QSizeF& viewportSize, const Q
     qreal xCenter = (viewportSize.width() - scaledWidth) / 2.0;
     qreal yCenter = (viewportSize.height() - scaledHeight) / 2.0;
     
-    // Build transform: translate to center, scale, then apply pan offset
-    transform.translate(xCenter, yCenter);
+    // Build transform: scale first, then translate for centering and pan
+    // Pan is in content coordinates, so apply it before scaling
     transform.scale(scale, scale);
     transform.translate(_panOffset.x(), _panOffset.y());
+    transform.translate(xCenter / scale, yCenter / scale);
 
     return transform;
 }

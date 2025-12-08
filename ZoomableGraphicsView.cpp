@@ -6,6 +6,7 @@
 #include <QGestureEvent>
 #include <QPinchGesture>
 #include <QScrollBar>
+#include <QGraphicsItem>
 
 ZoomableGraphicsView::ZoomableGraphicsView(QGraphicsScene* scene, QWidget* parent)
     : QGraphicsView(scene, parent)
@@ -37,51 +38,44 @@ void ZoomableGraphicsView::wheelEvent(QWheelEvent* event)
     int delta = event->angleDelta().y();
     
     if (delta != 0) {
-        // Get mouse position in scene coordinates
-        QPointF mousePos = mapToScene(event->position().toPoint());
+        // Get mouse position in viewport coordinates
+        QPointF viewportPos = event->position();
         
-        // Get current zoom before change
+        // Get current zoom and pan
         qreal oldZoom = _zoomController->zoomState()->zoomFactor();
-        qreal newZoom = oldZoom;
+        QPointF currentPan = _zoomController->zoomState()->panOffset();
         
+        // Calculate new zoom
+        qreal newZoom = oldZoom;
         if (delta > 0) {
-            // Zoom in
             newZoom = oldZoom + 0.1;
         } else {
-            // Zoom out
             newZoom = oldZoom - 0.1;
         }
         
-        // Clamp to valid range (will be done by ZoomController, but we need it for calculation)
+        // Clamp to valid range
         newZoom = qBound(0.1, newZoom, 10.0);
         
-        qDebug() << "wheelEvent: mousePos=" << mousePos << "oldZoom=" << oldZoom << "newZoom=" << newZoom;
-        
-        // The mouse position is in scene coordinates, but we need to account for the
-        // centering offset that's baked into the transform. 
-        // The pan offset in our transform is applied AFTER centering and scaling.
-        
-        QPointF currentPan = _zoomController->zoomState()->panOffset();
-        qreal zoomRatio = newZoom / oldZoom;
-        
-        qDebug() << "wheelEvent: currentPan=" << currentPan << "zoomRatio=" << zoomRatio;
-        
-        // The zoom-to-point formula: we want to keep the point under the mouse fixed
-        // newPan = (mousePos - viewportCenter) / oldZoom - (mousePos - viewportCenter) / newZoom
-        // Simplified: newPan = currentPan + mousePos * (1/newZoom - 1/oldZoom)
-        // Or: newPan = currentPan * (oldZoom/newZoom) + mousePos * (1 - oldZoom/newZoom)
-        
-        // Account for viewport center
-        QSizeF viewportSize(_zoomController->contentSize());
+        // Calculate viewport center
         QPointF viewportCenter(viewport()->width() / 2.0, viewport()->height() / 2.0);
-        QPointF mouseOffset = mousePos - viewportCenter;
         
-        // Adjust pan to keep mouse position fixed
-        QPointF newPan = currentPan + mouseOffset * (1.0 / newZoom - 1.0 / oldZoom) * oldZoom;
+        // Mouse offset from viewport center
+        QPointF mouseOffset = viewportPos - viewportCenter;
         
-        qDebug() << "wheelEvent: newPan=" << newPan << "mouseOffset=" << mouseOffset;
+        // To keep the point under the mouse fixed during zoom:
+        // The point we want to keep fixed is at: mouseOffset from center
+        // After centering, the content point under mouse is: (mouseOffset - currentPan * oldZoom) / oldZoom
+        // We want this same content point to be under mouse after zoom:
+        // (mouseOffset - newPan * newZoom) / newZoom = (mouseOffset - currentPan * oldZoom) / oldZoom
+        // Solving for newPan:
+        // mouseOffset - newPan * newZoom = (mouseOffset - currentPan * oldZoom) * (newZoom / oldZoom)
+        // newPan * newZoom = mouseOffset - mouseOffset * (newZoom / oldZoom) + currentPan * oldZoom * (newZoom / oldZoom)
+        // newPan = mouseOffset / newZoom - mouseOffset / oldZoom + currentPan * (oldZoom / newZoom) * (newZoom / newZoom)
+        // newPan = mouseOffset * (1/newZoom - 1/oldZoom) + currentPan
         
-        // Apply zoom and pan together to avoid double transform
+        QPointF newPan = currentPan + mouseOffset * (1.0 / newZoom - 1.0 / oldZoom);
+        
+        // Apply zoom and pan together
         _zoomController->setZoomAndPan(newZoom, newPan);
     }
     
@@ -96,10 +90,23 @@ void ZoomableGraphicsView::mousePressEvent(QMouseEvent* event)
         return;
     }
     
-    // Check if middle button or Ctrl+left button for panning
-    if (event->button() == Qt::MiddleButton || 
-        (event->button() == Qt::LeftButton && event->modifiers() & Qt::ControlModifier)) {
+    // For left button, check if clicking on an interactive item
+    if (event->button() == Qt::LeftButton) {
+        QGraphicsItem* item = itemAt(event->pos());
         
+        // If clicking on an item that accepts mouse buttons, let it handle the event
+        if (item) {
+            // Check if item or any parent accepts mouse buttons
+            while (item) {
+                if (item->acceptedMouseButtons() != Qt::NoButton) {
+                    QGraphicsView::mousePressEvent(event);
+                    return;
+                }
+                item = item->parentItem();
+            }
+        }
+        
+        // No interactive item under mouse, start panning
         _isPanning = true;
         _lastPanPos = event->pos();
         setCursor(Qt::ClosedHandCursor);
@@ -107,7 +114,16 @@ void ZoomableGraphicsView::mousePressEvent(QMouseEvent* event)
         return;
     }
     
-    // Pass to base class for normal item interaction
+    // Handle middle button panning
+    if (event->button() == Qt::MiddleButton) {
+        _isPanning = true;
+        _lastPanPos = event->pos();
+        setCursor(Qt::ClosedHandCursor);
+        event->accept();
+        return;
+    }
+    
+    // Pass other events to base class
     QGraphicsView::mousePressEvent(event);
 }
 
@@ -119,12 +135,17 @@ void ZoomableGraphicsView::mouseMoveEvent(QMouseEvent* event)
     }
     
     if (_isPanning) {
-        // Calculate delta in scene coordinates
+        // Calculate delta in viewport coordinates
         QPoint delta = event->pos() - _lastPanPos;
         _lastPanPos = event->pos();
         
-        // Pan by delta (negate to make drag feel natural - drag right = pan right)
-        _zoomController->panBy(QPointF(-delta.x(), -delta.y()));
+        // Convert delta to content coordinate space by dividing by zoom factor
+        // Pan offset is applied in content coordinates, so we need to scale the viewport delta
+        qreal zoom = _zoomController->zoomState()->zoomFactor();
+        QPointF contentDelta(delta.x() / zoom, delta.y() / zoom);
+        
+        // Pan by delta
+        _zoomController->panBy(QPointF(contentDelta.x(), contentDelta.y()));
         
         event->accept();
         return;
@@ -141,9 +162,7 @@ void ZoomableGraphicsView::mouseReleaseEvent(QMouseEvent* event)
         return;
     }
     
-    if (_isPanning && (event->button() == Qt::MiddleButton || 
-        (event->button() == Qt::LeftButton && event->modifiers() & Qt::ControlModifier))) {
-        
+    if (_isPanning && (event->button() == Qt::MiddleButton || event->button() == Qt::LeftButton)) {
         _isPanning = false;
         setCursor(Qt::ArrowCursor);
         event->accept();
