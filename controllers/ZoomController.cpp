@@ -2,6 +2,7 @@
 #include "../models/ZoomState.h"
 #include "../VideoGraphicsScene.h"
 #include <QGraphicsView>
+#include <QDebug>
 
 ZoomController::ZoomController(QGraphicsView* view, QObject* parent)
     : QObject(parent)
