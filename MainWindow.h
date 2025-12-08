@@ -13,8 +13,8 @@ class CameraController;
 class ZoomController;
 class CameraControlsPanel;
 class CapturedImage;
-class QSoundEffect;
-class QGraphicsRectItem;
+class QMediaPlayer;
+class QAudioOutput;
 
 class MainWindow : public QMainWindow
 {
@@ -56,8 +56,8 @@ private:
     CameraControlsPanel *_cameraPanel;
     ZoomTile *_zoomTile;
     
-    QSoundEffect *_shutterSound;
-    QGraphicsRectItem *_flashOverlay;
+    QMediaPlayer* _shutterSound;
+    QAudioOutput* _audioOutput;
     
     TileButton* _fullscreenToggle;
     TileButton* _recordButton;

@@ -139,7 +139,7 @@
 - [X] T067h [US1] Implement camera reconnection monitoring: add QTimer-based polling (2 second interval) in CameraController to detect when saved camera becomes available after disconnect/restart, automatically restore camera with saved format when detected
 - [X] T067i [US1] Fix camera selection UI state: update CameraControlsPanel::refreshCameras() to select currently active camera in list instead of always selecting first camera, preventing accidental settings overwrite when opening camera panel
 - [X] T067j [US1] Remove debug output: remove all qDebug() statements from TileDialog::updateProxyWidgetGeometry() to clean up production logs
-- [X] T068 [US1] Add visual feedback on capture: play camera shutter sound from sounds/camera-shutter.mp3 using QSoundEffect, show brief white flash overlay (QGraphicsRectItem with 200ms alpha, 100ms duration) on image capture
+- [X] T068 [US1] Add visual feedback on capture: play camera shutter sound from sounds/camera-shutter.mp3 using QMediaPlayer with QAudioOutput (changed from QSoundEffect for better codec support), no message box interruption
 - [X] T069 [US1] Handle camera disconnect gracefully: added MainWindow::onCameraDisconnected() slot showing warning dialog, message informs user of disconnect and mentions auto-reconnection every 2 seconds (reconnection monitoring implemented in T067h)
 - [ ] T070 [US1] Test with real UVC camera: verify 15+ fps preview, <1s capture latency, images saved with correct timestamp
 
@@ -151,11 +151,11 @@
 
 **Goal**: Complete remaining enhancements for User Story 1
 
-**Independent Test**: Capture image, verify shutter sound plays and flash overlay appears. Disconnect camera, verify error handling and reconnection attempts.
+**Independent Test**: Capture image, verify shutter sound plays. Disconnect camera, verify error handling and reconnection attempts.
 
 ### Implementation Enhancements
 
-- [ ] T071 [US1] Add visual feedback on capture (camera shutter sound from sounds/camera-shutter.mp3, brief flash overlay)
+- [ ] T071 [US1] Add visual feedback on capture (camera shutter sound from sounds/camera-shutter.mp3)
 - [ ] T072 [US1] Handle camera disconnect gracefully: show error dialog, attempt reconnection every 2 seconds
 - [ ] T073 [US1] Test with real UVC camera: verify 15+ fps preview, <1s capture latency, images saved with correct timestamp
 

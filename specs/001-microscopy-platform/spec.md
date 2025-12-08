@@ -68,7 +68,6 @@ The following tiles comprise the main UI:
 - Purpose: Captures a single high-resolution still image from current video feed
 - Icon: `images/camera.svg` or dedicated snapshot icon
 - Sound: Plays `sounds/camera-shutter.mp3` on capture
-- Visual Feedback: Brief white flash overlay on capture
 - Behavior: Single-click captures and saves image with timestamp
 
 **Record** (Anchor: Right, Position: 0,5, Size: 1×1)

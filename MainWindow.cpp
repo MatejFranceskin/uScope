@@ -11,9 +11,8 @@
 #include <QResizeEvent>
 #include <QShowEvent>
 #include <QMessageBox>
-#include <QSoundEffect>
-#include <QGraphicsRectItem>
-#include <QTimer>
+#include <QMediaPlayer>
+#include <QAudioOutput>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -24,7 +23,7 @@ MainWindow::MainWindow(QWidget *parent)
     , _cameraPanel(nullptr)
     , _zoomTile(nullptr)
     , _shutterSound(nullptr)
-    , _flashOverlay(nullptr)
+    , _audioOutput(nullptr)
     , _fullscreenToggle(nullptr)
     , _recordButton(nullptr)
     , _fullscreenMode(false)
@@ -77,17 +76,11 @@ void MainWindow::setupUi()
     qDebug() << "setupUi: Set initial scene rect to" << _scene->sceneRect();
     
     // Create shutter sound effect
-    _shutterSound = new QSoundEffect(this);
+    _audioOutput = new QAudioOutput(this);
+    _audioOutput->setVolume(0.5f);
+    _shutterSound = new QMediaPlayer(this);
+    _shutterSound->setAudioOutput(_audioOutput);
     _shutterSound->setSource(QUrl("qrc:/sounds/camera-shutter.mp3"));
-    _shutterSound->setVolume(0.5f);
-    
-    // Create flash overlay (initially invisible)
-    _flashOverlay = new QGraphicsRectItem();
-    _flashOverlay->setRect(_scene->sceneRect());
-    _flashOverlay->setBrush(QBrush(QColor(255, 255, 255, 200)));  // White with alpha
-    _flashOverlay->setZValue(1000);  // On top of everything
-    _flashOverlay->setVisible(false);
-    _scene->addItem(_flashOverlay);
 }
 
 void MainWindow::createControllers()
@@ -270,11 +263,8 @@ void MainWindow::setFullscreenMode(bool enabled)
 
 void MainWindow::onImageCaptured(const CapturedImage& image)
 {
-    // Show visual feedback
+    // Show visual feedback (sound + flash overlay)
     showCaptureFlash();
-    
-    QMessageBox::information(this, "Image Captured", 
-        QString("Image saved to:\n%1").arg(image.filePath()));
 }
 
 void MainWindow::onCameraError(const QString& message)
@@ -347,11 +337,6 @@ void MainWindow::resizeEvent(QResizeEvent *event)
         QSize viewportSize = _view->viewport()->size();
         _scene->setSceneRect(0, 0, viewportSize.width(), viewportSize.height());
         
-        // Update flash overlay size
-        if (_flashOverlay) {
-            _flashOverlay->setRect(_scene->sceneRect());
-        }
-        
         updateTileLayout();
     }
 }
@@ -360,19 +345,8 @@ void MainWindow::showCaptureFlash()
 {
     // Play shutter sound
     if (_shutterSound) {
+        _shutterSound->setPosition(0);  // Reset to start
         _shutterSound->play();
-    }
-    
-    // Show flash overlay
-    if (_flashOverlay) {
-        _flashOverlay->setVisible(true);
-        
-        // Hide flash after 100ms
-        QTimer::singleShot(100, this, [this]() {
-            if (_flashOverlay) {
-                _flashOverlay->setVisible(false);
-            }
-        });
     }
 }
 

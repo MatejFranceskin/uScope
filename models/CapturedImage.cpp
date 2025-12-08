@@ -32,8 +32,8 @@ bool CapturedImage::isValid() const
 
 QString CapturedImage::generateFilename() const
 {
-    // Format: uScope_YYYYMMDD_HHmmss.png
-    return QString("uScope_%1.png").arg(_timestamp.toString("yyyyMMdd_HHmmss"));
+    // Format: uScope_YYYYMMDD_HHmmss.jpg
+    return QString("uScope_%1.jpg").arg(_timestamp.toString("yyyyMMdd_HHmmss"));
 }
 
 bool CapturedImage::save(const QString& directory)
@@ -62,9 +62,10 @@ bool CapturedImage::save(const QString& directory)
     _filePath = saveDir + QDir::separator() + filename;
 
     // Save image with metadata
-    QImageWriter writer(_filePath, "PNG");
+    QImageWriter writer(_filePath, "JPEG");
+    writer.setQuality(95);  // High quality JPEG (0-100)
     
-    // Add metadata as PNG text chunks
+    // Add metadata as EXIF comments
     writer.setText("Camera ID", _cameraId);
     writer.setText("Timestamp", _timestamp.toString(Qt::ISODate));
     writer.setText("Resolution", QString("%1x%2").arg(_resolution.width()).arg(_resolution.height()));
