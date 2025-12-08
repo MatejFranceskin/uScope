@@ -11,6 +11,9 @@
 #include <QResizeEvent>
 #include <QShowEvent>
 #include <QMessageBox>
+#include <QSoundEffect>
+#include <QGraphicsRectItem>
+#include <QTimer>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -20,6 +23,8 @@ MainWindow::MainWindow(QWidget *parent)
     , _zoomController(nullptr)
     , _cameraPanel(nullptr)
     , _zoomTile(nullptr)
+    , _shutterSound(nullptr)
+    , _flashOverlay(nullptr)
     , _fullscreenToggle(nullptr)
     , _recordButton(nullptr)
     , _fullscreenMode(false)
@@ -70,6 +75,19 @@ void MainWindow::setupUi()
     // Account for window decorations by using a reasonable initial size
     _scene->setSceneRect(0, 0, 1280, 720);
     qDebug() << "setupUi: Set initial scene rect to" << _scene->sceneRect();
+    
+    // Create shutter sound effect
+    _shutterSound = new QSoundEffect(this);
+    _shutterSound->setSource(QUrl("qrc:/sounds/camera-shutter.mp3"));
+    _shutterSound->setVolume(0.5f);
+    
+    // Create flash overlay (initially invisible)
+    _flashOverlay = new QGraphicsRectItem();
+    _flashOverlay->setRect(_scene->sceneRect());
+    _flashOverlay->setBrush(QBrush(QColor(255, 255, 255, 200)));  // White with alpha
+    _flashOverlay->setZValue(1000);  // On top of everything
+    _flashOverlay->setVisible(false);
+    _scene->addItem(_flashOverlay);
 }
 
 void MainWindow::createControllers()
@@ -250,6 +268,9 @@ void MainWindow::setFullscreenMode(bool enabled)
 
 void MainWindow::onImageCaptured(const CapturedImage& image)
 {
+    // Show visual feedback
+    showCaptureFlash();
+    
     QMessageBox::information(this, "Image Captured", 
         QString("Image saved to:\n%1").arg(image.filePath()));
 }
@@ -316,7 +337,33 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     if (_scene && _view) {
         QSize viewportSize = _view->viewport()->size();
         _scene->setSceneRect(0, 0, viewportSize.width(), viewportSize.height());
+        
+        // Update flash overlay size
+        if (_flashOverlay) {
+            _flashOverlay->setRect(_scene->sceneRect());
+        }
+        
         updateTileLayout();
+    }
+}
+
+void MainWindow::showCaptureFlash()
+{
+    // Play shutter sound
+    if (_shutterSound) {
+        _shutterSound->play();
+    }
+    
+    // Show flash overlay
+    if (_flashOverlay) {
+        _flashOverlay->setVisible(true);
+        
+        // Hide flash after 100ms
+        QTimer::singleShot(100, this, [this]() {
+            if (_flashOverlay) {
+                _flashOverlay->setVisible(false);
+            }
+        });
     }
 }
 

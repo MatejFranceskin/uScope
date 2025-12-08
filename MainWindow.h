@@ -13,6 +13,8 @@ class CameraController;
 class ZoomController;
 class CameraControlsPanel;
 class CapturedImage;
+class QSoundEffect;
+class QGraphicsRectItem;
 
 class MainWindow : public QMainWindow
 {
@@ -44,6 +46,7 @@ private:
     int calculateFontSize() const;  // Centralized font size calculation
     void updateTileLayout();
     void setFullscreenMode(bool enabled);
+    void showCaptureFlash();  // Visual feedback for image capture
 
     ZoomableGraphicsView *_view;
     VideoGraphicsScene *_scene;
@@ -51,6 +54,9 @@ private:
     ZoomController *_zoomController;
     CameraControlsPanel *_cameraPanel;
     ZoomTile *_zoomTile;
+    
+    QSoundEffect *_shutterSound;
+    QGraphicsRectItem *_flashOverlay;
     
     TileButton* _fullscreenToggle;
     TileButton* _recordButton;
