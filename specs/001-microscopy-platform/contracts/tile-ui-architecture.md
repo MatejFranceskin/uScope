@@ -116,7 +116,8 @@ public:
     QRectF boundingRect() const override { return QRectF(0, 0, _width, _height); }
     
     // CRITICAL: Must be virtual for TileDialog to properly override and update dim overlay
-    virtual void updateGeometry(int windowWidth, int windowHeight, int baseTileSize);
+    // fontSize parameter from MainWindow::calculateFontSize() ensures consistent scaling
+    virtual void updateGeometry(int windowWidth, int windowHeight, int baseTileSize, int fontSize = 0);
     
     float widthMultiplier() const { return _widthMult; }
     float heightMultiplier() const { return _heightMult; }
@@ -324,11 +325,12 @@ private:
 
 **Implementation Pattern for Subclassed Dialogs**:
 ```cpp
-class CameraSettingsDialog : public TileDialog {
+class CameraControlsPanel : public TileDialog {
 public:
-    CameraSettingsDialog(CameraController* controller, QGraphicsItem* parent = nullptr)
+    CameraControlsPanel(CameraController* controller, ZoomController* zoomController, QGraphicsItem* parent = nullptr)
         : TileDialog(6.0f, 8.0f, 1, parent)  // 6×8 tiles, Y=1 from top
         , _controller(controller)
+        , _zoomController(zoomController)
     {
         setupUI();
     }
@@ -352,13 +354,23 @@ private:
         // Fonts will be set automatically by TileDialog based on MainWindow::calculateFontSize()
         setContentWidget(content);
         
-        // Connect signals - camera switches instantly on selection
+        // Connect signals - camera switches instantly on selection with auto fit-to-width
         connect(_cameraList, &QListWidget::currentRowChanged,
-                this, &CameraSettingsDialog::onCameraChanged);
+                this, &CameraControlsPanel::onCameraSelected);
         // Dialog closes via ESC key or clicking outside (on dim overlay)
     }
     
+    void onCameraSelected(int index) {
+        _controller->startCamera(_availableCameras[index].id());
+        
+        // Apply fit-to-width zoom for new camera - handles different resolutions
+        if (_zoomController) {
+            _zoomController->setFitWidth();
+        }
+    }
+    
     CameraController* _controller;
+    ZoomController* _zoomController;
     QListWidget* _cameraList;
 };
 ```
@@ -436,29 +448,26 @@ void MainWindow::onCameraButtonClicked() {
 ```cpp
 void MainWindow::updateTileLayout() {
     int baseTileSize = calculateBaseTileSize();
+    int fontSize = calculateFontSize();  // Centralized font size calculation
     int windowWidth = _view->width();
     int windowHeight = _view->height();
     
-    // Update all tiles with new geometry
+    // Update all tiles with new geometry and centralized font size
     for (Tile* tile : _leftTiles) {
-        tile->updateGeometry(windowWidth, windowHeight, baseTileSize);
+        tile->updateGeometry(windowWidth, windowHeight, baseTileSize, fontSize);
     }
     for (Tile* tile : _rightTiles) {
-        tile->updateGeometry(windowWidth, windowHeight, baseTileSize);
+        tile->updateGeometry(windowWidth, windowHeight, baseTileSize, fontSize);
+    }
+    for (Tile* tile : _centerTiles) {
+        tile->updateGeometry(windowWidth, windowHeight, baseTileSize, fontSize);
     }
     
     // Position tiles vertically
     positionTiles(_leftTiles, Tile::Left);
     positionTiles(_rightTiles, Tile::Right);
     
-    // Update dialog if visible
-    if (_activeDialog) {
-        _activeDialog->updateGeometry(windowWidth, windowHeight, baseTileSize);
-        // Center dialog
-        qreal x = (windowWidth - _activeDialog->boundingRect().width()) / 2;
-        qreal y = (windowHeight - _activeDialog->boundingRect().height()) / 2;
-        _activeDialog->setPos(x, y);
-    }
+    // Center tiles (including dialogs) are positioned by their own logic
 }
 
 void MainWindow::positionTiles(QList<Tile*>& tiles, Tile::Anchor anchor) {
@@ -594,18 +603,17 @@ void MainWindow::showCalibrationDialog() {
 }
 
 void MainWindow::showDialog(TileDialog* dialog) {
-    // Create dimming overlay
-    _dialogOverlay = new QGraphicsRectItem(0, 0, _view->width(), _view->height());
-    _dialogOverlay->setBrush(QColor(0, 0, 0, 180));  // 70% black
-    _dialogOverlay->setZValue(20);
-    _scene->addItem(_dialogOverlay);
+    // Add to center tiles list to ensure it receives resize updates
+    _centerTiles.append(dialog);
     
-    // Show dialog on top
-    dialog->setZValue(30);
+    // Add to scene (dialog has built-in dim overlay)
     _scene->addItem(dialog);
     _activeDialog = dialog;
     
-    updateTileLayout();  // Centers dialog
+    // Update layout with centralized font size
+    updateTileLayout();
+    
+    // Dialog shows and positions itself via updateGeometry
     dialog->show();
 }
 ```

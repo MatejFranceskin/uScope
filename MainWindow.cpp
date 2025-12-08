@@ -80,6 +80,14 @@ void MainWindow::createControllers()
     // Connect camera signals
     connect(_cameraController, &CameraController::frameReady,
             _scene, &VideoGraphicsScene::updateVideoFrame);
+    connect(_cameraController, &CameraController::frameReady,
+            this, [this](const QVideoFrame& frame) {
+                // Update zoom controller content size when frame size changes
+                QSize frameSize = frame.size();
+                if (!frameSize.isEmpty()) {
+                    _zoomController->setContentSize(frameSize);
+                }
+            });
     connect(_cameraController, &CameraController::imageCaptured,
             this, &MainWindow::onImageCaptured);
     connect(_cameraController, &CameraController::error,
@@ -105,7 +113,7 @@ void MainWindow::createControllers()
 void MainWindow::createTiles()
 {
     // Create camera controls panel (hidden initially)
-    _cameraPanel = new CameraControlsPanel(_cameraController);
+    _cameraPanel = new CameraControlsPanel(_cameraController, _zoomController);
     _scene->addItem(_cameraPanel);
     _centerTiles.append(_cameraPanel);  // Add to center tiles so it gets resized
     _cameraPanel->hide();

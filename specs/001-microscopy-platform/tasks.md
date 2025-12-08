@@ -129,6 +129,9 @@
 - [X] T065 [US1] Create ui/CameraControlsPanel.cpp populating camera list from CameraController::enumerateCameras(), connecting currentRowChanged to instant camera switch via CameraController::startCamera(), using setContentWidget() for scrollable Qt controls, dialog closes via ESC key or clicking outside
 - [X] T066 [US1] Add CameraControlsPanel tile to MainWindow _leftTiles, position at top-left with updateGeometry
 - [X] T067 [US1] Implement image save to ~/Documents/uScope/ with filename format "image_yyyyMMdd_HHmmss.png" using QDateTime
+- [X] T067a [US1] Implement auto fit-to-width when selecting camera: pass ZoomController reference to CameraControlsPanel, call setFitWidth() on camera selection to automatically scale different resolutions
+- [X] T067b [US1] Implement content size auto-update: connect CameraController::frameReady signal to lambda that extracts frame size and updates ZoomController content size dynamically
+- [X] T067c [US1] Fix fit-to-width zoom persistence: update ZoomController::setContentSize() to recalculate zoom scale for FitWidth/FitHeight modes when content size changes, ensuring camera switches maintain correct zoom mode
 - [ ] T068 [US1] Add visual feedback on capture (camera shutter sound from sounds/camera-shutter.mp3, brief flash overlay)
 - [ ] T069 [US1] Handle camera disconnect gracefully: show error dialog, attempt reconnection every 2 seconds
 - [ ] T070 [US1] Test with real UVC camera: verify 15+ fps preview, <1s capture latency, images saved with correct timestamp

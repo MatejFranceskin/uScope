@@ -39,8 +39,25 @@ void ZoomController::setContentSize(const QSizeF& size)
 {
     if (_contentSize != size) {
         _contentSize = size;
-        // Recalculate transform with new content size
-        applyTransform();
+        
+        // When content size changes, recalculate zoom for fit modes
+        // This ensures that fit-width/fit-height scale is updated for new content
+        switch (_zoomState->mode()) {
+            case ZoomState::Mode::FitWidth:
+                setFitWidth();
+                break;
+            case ZoomState::Mode::FitHeight:
+                setFitHeight();
+                break;
+            case ZoomState::Mode::OneToOne:
+                // For 1:1, just recalculate transform with zoom factor 1.0
+                applyTransform();
+                break;
+            case ZoomState::Mode::Custom:
+                // For custom zoom, keep current zoom factor
+                applyTransform();
+                break;
+        }
     }
 }
 

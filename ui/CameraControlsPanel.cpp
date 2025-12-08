@@ -1,5 +1,6 @@
 #include "CameraControlsPanel.h"
 #include "../controllers/CameraController.h"
+#include "../controllers/ZoomController.h"
 #include <QPainter>
 #include <QFont>
 #include <QVBoxLayout>
@@ -7,9 +8,12 @@
 #include <QLabel>
 #include <QWidget>
 
-CameraControlsPanel::CameraControlsPanel(CameraController* controller, QGraphicsItem* parent)
+CameraControlsPanel::CameraControlsPanel(CameraController* cameraController,
+                                         ZoomController* zoomController,
+                                         QGraphicsItem* parent)
     : TileDialog(6.0f, 6.0f, 1, parent)  // 6×6 tiles, positioned at Y=1 from top
-    , _controller(controller)
+    , _controller(cameraController)
+    , _zoomController(zoomController)
     , _cameraList(nullptr)
 {
     setupUI();
@@ -84,6 +88,11 @@ void CameraControlsPanel::onCameraSelected(int index)
     if (index >= 0 && index < _availableCameras.size()) {
         QString cameraId = _availableCameras[index].id();
         _controller->startCamera(cameraId);
+        
+        // Apply fit-to-width zoom for new camera
+        if (_zoomController) {
+            _zoomController->setFitWidth();
+        }
     }
 }
 
