@@ -132,6 +132,9 @@
 - [X] T067a [US1] Implement auto fit-to-width when selecting camera: pass ZoomController reference to CameraControlsPanel, call setFitWidth() on camera selection to automatically scale different resolutions
 - [X] T067b [US1] Implement content size auto-update: connect CameraController::frameReady signal to lambda that extracts frame size and updates ZoomController content size dynamically
 - [X] T067c [US1] Fix fit-to-width zoom persistence: update ZoomController::setContentSize() to recalculate zoom scale for FitWidth/FitHeight modes when content size changes, ensuring camera switches maintain correct zoom mode
+- [X] T067d [US1] Add camera format selection UI: add second QListWidget to CameraControlsPanel for resolution/frame rate selection, query available formats via CameraController::availableFormats(), display as "WIDTHxHEIGHT @ FPS fps", implement setCameraFormat() to switch formats on selection
+- [X] T067e [US1] Sort camera formats by quality: sort available formats from highest resolution (pixels) to lowest, then highest frame rate to lowest, using std::sort with custom comparator in CameraControlsPanel::onCameraSelected()
+- [X] T067f [US1] Fix TileDialog size constraints: set scroll area to fixed size matching dialog bounds (boundingRect - padding), set proxy widget size policy to Fixed, enable ItemClipsChildrenToShape flag to prevent content from expanding dialog beyond specified tile dimensions
 - [ ] T068 [US1] Add visual feedback on capture (camera shutter sound from sounds/camera-shutter.mp3, brief flash overlay)
 - [ ] T069 [US1] Handle camera disconnect gracefully: show error dialog, attempt reconnection every 2 seconds
 - [ ] T070 [US1] Test with real UVC camera: verify 15+ fps preview, <1s capture latency, images saved with correct timestamp

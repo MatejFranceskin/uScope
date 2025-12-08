@@ -23,9 +23,12 @@ public:
 
     // Camera enumeration
     QList<CameraProfile> enumerateCameras();
+    QList<QCameraFormat> availableFormats(const QString& cameraId);
+    QCameraFormat currentFormat() const;
 
     // Camera lifecycle
     bool startCamera(const QString& cameraId);
+    bool startCamera(const QString& cameraId, const QCameraFormat& format);
     void stopCamera();
     bool isActive() const;
 

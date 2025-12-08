@@ -6,6 +6,7 @@
 #include <QGraphicsProxyWidget>
 #include <QScrollArea>
 #include <QWidget>
+#include <QTimer>
 
 // Forward declaration
 class TileDialog;

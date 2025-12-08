@@ -1,5 +1,6 @@
 #include "TileDialog.h"
 #include <QGraphicsScene>
+#include <QGraphicsView>
 #include <QKeyEvent>
 #include <QPainter>
 #include <QLabel>
@@ -149,7 +150,7 @@ void TileDialog::setupScrollArea()
 {
     // Create scroll area
     _scrollArea = new QScrollArea();
-    _scrollArea->setWidgetResizable(true);
+    _scrollArea->setWidgetResizable(true);  // Let it resize the widget to fit
     _scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     _scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     _scrollArea->setFrameShape(QFrame::NoFrame);
@@ -198,6 +199,12 @@ void TileDialog::setupScrollArea()
     _proxyWidget = new QGraphicsProxyWidget(this);
     _proxyWidget->setWidget(_scrollArea);
     _proxyWidget->setZValue(1);  // Above dialog background
+    
+    // Prevent proxy from auto-resizing based on widget size hints
+    _proxyWidget->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    
+    // Force the dialog to clip its children to its bounding rect
+    setFlag(QGraphicsItem::ItemClipsChildrenToShape, true);
 }
 
 void TileDialog::updateProxyWidgetGeometry()
@@ -208,6 +215,8 @@ void TileDialog::updateProxyWidgetGeometry()
     
     QRectF rect = boundingRect();
     
+    qDebug() << "TileDialog::updateProxyWidgetGeometry - dialog boundingRect:" << rect;
+    
     // Leave some padding around the edges for the dialog border
     const qreal padding = 10;
     qreal proxyX = padding;
@@ -215,7 +224,30 @@ void TileDialog::updateProxyWidgetGeometry()
     qreal proxyWidth = rect.width() - 2 * padding;
     qreal proxyHeight = rect.height() - 2 * padding;
     
+    qDebug() << "TileDialog::updateProxyWidgetGeometry - setting proxy to:" 
+             << QRectF(proxyX, proxyY, proxyWidth, proxyHeight);
+    
+    // Set scroll area to fixed size FIRST, before setting proxy geometry
+    if (_scrollArea) {
+        QSize targetSize(static_cast<int>(proxyWidth), static_cast<int>(proxyHeight));
+        _scrollArea->setFixedSize(targetSize);
+        qDebug() << "TileDialog::updateProxyWidgetGeometry - scroll area fixed size set to:" << targetSize;
+        qDebug() << "TileDialog::updateProxyWidgetGeometry - scroll area actual size:" << _scrollArea->size();
+        qDebug() << "TileDialog::updateProxyWidgetGeometry - scroll area sizeHint:" << _scrollArea->sizeHint();
+    }
+    
+    // Now set proxy widget geometry - it should respect the scroll area's fixed size
     _proxyWidget->setGeometry(QRectF(proxyX, proxyY, proxyWidth, proxyHeight));
+    
+    qDebug() << "TileDialog::updateProxyWidgetGeometry - proxy geometry set to:" << QRectF(proxyX, proxyY, proxyWidth, proxyHeight);
+    qDebug() << "TileDialog::updateProxyWidgetGeometry - proxy actual geometry:" << _proxyWidget->geometry();
+    qDebug() << "TileDialog::updateProxyWidgetGeometry - proxy size:" << _proxyWidget->size();
+    qDebug() << "TileDialog::updateProxyWidgetGeometry - proxy preferredSize:" << _proxyWidget->preferredSize();
+    
+    if (_contentWidget) {
+        qDebug() << "TileDialog::updateProxyWidgetGeometry - content widget size:" << _contentWidget->size();
+        qDebug() << "TileDialog::updateProxyWidgetGeometry - content widget sizeHint:" << _contentWidget->sizeHint();
+    }
     
     // Update font sizes and styling when geometry changes
     updateContentWidgetStyle();

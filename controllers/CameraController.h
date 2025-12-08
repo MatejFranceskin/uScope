@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QVideoFrame>
 #include <QList>
+#include <QCameraFormat>
 #include "../models/CameraProfile.h"
 #include "../models/CapturedImage.h"
 
@@ -23,6 +24,8 @@ public:
 
     // Camera discovery
     QList<CameraProfile> availableCameras();
+    QList<QCameraFormat> availableFormats(const QString& cameraId);
+    QCameraFormat currentFormat() const;
     
     // Camera lifecycle
     bool isActive() const;
@@ -30,6 +33,7 @@ public:
 
 public slots:
     void startCamera(const QString& cameraId);
+    void startCamera(const QString& cameraId, const QCameraFormat& format);
     void stopCamera();
     void captureImage();
     void autoStartCamera();  // Auto-start first available camera

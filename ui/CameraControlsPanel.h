@@ -5,6 +5,7 @@
 #include <QList>
 #include <QListWidget>
 #include <QPushButton>
+#include <QCameraFormat>
 
 class CameraController;
 class ZoomController;
@@ -31,9 +32,11 @@ signals:
 
 private slots:
     void onCameraSelected(int index);
+    void onFormatSelected(int index);
 
 protected:
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = nullptr) override;
+    void updateGeometry(float baseTileSize, float sceneWidth, int fontSize = 0) override;
 
 private:
     void setupUI();
@@ -41,7 +44,10 @@ private:
     CameraController* _controller;
     ZoomController* _zoomController;
     QListWidget* _cameraList;
+    QListWidget* _formatList;
+    QWidget* _contentWidget;
     QList<CameraProfile> _availableCameras;
+    QList<QCameraFormat> _availableFormats;
 };
 
 #endif // CAMERACONTROLSPANEL_H

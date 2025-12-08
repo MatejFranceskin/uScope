@@ -27,6 +27,16 @@ QList<CameraProfile> CameraController::availableCameras()
     return _service->enumerateCameras();
 }
 
+QList<QCameraFormat> CameraController::availableFormats(const QString& cameraId)
+{
+    return _service->availableFormats(cameraId);
+}
+
+QCameraFormat CameraController::currentFormat() const
+{
+    return _service->currentFormat();
+}
+
 bool CameraController::isActive() const
 {
     return _service->isActive();
@@ -40,6 +50,11 @@ QString CameraController::currentCameraId() const
 void CameraController::startCamera(const QString& cameraId)
 {
     _service->startCamera(cameraId);
+}
+
+void CameraController::startCamera(const QString& cameraId, const QCameraFormat& format)
+{
+    _service->startCamera(cameraId, format);
 }
 
 void CameraController::stopCamera()
