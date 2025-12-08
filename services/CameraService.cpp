@@ -198,6 +198,16 @@ void CameraService::onVideoFrameChanged(const QVideoFrame& frame)
 {
     if (frame.isValid()) {
         _lastFrame = frame;
+        
+        // Measure latency for SC-004 verification (<200ms requirement)
+        if (_controlChangeTimer.isValid() && !_lastControlChange.isEmpty()) {
+            qint64 latencyMs = _controlChangeTimer.elapsed();
+            qDebug() << "CameraService::onVideoFrameChanged - control change latency:"
+                     << _lastControlChange << "took" << latencyMs << "ms"
+                     << (latencyMs < 200 ? "✓ PASS" : "✗ FAIL");
+            _lastControlChange.clear();
+        }
+        
         emit frameReady(frame);
     }
 }
@@ -214,6 +224,9 @@ void CameraService::setExposure(qreal value)
     if (!_camera || !_camera->isActive()) {
         return;
     }
+    
+    _lastControlChange = QString("exposure=%1").arg(value);
+    _controlChangeTimer.start();
     
     if (_camera->isExposureModeSupported(QCamera::ExposureManual)) {
         _camera->setExposureMode(QCamera::ExposureManual);
@@ -238,6 +251,9 @@ void CameraService::setBrightness(int value)
         return;
     }
     
+    _lastControlChange = QString("brightness=%1").arg(value);
+    _controlChangeTimer.start();
+    
     // Clamp to -100..100 range
     qreal normalized = qBound(-1.0, value / 100.0, 1.0);
     _camera->setColorTemperature(6500 + (normalized * 2000));  // Basic brightness via color temp
@@ -249,6 +265,9 @@ void CameraService::setContrast(int value)
         return;
     }
     
+    _lastControlChange = QString("contrast=%1").arg(value);
+    _controlChangeTimer.start();
+    
     // Qt6 doesn't have direct contrast control
     // This would need QVideoSink shader processing
     Q_UNUSED(value);
@@ -259,6 +278,9 @@ void CameraService::setSaturation(int value)
     if (!_camera || !_camera->isActive()) {
         return;
     }
+    
+    _lastControlChange = QString("saturation=%1").arg(value);
+    _controlChangeTimer.start();
     
     // Qt6 doesn't have direct saturation control
     // This would need QVideoSink shader processing

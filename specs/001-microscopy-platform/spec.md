@@ -185,6 +185,7 @@ A researcher adjusts exposure, white balance, and color settings to achieve opti
 7. **Given** user is adjusting camera controls, **When** user drags any slider, **Then** current numeric value is displayed in a label next to the slider (e.g., "Exposure: 250 ms", "Brightness: -20")
 8. **Given** camera controls dialog is open, **When** user views the video feed through the semi-transparent dialog, **Then** the video remains clearly visible with minimal dimming (dialog background alpha 180, dim overlay alpha 60) allowing real-time visual feedback of control changes
 9. **Given** user has adjusted camera settings for a specific camera, **When** user closes app and reopens, selects same camera, **Then** all camera control settings (exposure, brightness, contrast, saturation, flip states) are restored to their previous values per camera ID
+10. **Given** live preview is running and camera controls are being adjusted, **When** user changes exposure, brightness, contrast, or saturation, **Then** latency measurement shows the change reflects in video feed within 200ms (SC-004 compliance), verified via console logging with automatic PASS/FAIL indicators
 
 ---
 

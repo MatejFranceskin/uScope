@@ -7,6 +7,7 @@
 #include <QVideoSink>
 #include <QVideoFrame>
 #include <QList>
+#include <QElapsedTimer>
 #include "../models/CameraProfile.h"
 
 /**
@@ -62,6 +63,10 @@ private:
     QVideoSink* _videoSink;
     QString _currentCameraId;
     QVideoFrame _lastFrame;
+    
+    // Latency measurement for SC-004 verification
+    QElapsedTimer _controlChangeTimer;
+    QString _lastControlChange;
 };
 
 #endif // CAMERASERVICE_H
