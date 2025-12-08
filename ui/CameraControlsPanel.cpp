@@ -7,6 +7,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QWidget>
+#include <QCamera>
 #include <algorithm>
 
 CameraControlsPanel::CameraControlsPanel(CameraController* cameraController,
@@ -18,6 +19,13 @@ CameraControlsPanel::CameraControlsPanel(CameraController* cameraController,
     , _cameraList(nullptr)
     , _formatList(nullptr)
     , _contentWidget(nullptr)
+    , _exposureSlider(nullptr)
+    , _brightnessSlider(nullptr)
+    , _contrastSlider(nullptr)
+    , _saturationSlider(nullptr)
+    , _autoWhiteBalanceBtn(nullptr)
+    , _flipHorizontalBtn(nullptr)
+    , _flipVerticalBtn(nullptr)
 {
     setupUI();
 }
@@ -85,11 +93,108 @@ void CameraControlsPanel::setupUI()
     connect(_formatList, &QListWidget::currentRowChanged,
             this, &CameraControlsPanel::onFormatSelected);
     
+    // Camera Controls Section
+    QLabel* controlsLabel = new QLabel("Manual Controls:");
+    controlsLabel->setFixedHeight(20);
+    controlsLabel->setStyleSheet("color: white; font-weight: bold;");
+    
+    // Exposure slider
+    QLabel* exposureLabel = new QLabel("Exposure:");
+    exposureLabel->setStyleSheet("color: white;");
+    _exposureSlider = new QSlider(Qt::Horizontal);
+    _exposureSlider->setRange(10, 1000);  // 10-1000ms
+    _exposureSlider->setValue(100);
+    _exposureSlider->setStyleSheet(
+        "QSlider::groove:horizontal { background: rgba(100, 100, 100, 200); height: 4px; border-radius: 2px; }"
+        "QSlider::handle:horizontal { background: rgba(80, 150, 80, 220); width: 12px; margin: -4px 0; border-radius: 6px; }"
+    );
+    connect(_exposureSlider, &QSlider::valueChanged, this, &CameraControlsPanel::onExposureChanged);
+    
+    // Brightness slider
+    QLabel* brightnessLabel = new QLabel("Brightness:");
+    brightnessLabel->setStyleSheet("color: white;");
+    _brightnessSlider = new QSlider(Qt::Horizontal);
+    _brightnessSlider->setRange(-100, 100);
+    _brightnessSlider->setValue(0);
+    _brightnessSlider->setStyleSheet(
+        "QSlider::groove:horizontal { background: rgba(100, 100, 100, 200); height: 4px; border-radius: 2px; }"
+        "QSlider::handle:horizontal { background: rgba(80, 150, 80, 220); width: 12px; margin: -4px 0; border-radius: 6px; }"
+    );
+    connect(_brightnessSlider, &QSlider::valueChanged, this, &CameraControlsPanel::onBrightnessChanged);
+    
+    // Contrast slider
+    QLabel* contrastLabel = new QLabel("Contrast:");
+    contrastLabel->setStyleSheet("color: white;");
+    _contrastSlider = new QSlider(Qt::Horizontal);
+    _contrastSlider->setRange(-100, 100);
+    _contrastSlider->setValue(0);
+    _contrastSlider->setStyleSheet(
+        "QSlider::groove:horizontal { background: rgba(100, 100, 100, 200); height: 4px; border-radius: 2px; }"
+        "QSlider::handle:horizontal { background: rgba(80, 150, 80, 220); width: 12px; margin: -4px 0; border-radius: 6px; }"
+    );
+    connect(_contrastSlider, &QSlider::valueChanged, this, &CameraControlsPanel::onContrastChanged);
+    
+    // Saturation slider
+    QLabel* saturationLabel = new QLabel("Saturation:");
+    saturationLabel->setStyleSheet("color: white;");
+    _saturationSlider = new QSlider(Qt::Horizontal);
+    _saturationSlider->setRange(-100, 100);
+    _saturationSlider->setValue(0);
+    _saturationSlider->setStyleSheet(
+        "QSlider::groove:horizontal { background: rgba(100, 100, 100, 200); height: 4px; border-radius: 2px; }"
+        "QSlider::handle:horizontal { background: rgba(80, 150, 80, 220); width: 12px; margin: -4px 0; border-radius: 6px; }"
+    );
+    connect(_saturationSlider, &QSlider::valueChanged, this, &CameraControlsPanel::onSaturationChanged);
+    
+    // Control buttons
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    buttonLayout->setSpacing(5);
+    
+    _autoWhiteBalanceBtn = new QPushButton("Auto WB");
+    _autoWhiteBalanceBtn->setStyleSheet(
+        "QPushButton { background-color: rgba(80, 150, 80, 220); color: white; border-radius: 5px; padding: 5px; }"
+        "QPushButton:hover { background-color: rgba(100, 170, 100, 240); }"
+        "QPushButton:pressed { background-color: rgba(60, 130, 60, 240); }"
+    );
+    connect(_autoWhiteBalanceBtn, &QPushButton::clicked, this, &CameraControlsPanel::onAutoWhiteBalanceClicked);
+    
+    _flipHorizontalBtn = new QPushButton("Flip H");
+    _flipHorizontalBtn->setCheckable(true);
+    _flipHorizontalBtn->setStyleSheet(
+        "QPushButton { background-color: rgba(80, 80, 150, 220); color: white; border-radius: 5px; padding: 5px; }"
+        "QPushButton:hover { background-color: rgba(100, 100, 170, 240); }"
+        "QPushButton:checked { background-color: rgba(80, 150, 80, 220); }"
+    );
+    connect(_flipHorizontalBtn, &QPushButton::clicked, this, &CameraControlsPanel::onFlipHorizontalClicked);
+    
+    _flipVerticalBtn = new QPushButton("Flip V");
+    _flipVerticalBtn->setCheckable(true);
+    _flipVerticalBtn->setStyleSheet(
+        "QPushButton { background-color: rgba(80, 80, 150, 220); color: white; border-radius: 5px; padding: 5px; }"
+        "QPushButton:hover { background-color: rgba(100, 100, 170, 240); }"
+        "QPushButton:checked { background-color: rgba(80, 150, 80, 220); }"
+    );
+    connect(_flipVerticalBtn, &QPushButton::clicked, this, &CameraControlsPanel::onFlipVerticalClicked);
+    
+    buttonLayout->addWidget(_autoWhiteBalanceBtn);
+    buttonLayout->addWidget(_flipHorizontalBtn);
+    buttonLayout->addWidget(_flipVerticalBtn);
+    
     // Assemble layout
     layout->addWidget(cameraLabel);
     layout->addWidget(_cameraList);
     layout->addWidget(formatLabel);
     layout->addWidget(_formatList);
+    layout->addWidget(controlsLabel);
+    layout->addWidget(exposureLabel);
+    layout->addWidget(_exposureSlider);
+    layout->addWidget(brightnessLabel);
+    layout->addWidget(_brightnessSlider);
+    layout->addWidget(contrastLabel);
+    layout->addWidget(_contrastSlider);
+    layout->addWidget(saturationLabel);
+    layout->addWidget(_saturationSlider);
+    layout->addLayout(buttonLayout);
     
     // Store reference to content widget
     _contentWidget = content;
@@ -237,3 +342,41 @@ void CameraControlsPanel::paint(QPainter* painter, const QStyleOptionGraphicsIte
     // Draw base dialog background with title
     TileDialog::paint(painter, option, widget);
 }
+
+// Camera control slots (T100)
+void CameraControlsPanel::onExposureChanged(int value)
+{
+    _controller->setExposure(static_cast<qreal>(value));
+}
+
+void CameraControlsPanel::onBrightnessChanged(int value)
+{
+    _controller->setBrightness(value);
+}
+
+void CameraControlsPanel::onContrastChanged(int value)
+{
+    _controller->setContrast(value);
+}
+
+void CameraControlsPanel::onSaturationChanged(int value)
+{
+    _controller->setSaturation(value);
+}
+
+void CameraControlsPanel::onAutoWhiteBalanceClicked()
+{
+    // Auto white balance - set to automatic mode
+    _controller->setWhiteBalance(static_cast<int>(QCamera::WhiteBalanceAuto));
+}
+
+void CameraControlsPanel::onFlipHorizontalClicked()
+{
+    _controller->setFlipHorizontal(_flipHorizontalBtn->isChecked());
+}
+
+void CameraControlsPanel::onFlipVerticalClicked()
+{
+    _controller->setFlipVertical(_flipVerticalBtn->isChecked());
+}
+

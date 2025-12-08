@@ -5,6 +5,7 @@
 #include <QList>
 #include <QListWidget>
 #include <QPushButton>
+#include <QSlider>
 #include <QCameraFormat>
 
 class CameraController;
@@ -33,6 +34,13 @@ signals:
 private slots:
     void onCameraSelected(int index);
     void onFormatSelected(int index);
+    void onExposureChanged(int value);
+    void onBrightnessChanged(int value);
+    void onContrastChanged(int value);
+    void onSaturationChanged(int value);
+    void onAutoWhiteBalanceClicked();
+    void onFlipHorizontalClicked();
+    void onFlipVerticalClicked();
 
 protected:
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = nullptr) override;
@@ -48,6 +56,15 @@ private:
     QWidget* _contentWidget;
     QList<CameraProfile> _availableCameras;
     QList<QCameraFormat> _availableFormats;
+    
+    // Camera control widgets
+    QSlider* _exposureSlider;
+    QSlider* _brightnessSlider;
+    QSlider* _contrastSlider;
+    QSlider* _saturationSlider;
+    QPushButton* _autoWhiteBalanceBtn;
+    QPushButton* _flipHorizontalBtn;
+    QPushButton* _flipVerticalBtn;
 };
 
 #endif // CAMERACONTROLSPANEL_H
