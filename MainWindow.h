@@ -41,6 +41,7 @@ private:
     void createControllers();
     void createTiles();
     float calculateBaseTileSize() const;
+    int calculateFontSize() const;  // Centralized font size calculation
     void updateTileLayout();
     void setFullscreenMode(bool enabled);
 

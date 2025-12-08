@@ -83,15 +83,16 @@
 - [X] T036 [P] Create TileLabel.cpp with paint override rendering scaled SVG icon and text below
 - [X] T037 [P] Create TileButton.h with Tile subclass, clicked() signal, pressed state animation
 - [X] T038 [P] Create TileButton.cpp with mousePressEvent/mouseReleaseEvent emitting clicked signal
-- [X] T039 [P] Create TileCombo.h with Tile subclass, QGraphicsProxyWidget for embedded QComboBox, currentTextChanged signal
-- [X] T040 [P] Create TileCombo.cpp with QComboBox creation, proxy widget setup, signal forwarding
+- [X] T039 [P] [DEPRECATED] Create TileCombo.h with Tile subclass, QGraphicsProxyWidget for embedded QComboBox, currentTextChanged signal - replaced by QListWidget in TileDialog
+- [X] T040 [P] [DEPRECATED] Create TileCombo.cpp with QComboBox creation, proxy widget setup, signal forwarding - replaced by QListWidget in TileDialog
 - [X] T041 [P] Create TileSlider.h with Tile subclass, QGraphicsProxyWidget for embedded QSlider, valueChanged signal
 - [X] T042 [P] Create TileSlider.cpp with QSlider creation, orientation setup, signal forwarding
-- [X] T043 [P] Create TileDialog.h with Tile subclass for modal centered dialogs, dimOverlay QGraphicsRectItem member, show/hide methods taking baseTileSize and sceneWidth parameters, virtual updateGeometry override
-- [X] T044 [P] Create TileDialog.cpp with semi-transparent black overlay (alpha 180), centered positioning with gridY parameter, Esc key handling emitting rejected() signal, updateGeometry override to resize dim overlay
+- [X] T043 [P] Create TileDialog.h with Tile subclass for modal centered dialogs, clickable DimOverlay class for closing on outside click, QGraphicsProxyWidget for Qt controls, QScrollArea for scrollable content, setContentWidget/contentWidget methods, show/hide methods taking baseTileSize and sceneWidth parameters, virtual updateGeometry override with fontSize parameter
+- [X] T044 [P] Create TileDialog.cpp with semi-transparent clickable overlay (alpha 180), centered positioning with gridY parameter, QScrollArea setup for scrollable Qt widget content, Esc key and outside-click handling emitting rejected() signal, updateGeometry override to resize dim overlay and proxy widget, updateContentWidgetStyle() applying centralized fontSize from MainWindow to all Qt controls
 - [X] T044a [P] Make Tile::updateGeometry virtual to enable TileDialog override for dim overlay updates during window resize
 - [X] T044b [P] Add dialogs to MainWindow::_centerTiles list to ensure they receive geometry updates on window resize
-- [X] T045 Update MainWindow.h with QGraphicsView* _view, VideoGraphicsScene* _scene, QList<Tile*> _leftTiles/_rightTiles/_centerTiles, calculateBaseTileSize() method, resizeEvent override
+- [X] T044c [P] Implement centralized font size calculation in MainWindow::calculateFontSize() (baseTileSize * 0.12) and pass fontSize parameter through all Tile::updateGeometry() calls to ensure consistent font sizing across tiles and Qt controls in dialogs
+- [X] T045 Update MainWindow.h with QGraphicsView* _view, VideoGraphicsScene* _scene, QList<Tile*> _leftTiles/_rightTiles/_centerTiles, calculateBaseTileSize() method, calculateFontSize() method, resizeEvent override
 - [X] T046 Update MainWindow.cpp setupUi to create QGraphicsView, set VideoGraphicsScene, configure view (no scrollbars, antialiasing), add to central widget
 - [X] T047 Implement MainWindow::calculateBaseTileSize() returning height() / 12
 - [X] T048 Implement MainWindow::resizeEvent calling updateTileLayout() which recalculates baseTileSize and calls updateGeometry on all tiles
@@ -124,8 +125,8 @@
 - [X] T061 [US1] Create controllers/CameraController.cpp with startCamera(id) slot calling _service->startCamera(), captureImage() slot calling _service->captureFrame(), signal forwarding
 - [X] T062 [US1] Update VideoGraphicsScene to render QVideoFrame as background via QGraphicsPixmapItem, connect to CameraController::frameReady signal
 - [X] T063 [US1] Update MainWindow constructor to create CameraController instance, auto-start first available camera
-- [X] T064 [US1] Create ui/CameraControlsPanel.h with Tile subclass, TileCombo for camera selection dropdown, TileButton for snap
-- [X] T065 [US1] Create ui/CameraControlsPanel.cpp populating camera combo from CameraController::enumerateCameras(), connecting snap button to CameraController::captureImage()
+- [X] T064 [US1] Create ui/CameraControlsPanel.h with TileDialog subclass, QListWidget for camera selection list (no OK/Cancel buttons - instant camera switching)
+- [X] T065 [US1] Create ui/CameraControlsPanel.cpp populating camera list from CameraController::enumerateCameras(), connecting currentRowChanged to instant camera switch via CameraController::startCamera(), using setContentWidget() for scrollable Qt controls, dialog closes via ESC key or clicking outside
 - [X] T066 [US1] Add CameraControlsPanel tile to MainWindow _leftTiles, position at top-left with updateGeometry
 - [X] T067 [US1] Implement image save to ~/Documents/uScope/ with filename format "image_yyyyMMdd_HHmmss.png" using QDateTime
 - [ ] T068 [US1] Add visual feedback on capture (camera shutter sound from sounds/camera-shutter.mp3, brief flash overlay)
@@ -235,8 +236,8 @@
 - [ ] T119 [US4] Create controllers/CalibrationController.cpp implementing calibration workflow: capture reference distance in pixels, real-world value in µm, calculate pixelsPerMicron
 - [ ] T120 [P] [US4] Create controllers/MeasurementController.h with slots for startLineMeasurement(), startCircleMeasurement(), startPolygonMeasurement(), finishMeasurement()
 - [ ] T121 [US4] Create controllers/MeasurementController.cpp implementing measurement tools with live preview overlay, final value calculation using active Calibration
-- [ ] T122 [P] [US4] Create ui/CalibrationDialog.h with TileDialog subclass, microscope/objective selection combos, calibration input fields (pixel distance, real distance)
-- [ ] T123 [US4] Create ui/CalibrationDialog.cpp with UI layout, validation (positive values), save button connecting to CalibrationController::saveCalibration
+- [ ] T122 [P] [US4] Create ui/CalibrationDialog.h with TileDialog subclass, QComboBox for microscope/objective selection, QLineEdit for calibration input fields (pixel distance, real distance)
+- [ ] T123 [US4] Create ui/CalibrationDialog.cpp with scrollable Qt widget layout via setContentWidget(), validation (positive values), save QPushButton connecting to CalibrationController::saveCalibration
 - [ ] T124 [P] [US4] Create ui/MeasurementOverlay.h with QGraphicsItem subclass for rendering measurement annotations with outlined style (semi-transparent outline, bright fill, antialiasing)
 - [ ] T125 [US4] Create ui/MeasurementOverlay.cpp implementing outlined rendering per contracts/annotation-rendering.md (yellow lines, cyan area measurements, text via QPainterPath)
 - [ ] T126 [US4] Add scale bar overlay to VideoGraphicsScene rendering calibration scale (e.g., "100 µm" with white line, outlined style)
@@ -276,9 +277,9 @@
 - [ ] T147 [US4] Update CameraController::enumerateCameras() to query both V4L2 devices (via CameraService) and PTP cameras (via PTPCameraService::detectCameras()), merge into unified list with type indication
 - [ ] T148 [US4] Update CameraController::startCamera(id) to detect camera type from id prefix (e.g., "v4l:/dev/video0" vs "ptp://usb:001,005"), instantiate appropriate service, connect signals
 - [ ] T149 [P] [US4] Create ui/PTPCameraSettingsPanel.h with TileDialog subclass, dynamic layout for camera-specific controls organized by category (Exposure, Image, Advanced)
-- [ ] T150 [US4] Create ui/PTPCameraSettingsPanel.cpp implementing dynamic control generation: TileCombo for enumeration settings (ISO, shutter, aperture, WB mode), TileSlider for range settings, TileButton for toggle settings
-- [ ] T151 [US4] Update ui/CameraControlsPanel to show "PTP Settings" button when PTP camera active, opens PTPCameraSettingsPanel dialog
-- [ ] T152 [US4] Implement capture target selection: TileCombo with options "Camera Storage (SD Card)" and "Computer (USB Transfer)", update PTPCameraService capture target config
+- [ ] T150 [US4] Create ui/PTPCameraSettingsPanel.cpp implementing dynamic control generation: QComboBox for enumeration settings (ISO, shutter, aperture, WB mode), QSlider for range settings, QPushButton for toggle settings, all embedded in scrollable TileDialog content widget
+- [ ] T151 [US4] Update ui/CameraControlsPanel to show "PTP Settings" QPushButton when PTP camera active, opens PTPCameraSettingsPanel dialog
+- [ ] T152 [US4] Implement capture target selection: QComboBox with options "Camera Storage (SD Card)" and "Computer (USB Transfer)" in PTPCameraSettingsPanel, update PTPCameraService capture target config
 - [ ] T153 [US4] Implement thumbnail preview + download workflow for camera storage mode: show thumbnail after capture, "Download Full Resolution" button triggers gp_camera_file_get()
 - [ ] T154 [US4] Add autofocus support: TileButton "AF" triggers gp_camera_trigger_capture() with half-press simulation (if supported by camera model)
 - [ ] T155 [US4] Implement hot-plug detection: poll gp_camera_autodetect() every 2 seconds, emit cameraConnected/cameraDisconnected signals

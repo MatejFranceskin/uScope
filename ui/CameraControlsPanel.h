@@ -3,9 +3,9 @@
 
 #include "../TileDialog.h"
 #include <QList>
+#include <QListWidget>
+#include <QPushButton>
 
-class TileCombo;
-class TileButton;
 class CameraController;
 class CameraProfile;
 
@@ -28,9 +28,6 @@ signals:
 
 private slots:
     void onCameraSelected(int index);
-    void onCaptureClicked();
-    void onOkClicked();
-    void onCancelClicked();
 
 protected:
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = nullptr) override;
@@ -39,10 +36,7 @@ private:
     void setupUI();
 
     CameraController* _controller;
-    TileCombo* _cameraSelector;
-    TileButton* _captureButton;
-    TileButton* _okButton;
-    TileButton* _cancelButton;
+    QListWidget* _cameraList;
     QList<CameraProfile> _availableCameras;
 };
 

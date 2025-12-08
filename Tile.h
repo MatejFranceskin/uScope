@@ -43,8 +43,9 @@ public:
      * Update tile geometry based on baseTileSize
      * @param baseTileSize Base tile size (screenHeight / 12)
      * @param sceneWidth Width of the scene for positioning calculations
+     * @param fontSize Font size for text rendering (calculated centrally)
      */
-    virtual void updateGeometry(float baseTileSize, float sceneWidth);
+    virtual void updateGeometry(float baseTileSize, float sceneWidth, int fontSize = 0);
 
     /**
      * Get corner radius for rounded tile appearance
@@ -77,6 +78,7 @@ protected:
     int _gridY;
     TileState _state;
     float _currentBaseTileSize;  // Accessible to derived classes for rendering
+    int _currentFontSize;        // Centralized font size from MainWindow
     float _width;
     float _height;
 };

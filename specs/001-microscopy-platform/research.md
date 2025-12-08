@@ -409,9 +409,8 @@ private:
 **Tile Variants**:
 - **TileLabel**: Base tile with icon (SVG, scaled to tile size) + text below
 - **TileButton**: Clickable tile with pressed state animation
-- **TileCombo**: Tile with embedded QComboBox (dropdown for camera/objective selection)
 - **TileSlider**: Tile with QSlider (exposure, gain controls)
-- **TileDialog**: Modal centered tile (2×2 or 3×3 base tiles) with sub-tiles, optional scroll area
+- **TileDialog**: Modal centered tile (4×6 to 8×8 base tiles) with embedded Qt controls via QGraphicsProxyWidget, scrollable content area for when content exceeds viewport size. Uses standard Qt widgets (QListWidget, QPushButton, QLineEdit, etc.) instead of tile-based controls. Content managed via QScrollArea that automatically shows scroll bars when needed.
 
 **State-Based Colors** (with alpha transparency):
 - **Idle**: `QColor(100, 100, 100, 180)`  // Gray, 70% opaque

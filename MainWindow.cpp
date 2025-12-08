@@ -266,6 +266,13 @@ float MainWindow::calculateBaseTileSize() const
     return static_cast<float>(height()) / 8.0f;
 }
 
+int MainWindow::calculateFontSize() const
+{
+    // Font size based on single tile height * 0.12 (same formula as TileLabel)
+    float baseTileSize = calculateBaseTileSize();
+    return static_cast<int>(baseTileSize * 0.12f);
+}
+
 void MainWindow::updateTileLayout()
 {
     if (!_scene || !_view) {
@@ -273,19 +280,20 @@ void MainWindow::updateTileLayout()
     }
     
     float baseTileSize = calculateBaseTileSize();
+    int fontSize = calculateFontSize();
     QRectF sceneRect = _scene->sceneRect();
     
     // Update all tiles with new geometry (they calculate their own positions)
     for (Tile* tile : _leftTiles) {
-        tile->updateGeometry(baseTileSize, sceneRect.width());
+        tile->updateGeometry(baseTileSize, sceneRect.width(), fontSize);
     }
     
     for (Tile* tile : _rightTiles) {
-        tile->updateGeometry(baseTileSize, sceneRect.width());
+        tile->updateGeometry(baseTileSize, sceneRect.width(), fontSize);
     }
     
     for (Tile* tile : _centerTiles) {
-        tile->updateGeometry(baseTileSize, sceneRect.width());
+        tile->updateGeometry(baseTileSize, sceneRect.width(), fontSize);
     }
 }
 

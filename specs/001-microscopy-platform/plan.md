@@ -143,18 +143,16 @@ uScope/                     # Qt/C++ cross-platform microscopy application
 # Tile-based UI Components (Resolution-Independent Overlay System)
 ├── Tile.h                  # Base tile: square/rectangle, transparent, state-based colors
 ├── Tile.cpp                # Tile implementation with proportional scaling (height/12 base)
-├── TileCombo.h             # Tile with dropdown (icon + text + combo)
-├── TileCombo.cpp           # Tile combo implementation
-├── TileDialog.h            # Modal dialog tile (centered, scrollable if needed)
-├── TileDialog.cpp          # Modal dialog implementation with optional slider
+├── TileDialog.h            # Modal dialog tile with Qt controls (QGraphicsProxyWidget + QScrollArea)
+├── TileDialog.cpp          # Modal dialog implementation with scrollable Qt widget content
 ├── TileDialogSettings.h    # Settings dialog tile declaration
 ├── TileDialogSettings.cpp  # Settings dialog implementation
 ├── TileLabel.h             # Basic clickable tile (icon + text, anchored left/right/center)
 ├── TileLabel.cpp           # Tile label implementation
-├── TileButton.h            # NEW: Button tile (icon + text, state colors)
-├── TileButton.cpp          # NEW: Clickable button tile
-├── TileSlider.h            # NEW: Slider tile (for camera controls)
-├── TileSlider.cpp          # NEW: Slider tile implementation
+├── TileButton.h            # Button tile (icon + text, state colors)
+├── TileButton.cpp          # Clickable button tile
+├── TileSlider.h            # Slider tile (for camera controls)
+├── TileSlider.cpp          # Slider tile implementation
 │
 # Resources
 ├── images/                 # SVG/PNG UI resources
@@ -281,7 +279,7 @@ uScope/                     # Qt/C++ cross-platform microscopy application
 │       └── build-ios.yml            # iOS IPA workflow (requires macOS runner)
 ```
 
-**Structure Decision**: Custom tile-based overlay UI architecture for resolution-independent scaling. Desktop uses Qt Widgets with QGraphicsView/QGraphicsScene - video feed renders as background layer, transparent tiles overlay on top. Tiles are squares or rectangles (sides = multiples of base tile size = window_height/12), anchored left/right/center, with state-based background colors and transparency. Modal dialogs are centered tiles with optional scrollbar. This provides consistent appearance across all resolutions/DPIs with proportional scaling. Mobile will use same tile concept via Qt Quick/QML. Controllers implement business logic (see contracts/qt-signals-slots.md), models encapsulate data (see data-model.md), services wrap external dependencies (OpenCV, Tesseract, GStreamer, iNaturalist). Existing tile infrastructure (Tile.h/cpp, TileCombo, TileDialog, TileLabel) forms foundation, extended with new tile types (TileButton, TileSlider, feature-specific dialogs).
+**Structure Decision**: Custom tile-based overlay UI architecture for resolution-independent scaling. Desktop uses Qt Widgets with QGraphicsView/QGraphicsScene - video feed renders as background layer, transparent tiles overlay on top. Tiles are squares or rectangles (sides = multiples of base tile size = window_height/12), anchored left/right/center, with state-based background colors and transparency. Modal dialogs (TileDialog) are centered tiles that embed standard Qt controls (QPushButton, QListWidget, QLineEdit, etc.) via QGraphicsProxyWidget with QScrollArea for scrollable content when content exceeds viewport size. This provides consistent appearance across all resolutions/DPIs with proportional scaling while leveraging native Qt controls for better UX. Mobile will use same tile concept via Qt Quick/QML. Controllers implement business logic (see contracts/qt-signals-slots.md), models encapsulate data (see data-model.md), services wrap external dependencies (OpenCV, Tesseract, GStreamer, iNaturalist). Existing tile infrastructure (Tile.h/cpp, TileDialog, TileLabel, TileButton, TileSlider) forms foundation.
 
 **CI/CD Strategy**: GitHub Actions workflows automate build and packaging for all platforms. PR builds produce artifacts for testing, release tag builds publish distribution packages. Linux builds use native package managers (dpkg-deb for DEB, rpmbuild for RPM), Windows uses WiX Toolset for MSI installer, macOS uses create-dmg for DMG, Android uses Gradle with Qt for Android, iOS uses xcodebuild with Qt for iOS. All workflows install Qt 6.10+, OpenCV 4.x, Tesseract 4.x, and GStreamer as dependencies, run CMake/Gradle/Xcode builds, and package outputs. Artifacts uploaded to GitHub Actions (PR builds) or GitHub Releases (tagged releases).
 

@@ -71,8 +71,6 @@ set(PROJECT_SOURCES
     TileLabel.h
     TileButton.cpp
     TileButton.h
-    TileCombo.cpp
-    TileCombo.h
     TileSlider.cpp
     TileSlider.h
     TileDialog.cpp

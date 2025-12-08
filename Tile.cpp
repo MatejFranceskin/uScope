@@ -11,6 +11,7 @@ Tile::Tile(float widthMultiplier, float heightMultiplier, Anchor anchor, int gri
     , _gridY(gridY)
     , _state(TileState::Idle)
     , _currentBaseTileSize(0.0f)
+    , _currentFontSize(0)
 {
     setAcceptHoverEvents(true);
     setFlag(QGraphicsItem::ItemIsSelectable, false);
@@ -20,9 +21,10 @@ Tile::Tile(float widthMultiplier, float heightMultiplier, Anchor anchor, int gri
     setCacheMode(QGraphicsItem::ItemCoordinateCache);
 }
 
-void Tile::updateGeometry(float baseTileSize, float sceneWidth)
+void Tile::updateGeometry(float baseTileSize, float sceneWidth, int fontSize)
 {
     _currentBaseTileSize = baseTileSize;
+    _currentFontSize = fontSize;
     
     // baseTileSize includes both the tile and its margin
     // Margin is 10% of baseTileSize (top/bottom or left/right)

@@ -1,41 +1,61 @@
 #include "CameraControlsPanel.h"
-#include "../TileCombo.h"
-#include "../TileButton.h"
-#include "../TileLabel.h"
 #include "../controllers/CameraController.h"
 #include <QPainter>
 #include <QFont>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QWidget>
 
 CameraControlsPanel::CameraControlsPanel(CameraController* controller, QGraphicsItem* parent)
-    : TileDialog(6.0f, 4.0f, 1, parent)  // 6×4 tiles, positioned at Y=1 from top
+    : TileDialog(6.0f, 6.0f, 1, parent)  // 6×6 tiles, positioned at Y=1 from top
     , _controller(controller)
-    , _cameraSelector(nullptr)
-    , _captureButton(nullptr)
-    , _okButton(nullptr)
-    , _cancelButton(nullptr)
+    , _cameraList(nullptr)
 {
     setupUI();
 }
 
 void CameraControlsPanel::setupUI()
 {
-    // All positions are in dialog's local grid coordinates
-    // Dialog is 6 tiles wide × 4 tiles tall
+    // Create content widget with standard Qt controls
+    QWidget* content = new QWidget();
+    QVBoxLayout* layout = new QVBoxLayout(content);
+    layout->setContentsMargins(10, 10, 10, 10);
+    layout->setSpacing(10);
     
-    // Camera selector combo - centered horizontally at top (Y=0)
-    _cameraSelector = new TileCombo(4.0f, 1.0f, Tile::Anchor::Center, 0, 0, this);
-    connect(_cameraSelector, QOverload<int>::of(&TileCombo::currentIndexChanged),
+    // Camera selection label
+    QLabel* cameraLabel = new QLabel("Select Camera:");
+    
+    // Camera list widget
+    _cameraList = new QListWidget();
+    _cameraList->setMinimumHeight(150);
+    _cameraList->setStyleSheet(
+        "QListWidget {"
+        "   background-color: rgba(60, 60, 60, 200);"
+        "   color: white;"
+        "   border: 2px solid rgba(100, 100, 100, 200);"
+        "   border-radius: 5px;"
+        "   padding: 5px;"
+        "}"
+        "QListWidget::item {"
+        "   padding: 8px;"
+        "}"
+        "QListWidget::item:selected {"
+        "   background-color: rgba(80, 150, 80, 220);"
+        "}"
+        "QListWidget::item:hover {"
+        "   background-color: rgba(120, 120, 150, 200);"
+        "}"
+    );
+    connect(_cameraList, &QListWidget::currentRowChanged,
             this, &CameraControlsPanel::onCameraSelected);
     
-    // Capture button removed - user will select camera and click OK
+    // Assemble layout
+    layout->addWidget(cameraLabel);
+    layout->addWidget(_cameraList);
     
-    // OK button - left side at bottom (Y=3)
-    _okButton = new TileButton("", "OK", 2.0f, 1.0f, Tile::Anchor::Center, -1, 3, this);
-    connect(_okButton, &TileButton::clicked, this, &CameraControlsPanel::onOkClicked);
-    
-    // Cancel button - right side at bottom (Y=3)
-    _cancelButton = new TileButton("", "Cancel", 2.0f, 1.0f, Tile::Anchor::Center, 1, 3, this);
-    connect(_cancelButton, &TileButton::clicked, this, &CameraControlsPanel::onCancelClicked);
+    // Set as dialog content - scroll bars appear automatically if needed
+    setContentWidget(content);
     
     // Initial camera refresh
     refreshCameras();
@@ -45,16 +65,17 @@ void CameraControlsPanel::refreshCameras()
 {
     _availableCameras = _controller->availableCameras();
     
-    _cameraSelector->comboBox()->clear();
+    _cameraList->clear();
     
     if (_availableCameras.isEmpty()) {
-        _cameraSelector->addItem("No cameras detected");
-        _okButton->setState(TileState::Disabled);
+        _cameraList->addItem("No cameras detected");
     } else {
         for (const CameraProfile& camera : _availableCameras) {
-            _cameraSelector->addItem(camera.name(), camera.id());
+            QListWidgetItem* item = new QListWidgetItem(camera.name());
+            item->setData(Qt::UserRole, camera.id());
+            _cameraList->addItem(item);
         }
-        _okButton->setState(TileState::Idle);
+        _cameraList->setCurrentRow(0);
     }
 }
 
@@ -66,49 +87,8 @@ void CameraControlsPanel::onCameraSelected(int index)
     }
 }
 
-void CameraControlsPanel::onCaptureClicked()
-{
-    emit captureRequested();
-}
-
-void CameraControlsPanel::onOkClicked()
-{
-    // Camera already started by onCameraSelected
-    hide();
-    emit accepted();
-}
-
-void CameraControlsPanel::onCancelClicked()
-{
-    hide();
-    emit rejected();
-}
-
 void CameraControlsPanel::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
 {
-    // Draw base dialog background
+    // Draw base dialog background with title
     TileDialog::paint(painter, option, widget);
-    
-    painter->setRenderHint(QPainter::Antialiasing);
-    
-    QRectF rect = boundingRect();
-    
-    // Draw title
-    painter->setPen(Qt::white);
-    QFont titleFont = painter->font();
-    titleFont.setPixelSize(static_cast<int>(rect.height() * 0.06f));
-    titleFont.setBold(true);
-    painter->setFont(titleFont);
-    
-    QRectF titleRect(rect.left() + 20, rect.top() + 20, rect.width() - 40, rect.height() * 0.1f);
-    painter->drawText(titleRect, Qt::AlignLeft | Qt::AlignVCenter, "Select Camera");
-    
-    // Position child tiles
-    if (_cameraSelector) {
-        _cameraSelector->setPos(rect.width() * 0.1f, rect.height() * 0.15f);
-    }
-    
-    if (_captureButton) {
-        _captureButton->setPos(rect.width() * 0.25f, rect.height() * 0.3f);
-    }
 }

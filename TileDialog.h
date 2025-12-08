@@ -3,6 +3,27 @@
 
 #include "Tile.h"
 #include <QGraphicsRectItem>
+#include <QGraphicsProxyWidget>
+#include <QScrollArea>
+#include <QWidget>
+
+// Forward declaration
+class TileDialog;
+
+/**
+ * Clickable overlay that closes dialog when clicked
+ */
+class DimOverlay : public QGraphicsRectItem
+{
+public:
+    explicit DimOverlay(TileDialog* dialog);
+    
+protected:
+    void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
+    
+private:
+    TileDialog* _dialog;
+};
 
 /**
  * Modal dialog tile with semi-transparent overlay
@@ -23,10 +44,14 @@ public:
     void hide();
     bool isVisible() const;
     
+    // Content widget access - subclasses set content during construction
+    void setContentWidget(QWidget* content);
+    QWidget* contentWidget() const;
+    
     /**
      * @brief Update geometry of dialog and child tiles
      */
-    void updateGeometry(float baseTileSize, float sceneWidth) override;
+    void updateGeometry(float baseTileSize, float sceneWidth, int fontSize = 0) override;
 
 signals:
     void accepted();
@@ -37,7 +62,14 @@ protected:
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = nullptr) override;
 
 private:
-    QGraphicsRectItem* _dimOverlay;
+    DimOverlay* _dimOverlay;
+    QGraphicsProxyWidget* _proxyWidget;
+    QScrollArea* _scrollArea;
+    QWidget* _contentWidget;
+    
+    void setupScrollArea();
+    void updateProxyWidgetGeometry();
+    void updateContentWidgetStyle();
 };
 
 #endif // TILEDIALOG_H

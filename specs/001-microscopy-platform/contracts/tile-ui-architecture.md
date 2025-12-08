@@ -210,38 +210,6 @@ protected:
 };
 ```
 
-### TileCombo: Tile with Dropdown
-
-```cpp
-class TileCombo : public Tile {
-    Q_OBJECT
-    
-public:
-    TileCombo(const QString& iconPath, const QString& label,
-              Anchor anchor, QGraphicsItem* parent = nullptr);
-    
-    void addItem(const QString& text, const QVariant& data = QVariant());
-    void setCurrentIndex(int index);
-    int currentIndex() const;
-    QString currentText() const;
-    QVariant currentData() const;
-    
-signals:
-    void currentIndexChanged(int index);
-    void currentTextChanged(const QString& text);
-    
-protected:
-    void paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*) override;
-    void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
-    
-private:
-    QGraphicsProxyWidget* _comboProxy = nullptr;
-    QComboBox* _combo = nullptr;
-    QSvgRenderer* _iconRenderer = nullptr;
-    QString _label;
-};
-```
-
 ### TileSlider: Tile with Slider Control
 
 ```cpp
@@ -273,22 +241,38 @@ private:
 };
 ```
 
-### TileDialog: Modal Centered Dialog
+### TileDialog: Modal Centered Dialog with Qt Controls
 
 **CRITICAL Implementation Notes**:
 1. **Virtual updateGeometry**: Base Tile class MUST declare `updateGeometry()` as virtual for proper polymorphic behavior
 2. **Tile List Integration**: Dialogs MUST be added to MainWindow's `_centerTiles` list to receive resize updates
-3. **Dim Overlay Management**: Created as separate QGraphicsRectItem added to scene, not as child of dialog
+3. **Clickable Dim Overlay**: Custom DimOverlay class handles mouse clicks to close dialog when clicking outside
 4. **Resize Synchronization**: Override `updateGeometry()` to update both dialog and dim overlay on window resize
 5. **Tile Size Calculation**: Use consistent baseTileSize from MainWindow (height/8), passed to show() method
+6. **Qt Widget Integration**: Contains QGraphicsProxyWidget for embedding standard Qt controls (QListWidget, QPushButton, QLineEdit, etc.)
+7. **Scrollable Content**: Content area is scrollable when content exceeds dialog size via QScrollArea embedded in proxy widget
+8. **Centralized Font Sizing**: Font size calculated once in MainWindow::calculateFontSize() (baseTileSize * 0.12) and passed through updateGeometry() to ensure consistent, scalable fonts across all tiles and dialog controls
 
 ```cpp
+// Clickable overlay that closes dialog when clicked outside
+class DimOverlay : public QGraphicsRectItem
+{
+public:
+    explicit DimOverlay(TileDialog* dialog);
+    
+protected:
+    void mousePressEvent(QGraphicsSceneMouseEvent* event) override;  // Closes dialog on click
+    
+private:
+    TileDialog* _dialog;
+};
+
 class TileDialog : public Tile {
     Q_OBJECT
     
 public:
     /**
-     * @brief Construct a modal dialog tile
+     * @brief Construct a modal dialog tile with Qt widget content
      * @param widthMultiplier Dialog width in tiles (typically 4-8)
      * @param heightMultiplier Dialog height in tiles (typically 3-6)
      * @param gridY Vertical grid position (Y coordinate in tile units, 0=top)
@@ -296,6 +280,9 @@ public:
      * 
      * Dialog is centered horizontally (Anchor::Center) and positioned 
      * vertically at gridY * baseTileSize from top of scene.
+     * 
+     * Contains a QGraphicsProxyWidget that hosts a QScrollArea with content widget.
+     * Content can be larger than dialog viewport - scroll bars appear automatically.
      */
     TileDialog(float widthMultiplier = 4.0f, float heightMultiplier = 6.0f,
                int gridY = 0, QGraphicsItem* parent = nullptr);
@@ -307,8 +294,13 @@ public:
     void hide();
     bool isVisible() const;
     
-    // CRITICAL: Override to update dim overlay when window resizes
-    void updateGeometry(float baseTileSize, float sceneWidth) override;
+    // CRITICAL: Override to update dim overlay and resize proxy widget when window resizes
+    // fontSize parameter from MainWindow ensures consistent font scaling
+    void updateGeometry(float baseTileSize, float sceneWidth, int fontSize = 0) override;
+    
+    // Content widget access - subclasses set content during construction
+    void setContentWidget(QWidget* content);
+    QWidget* contentWidget() const;
     
 signals:
     void accepted();
@@ -319,30 +311,55 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;  // Esc to close -> emit rejected()
     
 private:
-    QGraphicsRectItem* _dimOverlay = nullptr;  // Semi-transparent overlay covering entire scene
+    DimOverlay* _dimOverlay = nullptr;               // Clickable semi-transparent overlay
+    QGraphicsProxyWidget* _proxyWidget = nullptr;   // Hosts Qt widget content
+    QScrollArea* _scrollArea = nullptr;             // Provides scrolling for oversized content
+    QWidget* _contentWidget = nullptr;              // Actual dialog content set by subclass
     
-    // Child tiles added as children of dialog, positioned in dialog's local coordinate system
-    // updateGeometry() automatically updates all child Tile items
+    void setupScrollArea();
+    void updateProxyWidgetGeometry();
+    void updateContentWidgetStyle();  // Apply centralized fontSize to all child widgets
 };
 ```
 
 **Implementation Pattern for Subclassed Dialogs**:
 ```cpp
-class CameraControlsPanel : public TileDialog {
+class CameraSettingsDialog : public TileDialog {
 public:
-    CameraControlsPanel(CameraController* controller, QGraphicsItem* parent = nullptr)
-        : TileDialog(6.0f, 4.0f, 1, parent)  // 6×4 tiles, Y=1 from top
+    CameraSettingsDialog(CameraController* controller, QGraphicsItem* parent = nullptr)
+        : TileDialog(6.0f, 8.0f, 1, parent)  // 6×8 tiles, Y=1 from top
+        , _controller(controller)
     {
         setupUI();
     }
     
 private:
     void setupUI() {
-        // Child tiles use local grid coordinates (0,0 = top-left of dialog)
-        _cameraSelector = new TileCombo(4.0f, 1.0f, Anchor::Center, 0, 0, this);
-        _okButton = new TileButton("", "OK", 2.0f, 1.0f, Anchor::Center, -1, 3, this);
-        _cancelButton = new TileButton("", "Cancel", 2.0f, 1.0f, Anchor::Center, 1, 3, this);
+        // Create content widget with standard Qt controls
+        QWidget* content = new QWidget();
+        QVBoxLayout* layout = new QVBoxLayout(content);
+        
+        // Camera selection with QListWidget - instant camera switching
+        QLabel* cameraLabel = new QLabel("Select Camera:");
+        _cameraList = new QListWidget();
+        _cameraList->addItems(_controller->availableCameras());
+        
+        // Assemble layout (no OK/Cancel buttons - changes apply instantly)
+        layout->addWidget(cameraLabel);
+        layout->addWidget(_cameraList);
+        
+        // Set as dialog content - scroll bars appear automatically if needed
+        // Fonts will be set automatically by TileDialog based on MainWindow::calculateFontSize()
+        setContentWidget(content);
+        
+        // Connect signals - camera switches instantly on selection
+        connect(_cameraList, &QListWidget::currentRowChanged,
+                this, &CameraSettingsDialog::onCameraChanged);
+        // Dialog closes via ESC key or clicking outside (on dim overlay)
     }
+    
+    CameraController* _controller;
+    QListWidget* _cameraList;
 };
 ```
 
@@ -380,6 +397,7 @@ private:
     // Layout management
     void updateTileLayout();
     float calculateBaseTileSize() const { return height() / 8.0f; }  // Consistent calculation
+    int calculateFontSize() const { return static_cast<int>(calculateBaseTileSize() * 0.12f); }  // Centralized font sizing
     
     // Constants
     static constexpr int BASE_TILE_DIVISOR = 8;  // height / 8 for base tile size
@@ -530,15 +548,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     _scene->setItemIndexMethod(QGraphicsScene::NoIndex);
     _view->setOptimizationFlag(QGraphicsView::DontAdjustForAntialiasing, true);
     
-    // Left-side tiles (stackPosition, maxStack for vertical layout)
-    auto* cameraSelectTile = new TileCombo(":/images/camera.svg", "Camera", 
-                                           Tile::Left, 0, 2);
-    cameraSelectTile->addItem("USB Camera 1", "/dev/video0");
-    cameraSelectTile->addItem("USB Camera 2", "/dev/video1");
-    connect(cameraSelectTile, &TileCombo::currentIndexChanged, 
-            this, &MainWindow::onCameraChanged);
-    _leftTiles.append(cameraSelectTile);
-    _scene->addItem(cameraSelectTile);
+    // Left-side tiles for main controls
+    auto* cameraButton = new TileButton(":/images/camera.svg", "Camera", 
+                                        1.0f, 1.0f, Tile::Left, 0, 0);
+    connect(cameraButton, &TileButton::clicked, 
+            this, &MainWindow::showCameraDialog);
+    _leftTiles.append(cameraButton);
+    _scene->addItem(cameraButton);
     
     auto* settingsTile = new TileButton(":/images/settings.svg", "Settings", 
                                         Tile::Left, 1, 2);
@@ -569,17 +585,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 
 ```cpp
 void MainWindow::showCalibrationDialog() {
-    auto* dialog = new TileDialog(4, 5, "Calibration", nullptr);
-    
-    // Add sub-tiles to dialog content
-    auto* objectiveLabel = new TileLabel(":/images/microscope.svg", "Objective:", Tile::Center);
-    dialog->addSubTile(objectiveLabel);
-    
-    auto* objectiveCombo = new TileCombo("", "", Tile::Center);
-    objectiveCombo->addItem("4x");
-    objectiveCombo->addItem("10x");
-    objectiveCombo->addItem("40x");
-    dialog->addSubTile(objectiveCombo);
+    auto* dialog = new CalibrationDialog(_calibrationController, nullptr);
     
     connect(dialog, &TileDialog::accepted, this, &MainWindow::onCalibrationAccepted);
     connect(dialog, &TileDialog::rejected, this, &MainWindow::onCalibrationRejected);
