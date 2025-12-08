@@ -308,8 +308,8 @@
 - [X] T149 [P] [US4] Create ui/PTPCameraSettingsPanel.h with TileDialog subclass, dynamic layout for camera-specific controls organized by category (Exposure, Image, Advanced) - exclude focus/zoom controls
 - [X] T150 [US4] Create ui/PTPCameraSettingsPanel.cpp implementing dynamic control generation: QComboBox for exposure mode (Manual/Aperture Priority only), ISO, shutter speed, aperture, white balance mode, image quality - all embedded in scrollable TileDialog content widget
 - [X] T151 [US4] Update ui/CameraControlsPanel to show "PTP Settings" QPushButton when PTP camera active, opens PTPCameraSettingsPanel dialog
-- [ ] T152 [US4] Update PTPCameraService::captureImage() to always capture to camera SD card: use gp_camera_capture() with GP_CAPTURE_IMAGE, retrieve CameraFilePath from result
-- [ ] T153 [US4] Implement automatic USB transfer after capture: use gp_camera_file_get() with CameraFilePath from T152, download to ~/Documents/uScope/captures/, emit imageCaptured signal with local file path
+- [X] T152 [US4] Update PTPCameraService::captureImage() to always capture to camera SD card: use gp_camera_capture() with GP_CAPTURE_IMAGE, retrieve CameraFilePath from result
+- [X] T153 [US4] Implement automatic USB transfer after capture: use gp_camera_file_get() with CameraFilePath from T152, download to ~/Documents/uScope/captures/, emit imageCaptured signal with local file path
 - [ ] T154 [US4] Implement hot-plug detection: poll gp_camera_autodetect() every 2 seconds, emit cameraConnected/cameraDisconnected signals
 - [ ] T155 [US4] Handle PTP errors gracefully: detect camera busy (GP_ERROR_CAMERA_BUSY), battery warnings, storage full (GP_ERROR_NO_SPACE), show user notifications
 - [ ] T156 [US4] Add EXIF metadata embedding: extract camera settings from PTP response after capture, embed in saved image file (ISO, shutter, aperture, focal length, WB, timestamp)

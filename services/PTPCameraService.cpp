@@ -1,6 +1,10 @@
 #include "PTPCameraService.h"
 #include <QDebug>
 #include <QBuffer>
+#include <QDir>
+#include <QStandardPaths>
+#include <QDateTime>
+#include <QFileInfo>
 
 PTPCameraService::PTPCameraService(QObject *parent)
     : QObject(parent)
@@ -9,6 +13,14 @@ PTPCameraService::PTPCameraService(QObject *parent)
     , _isRecording(false)
 {
     _context = gp_context_new();
+    
+    // Create captures directory if it doesn't exist
+    QString capturesPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/uScope/captures";
+    QDir dir;
+    if (!dir.exists(capturesPath)) {
+        dir.mkpath(capturesPath);
+        qDebug() << "Created captures directory:" << capturesPath;
+    }
 }
 
 PTPCameraService::~PTPCameraService()
@@ -325,44 +337,51 @@ QVariant PTPCameraService::getSetting(const QString& name)
     return QVariant();
 }
 
-QString PTPCameraService::captureImage(bool toComputer)
+QString PTPCameraService::captureImage()
 {
     if (!_camera) {
+        qWarning() << "PTP camera not connected";
         return QString();
     }
     
+    qDebug() << "PTPCameraService::captureImage - Capturing to camera SD card";
+    
+    // Step 1: Capture image to camera SD card
     CameraFilePath camera_file_path;
     int ret = gp_camera_capture(_camera, GP_CAPTURE_IMAGE, &camera_file_path, _context);
     
-    if (!checkError(ret, "capture image")) {
+    if (!checkError(ret, "capture image to SD card")) {
         return QString();
     }
     
-    if (!toComputer) {
-        // Image stored on camera - return the camera path
-        QString path = QString("%1/%2").arg(camera_file_path.folder).arg(camera_file_path.name);
-        emit captureComplete(path);
-        return path;
-    }
+    qDebug() << "Image captured to camera:" << camera_file_path.folder << "/" << camera_file_path.name;
     
-    // Download to computer
+    // Step 2: Download image from camera via USB
     CameraFile *file;
     ret = gp_file_new(&file);
-    if (!checkError(ret, "create file for download")) {
+    if (!checkError(ret, "create file for USB transfer")) {
         return QString();
     }
     
     ret = gp_camera_file_get(_camera, camera_file_path.folder, camera_file_path.name,
                               GP_FILE_TYPE_NORMAL, file, _context);
     
-    if (!checkError(ret, "download file from camera")) {
+    if (!checkError(ret, "download file via USB")) {
         gp_file_free(file);
         return QString();
     }
     
-    // Save to local file
+    // Step 3: Save to local captures directory with timestamp
+    QString capturesPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/uScope/captures";
     QString fileName = QString::fromUtf8(camera_file_path.name);
-    QString savePath = QString("/tmp/%1").arg(fileName); // TODO: Use proper save directory
+    
+    // Add timestamp prefix to prevent overwrites
+    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+    QString baseName = QFileInfo(fileName).completeBaseName();
+    QString extension = QFileInfo(fileName).suffix();
+    QString timestampedFileName = QString("%1_%2.%3").arg(timestamp, baseName, extension);
+    
+    QString savePath = QString("%1/%2").arg(capturesPath, timestampedFileName);
     
     ret = gp_file_save(file, savePath.toUtf8().constData());
     gp_file_free(file);
@@ -371,6 +390,7 @@ QString PTPCameraService::captureImage(bool toComputer)
         return QString();
     }
     
+    qDebug() << "Image transferred and saved to:" << savePath;
     emit captureComplete(savePath);
     return savePath;
 }

@@ -39,8 +39,8 @@ public:
     bool setSetting(const QString& name, const QVariant& value);
     QVariant getSetting(const QString& name);
     
-    // Capture
-    QString captureImage(bool toComputer = true);
+    // Capture - always captures to SD card and transfers via USB
+    QString captureImage();
     
     // Video recording
     bool startRecording();
