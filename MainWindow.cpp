@@ -77,6 +77,9 @@ void MainWindow::createControllers()
     // Create camera controller
     _cameraController = new CameraController(this);
     
+    // Restore last used camera if available
+    _cameraController->restoreLastCamera();
+    
     // Connect camera signals
     connect(_cameraController, &CameraController::frameReady,
             _scene, &VideoGraphicsScene::updateVideoFrame);

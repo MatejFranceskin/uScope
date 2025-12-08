@@ -112,12 +112,21 @@ void CameraControlsPanel::refreshCameras()
     if (_availableCameras.isEmpty()) {
         _cameraList->addItem("No cameras detected");
     } else {
-        for (const CameraProfile& camera : _availableCameras) {
+        int selectedRow = 0;
+        QString currentCameraId = _controller->currentCameraId();
+        
+        for (int i = 0; i < _availableCameras.size(); ++i) {
+            const CameraProfile& camera = _availableCameras[i];
             QListWidgetItem* item = new QListWidgetItem(camera.name());
             item->setData(Qt::UserRole, camera.id());
             _cameraList->addItem(item);
+            
+            // Select the currently active camera if there is one
+            if (_controller->isActive() && camera.id() == currentCameraId) {
+                selectedRow = i;
+            }
         }
-        _cameraList->setCurrentRow(0);
+        _cameraList->setCurrentRow(selectedRow);
     }
 }
 
@@ -186,6 +195,25 @@ void CameraControlsPanel::onFormatSelected(int index)
         if (cameraIndex >= 0 && cameraIndex < _availableCameras.size()) {
             QString cameraId = _availableCameras[cameraIndex].id();
             QCameraFormat format = _availableFormats[index];
+            
+            // Check if this is already the current camera and format
+            if (_controller->isActive() && 
+                _controller->currentCameraId() == cameraId &&
+                !_controller->currentFormat().isNull()) {
+                QCameraFormat currentFormat = _controller->currentFormat();
+                if (currentFormat.resolution() == format.resolution() &&
+                    qAbs(currentFormat.maxFrameRate() - format.maxFrameRate()) < 0.1) {
+                    // Already on this camera and format, don't restart or save
+                    qDebug() << "CameraControlsPanel::onFormatSelected - already on this camera/format, skipping";
+                    return;
+                }
+            }
+            
+            // User is changing to a different camera/format - save and start
+            qDebug() << "CameraControlsPanel::onFormatSelected - switching to camera:" << cameraId << "format:" << format.resolution();
+            
+            // Save the user's selection immediately
+            _controller->saveCameraSelection(cameraId, format);
             
             // Start camera with selected format
             _controller->startCamera(cameraId, format);

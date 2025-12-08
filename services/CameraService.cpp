@@ -115,6 +115,8 @@ bool CameraService::startCamera(const QString& cameraId, const QCameraFormat& fo
 {
     stopCamera();
     
+    qDebug() << "CameraService::startCamera - requested format:" << format.resolution() << "@" << format.maxFrameRate();
+    
     // Find camera device by ID
     const QList<QCameraDevice> devices = QMediaDevices::videoInputs();
     QCameraDevice selectedDevice;
@@ -136,6 +138,7 @@ bool CameraService::startCamera(const QString& cameraId, const QCameraFormat& fo
     
     // Set the specific format
     _camera->setCameraFormat(format);
+    qDebug() << "CameraService::startCamera - format set, camera format is now:" << _camera->cameraFormat().resolution() << "@" << _camera->cameraFormat().maxFrameRate();
     
     // Connect error signal
     connect(_camera, &QCamera::errorOccurred, 
@@ -147,6 +150,9 @@ bool CameraService::startCamera(const QString& cameraId, const QCameraFormat& fo
     
     // Start camera
     _camera->start();
+    
+    qDebug() << "CameraService::startCamera - camera started, active:" << _camera->isActive();
+    qDebug() << "CameraService::startCamera - camera format after start:" << _camera->cameraFormat().resolution() << "@" << _camera->cameraFormat().maxFrameRate();
     
     if (_camera->isActive()) {
         _currentCameraId = cameraId;

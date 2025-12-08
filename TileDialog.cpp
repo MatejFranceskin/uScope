@@ -215,8 +215,6 @@ void TileDialog::updateProxyWidgetGeometry()
     
     QRectF rect = boundingRect();
     
-    qDebug() << "TileDialog::updateProxyWidgetGeometry - dialog boundingRect:" << rect;
-    
     // Leave some padding around the edges for the dialog border
     const qreal padding = 10;
     qreal proxyX = padding;
@@ -224,30 +222,14 @@ void TileDialog::updateProxyWidgetGeometry()
     qreal proxyWidth = rect.width() - 2 * padding;
     qreal proxyHeight = rect.height() - 2 * padding;
     
-    qDebug() << "TileDialog::updateProxyWidgetGeometry - setting proxy to:" 
-             << QRectF(proxyX, proxyY, proxyWidth, proxyHeight);
-    
     // Set scroll area to fixed size FIRST, before setting proxy geometry
     if (_scrollArea) {
         QSize targetSize(static_cast<int>(proxyWidth), static_cast<int>(proxyHeight));
         _scrollArea->setFixedSize(targetSize);
-        qDebug() << "TileDialog::updateProxyWidgetGeometry - scroll area fixed size set to:" << targetSize;
-        qDebug() << "TileDialog::updateProxyWidgetGeometry - scroll area actual size:" << _scrollArea->size();
-        qDebug() << "TileDialog::updateProxyWidgetGeometry - scroll area sizeHint:" << _scrollArea->sizeHint();
     }
     
     // Now set proxy widget geometry - it should respect the scroll area's fixed size
     _proxyWidget->setGeometry(QRectF(proxyX, proxyY, proxyWidth, proxyHeight));
-    
-    qDebug() << "TileDialog::updateProxyWidgetGeometry - proxy geometry set to:" << QRectF(proxyX, proxyY, proxyWidth, proxyHeight);
-    qDebug() << "TileDialog::updateProxyWidgetGeometry - proxy actual geometry:" << _proxyWidget->geometry();
-    qDebug() << "TileDialog::updateProxyWidgetGeometry - proxy size:" << _proxyWidget->size();
-    qDebug() << "TileDialog::updateProxyWidgetGeometry - proxy preferredSize:" << _proxyWidget->preferredSize();
-    
-    if (_contentWidget) {
-        qDebug() << "TileDialog::updateProxyWidgetGeometry - content widget size:" << _contentWidget->size();
-        qDebug() << "TileDialog::updateProxyWidgetGeometry - content widget sizeHint:" << _contentWidget->sizeHint();
-    }
     
     // Update font sizes and styling when geometry changes
     updateContentWidgetStyle();

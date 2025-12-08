@@ -30,6 +30,15 @@ public:
     // Camera lifecycle
     bool isActive() const;
     QString currentCameraId() const;
+    
+    // Settings persistence
+    void saveCurrentCamera();
+    void saveCameraSelection(const QString& cameraId, const QCameraFormat& format);
+    void restoreLastCamera();
+    
+    // Camera monitoring for reconnection
+    void startCameraMonitoring();
+    void stopCameraMonitoring();
 
 public slots:
     void startCamera(const QString& cameraId);
@@ -50,9 +59,14 @@ private slots:
     void onCameraConnected(const QString& cameraId, const QString& name);
     void onCameraDisconnected(const QString& cameraId);
     void onServiceError(const QString& message);
+    void checkForLastCamera();  // Timer callback to check for last camera
 
 private:
     CameraService* _service;
+    QString _lastCameraName;  // Last successfully connected camera name
+    QSize _lastResolution;  // Last used resolution
+    qreal _lastFrameRate;   // Last used frame rate
+    QTimer* _monitorTimer;  // Timer for camera reconnection monitoring
 };
 
 #endif // CAMERACONTROLLER_H
