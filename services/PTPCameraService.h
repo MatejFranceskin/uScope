@@ -83,4 +83,5 @@ private:
     QString getCameraManufacturer();
     QString getCameraModel();
     QString getCurrentCameraPort() const;
+    void embedExifMetadata(const QString& filePath);
 };

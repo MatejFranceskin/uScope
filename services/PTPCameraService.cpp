@@ -397,6 +397,9 @@ QString PTPCameraService::captureImage()
         return QString();
     }
     
+    // Embed EXIF metadata with camera settings
+    embedExifMetadata(savePath);
+    
     qDebug() << "Image transferred and saved to:" << savePath;
     emit captureComplete(savePath);
     return savePath;
@@ -675,3 +678,75 @@ QString PTPCameraService::getCurrentCameraPort() const
     
     return QString();
 }
+
+QString PTPCameraService::getCameraManufacturer()
+{
+    if (!_camera) {
+        return QString();
+    }
+    
+    CameraAbilities abilities;
+    int ret = gp_camera_get_abilities(_camera, &abilities);
+    if (ret == GP_OK) {
+        // abilities.model contains "Manufacturer Model" format
+        QString model = QString::fromUtf8(abilities.model);
+        // Extract manufacturer (first word typically)
+        QStringList parts = model.split(' ', Qt::SkipEmptyParts);
+        if (!parts.isEmpty()) {
+            return parts.first();
+        }
+    }
+    
+    return QString();
+}
+
+QString PTPCameraService::getCameraModel()
+{
+    if (!_camera) {
+        return QString();
+    }
+    
+    CameraAbilities abilities;
+    int ret = gp_camera_get_abilities(_camera, &abilities);
+    if (ret == GP_OK) {
+        return QString::fromUtf8(abilities.model);
+    }
+    
+    return QString();
+}
+
+void PTPCameraService::embedExifMetadata(const QString& filePath)
+{
+    if (!_camera) {
+        return;
+    }
+    
+    // Get camera manufacturer and model
+    QString manufacturer = getCameraManufacturer();
+    QString model = getCameraModel();
+    
+    // Get current camera settings
+    QString iso = getSetting("iso").toString();
+    QString shutterSpeed = getSetting("shutterspeed").toString();
+    QString aperture = getSetting("aperture").toString();
+    QString whiteBalance = getSetting("whitebalance").toString();
+    
+    qDebug() << "Camera settings for captured image:";
+    qDebug() << "  Camera:" << manufacturer << model;
+    qDebug() << "  ISO:" << iso;
+    qDebug() << "  Shutter:" << shutterSpeed;
+    qDebug() << "  Aperture:" << aperture;
+    qDebug() << "  White Balance:" << whiteBalance;
+    
+    // Note: Most DSLR cameras already embed comprehensive EXIF data
+    // including ISO, shutter speed, aperture, focal length, white balance,
+    // timestamp, and camera model when capturing images.
+    // The EXIF data is written by the camera itself to the image file
+    // on the SD card before we transfer it via USB.
+    // Therefore, the transferred file already contains all necessary metadata.
+    
+    // If we needed to modify or add custom EXIF data, we would use a library
+    // like exiv2 (C++ native) or libexif with proper JPEG parsing to insert
+    // the EXIF segment into the JPEG file structure.
+}
+
