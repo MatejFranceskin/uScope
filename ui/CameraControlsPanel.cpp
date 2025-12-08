@@ -335,53 +335,37 @@ void CameraControlsPanel::setupUI()
     controlsGrid->addWidget(_fpsCombo, row, 1, 1, 2);  // Span columns 1-2
     row++;
     
-    // Auto exposure checkbox (spans value column)
-    QLabel* autoExposureLabel = new QLabel("Auto Exposure:");
-    autoExposureLabel->setStyleSheet("color: white;");
-    controlsGrid->addWidget(autoExposureLabel, row, 0, Qt::AlignLeft);
-    controlsGrid->addWidget(_autoExposureCheck, row, 1, Qt::AlignLeft);
-    row++;
+    // Create container widgets for UVC and PTP controls
+    _uvcControlsWidget = new QWidget();
+    QGridLayout* uvcLayout = new QGridLayout(_uvcControlsWidget);
+    uvcLayout->setColumnStretch(0, 0);
+    uvcLayout->setColumnStretch(1, 0);
+    uvcLayout->setColumnStretch(2, 1);
+    uvcLayout->setHorizontalSpacing(12);
+    uvcLayout->setVerticalSpacing(12);
+    uvcLayout->setContentsMargins(0, 0, 0, 0);
     
-    // Exposure slider with value label
-    controlsGrid->addWidget(_exposureLabel, row, 0, Qt::AlignLeft);
-    _exposureValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    controlsGrid->addWidget(_exposureValueLabel, row, 1, Qt::AlignRight);
-    controlsGrid->addWidget(_exposureSlider, row, 2);
-    row++;
+    int uvcRow = 0;
+    setupUVCControls(uvcLayout, uvcRow);
     
-    // Brightness slider with value label
-    controlsGrid->addWidget(_brightnessLabel, row, 0, Qt::AlignLeft);
-    _brightnessValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    controlsGrid->addWidget(_brightnessValueLabel, row, 1, Qt::AlignRight);
-    controlsGrid->addWidget(_brightnessSlider, row, 2);
-    row++;
+    _ptpControlsWidget = new QWidget();
+    QGridLayout* ptpLayout = new QGridLayout(_ptpControlsWidget);
+    ptpLayout->setColumnStretch(0, 0);
+    ptpLayout->setColumnStretch(1, 0);
+    ptpLayout->setColumnStretch(2, 1);
+    ptpLayout->setHorizontalSpacing(12);
+    ptpLayout->setVerticalSpacing(12);
+    ptpLayout->setContentsMargins(0, 0, 0, 0);
     
-    // Contrast slider with value label
-    controlsGrid->addWidget(_contrastLabel, row, 0, Qt::AlignLeft);
-    _contrastValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    controlsGrid->addWidget(_contrastValueLabel, row, 1, Qt::AlignRight);
-    controlsGrid->addWidget(_contrastSlider, row, 2);
-    row++;
+    int ptpRow = 0;
+    setupPTPControls(ptpLayout, ptpRow);
     
-    // Saturation slider with value label
-    controlsGrid->addWidget(_saturationLabel, row, 0, Qt::AlignLeft);
-    _saturationValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    controlsGrid->addWidget(_saturationValueLabel, row, 1, Qt::AlignRight);
-    controlsGrid->addWidget(_saturationSlider, row, 2);
-    row++;
+    // Initially hide PTP controls
+    _ptpControlsWidget->setVisible(false);
     
-    // Auto white balance checkbox (spans value column)
-    QLabel* autoWhiteBalanceLabel = new QLabel("Auto WB:");
-    autoWhiteBalanceLabel->setStyleSheet("color: white;");
-    controlsGrid->addWidget(autoWhiteBalanceLabel, row, 0, Qt::AlignLeft);
-    controlsGrid->addWidget(_autoWhiteBalanceCheck, row, 1, Qt::AlignLeft);
-    row++;
-    
-    // White balance slider with value label
-    controlsGrid->addWidget(_whiteBalanceLabel, row, 0, Qt::AlignLeft);
-    _whiteBalanceValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    controlsGrid->addWidget(_whiteBalanceValueLabel, row, 1, Qt::AlignRight);
-    controlsGrid->addWidget(_whiteBalanceSlider, row, 2);
+    // Add both control widgets to grid (they occupy the same rows)
+    controlsGrid->addWidget(_uvcControlsWidget, row, 0, 1, 3);
+    controlsGrid->addWidget(_ptpControlsWidget, row, 0, 1, 3);
     row++;
     
     // Add grid to main layout
@@ -438,6 +422,9 @@ void CameraControlsPanel::onCameraSelected(int index)
         QString cameraId = _availableCameras[index].id();
         
         qDebug() << "CameraControlsPanel::onCameraSelected - cameraId:" << cameraId;
+        
+        // Update control visibility based on camera type
+        updateControlsVisibility();
         
         // Restore camera controls from settings for this camera
         _controller->restoreCameraControls(cameraId);
@@ -857,3 +844,265 @@ void CameraControlsPanel::onResetDefaultsClicked()
     qDebug() << "CameraControlsPanel::onResetDefaultsClicked - completed";
 }
 
+void CameraControlsPanel::setupUVCControls(QGridLayout* layout, int& row)
+{
+    // Auto exposure checkbox (spans value column)
+    QLabel* autoExposureLabel = new QLabel("Auto Exp:");
+    autoExposureLabel->setStyleSheet("color: white;");
+    layout->addWidget(autoExposureLabel, row, 0, Qt::AlignLeft);
+    layout->addWidget(_autoExposureCheck, row, 1, Qt::AlignLeft);
+    row++;
+    
+    // Exposure slider with value label
+    layout->addWidget(_exposureLabel, row, 0, Qt::AlignLeft);
+    _exposureValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    layout->addWidget(_exposureValueLabel, row, 1, Qt::AlignRight);
+    layout->addWidget(_exposureSlider, row, 2);
+    row++;
+    
+    // Brightness slider with value label
+    layout->addWidget(_brightnessLabel, row, 0, Qt::AlignLeft);
+    _brightnessValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    layout->addWidget(_brightnessValueLabel, row, 1, Qt::AlignRight);
+    layout->addWidget(_brightnessSlider, row, 2);
+    row++;
+    
+    // Contrast slider with value label
+    layout->addWidget(_contrastLabel, row, 0, Qt::AlignLeft);
+    _contrastValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    layout->addWidget(_contrastValueLabel, row, 1, Qt::AlignRight);
+    layout->addWidget(_contrastSlider, row, 2);
+    row++;
+    
+    // Saturation slider with value label
+    layout->addWidget(_saturationLabel, row, 0, Qt::AlignLeft);
+    _saturationValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    layout->addWidget(_saturationValueLabel, row, 1, Qt::AlignRight);
+    layout->addWidget(_saturationSlider, row, 2);
+    row++;
+    
+    // Auto white balance checkbox (spans value column)
+    QLabel* autoWhiteBalanceLabel = new QLabel("Auto WB:");
+    autoWhiteBalanceLabel->setStyleSheet("color: white;");
+    layout->addWidget(autoWhiteBalanceLabel, row, 0, Qt::AlignLeft);
+    layout->addWidget(_autoWhiteBalanceCheck, row, 1, Qt::AlignLeft);
+    row++;
+    
+    // White balance slider with value label
+    layout->addWidget(_whiteBalanceLabel, row, 0, Qt::AlignLeft);
+    _whiteBalanceValueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    layout->addWidget(_whiteBalanceValueLabel, row, 1, Qt::AlignRight);
+    layout->addWidget(_whiteBalanceSlider, row, 2);
+    row++;
+}
+
+void CameraControlsPanel::setupPTPControls(QGridLayout* layout, int& row)
+{
+    // Exposure Mode
+    _ptpExposureModeLabel = new QLabel("Exp Mode:");
+    _ptpExposureModeLabel->setStyleSheet("color: white;");
+    _ptpExposureModeCombo = new QComboBox();
+    _ptpExposureModeCombo->setStyleSheet(
+        "QComboBox { background-color: rgba(60, 60, 60, 200); color: white; "
+        "border: 2px solid rgba(100, 100, 100, 200); border-radius: 5px; padding: 5px; }"
+        "QComboBox QAbstractItemView { background-color: rgba(60, 60, 60, 220); color: white; }"
+    );
+    layout->addWidget(_ptpExposureModeLabel, row, 0, Qt::AlignLeft);
+    layout->addWidget(_ptpExposureModeCombo, row, 1, 1, 2);
+    row++;
+    
+    // ISO
+    _ptpIsoLabel = new QLabel("ISO:");
+    _ptpIsoLabel->setStyleSheet("color: white;");
+    _ptpIsoCombo = new QComboBox();
+    _ptpIsoCombo->setStyleSheet(
+        "QComboBox { background-color: rgba(60, 60, 60, 200); color: white; "
+        "border: 2px solid rgba(100, 100, 100, 200); border-radius: 5px; padding: 5px; }"
+        "QComboBox QAbstractItemView { background-color: rgba(60, 60, 60, 220); color: white; }"
+    );
+    layout->addWidget(_ptpIsoLabel, row, 0, Qt::AlignLeft);
+    layout->addWidget(_ptpIsoCombo, row, 1, 1, 2);
+    row++;
+    
+    // Shutter Speed
+    _ptpShutterSpeedLabel = new QLabel("Shutter:");
+    _ptpShutterSpeedLabel->setStyleSheet("color: white;");
+    _ptpShutterSpeedCombo = new QComboBox();
+    _ptpShutterSpeedCombo->setStyleSheet(
+        "QComboBox { background-color: rgba(60, 60, 60, 200); color: white; "
+        "border: 2px solid rgba(100, 100, 100, 200); border-radius: 5px; padding: 5px; }"
+        "QComboBox QAbstractItemView { background-color: rgba(60, 60, 60, 220); color: white; }"
+    );
+    layout->addWidget(_ptpShutterSpeedLabel, row, 0, Qt::AlignLeft);
+    layout->addWidget(_ptpShutterSpeedCombo, row, 1, 1, 2);
+    row++;
+    
+    // Aperture
+    _ptpApertureLabel = new QLabel("Aperture:");
+    _ptpApertureLabel->setStyleSheet("color: white;");
+    _ptpApertureCombo = new QComboBox();
+    _ptpApertureCombo->setStyleSheet(
+        "QComboBox { background-color: rgba(60, 60, 60, 200); color: white; "
+        "border: 2px solid rgba(100, 100, 100, 200); border-radius: 5px; padding: 5px; }"
+        "QComboBox QAbstractItemView { background-color: rgba(60, 60, 60, 220); color: white; }"
+    );
+    layout->addWidget(_ptpApertureLabel, row, 0, Qt::AlignLeft);
+    layout->addWidget(_ptpApertureCombo, row, 1, 1, 2);
+    row++;
+    
+    // White Balance Mode
+    _ptpWhiteBalanceLabel = new QLabel("WB Mode:");
+    _ptpWhiteBalanceLabel->setStyleSheet("color: white;");
+    _ptpWhiteBalanceCombo = new QComboBox();
+    _ptpWhiteBalanceCombo->setStyleSheet(
+        "QComboBox { background-color: rgba(60, 60, 60, 200); color: white; "
+        "border: 2px solid rgba(100, 100, 100, 200); border-radius: 5px; padding: 5px; }"
+        "QComboBox QAbstractItemView { background-color: rgba(60, 60, 60, 220); color: white; }"
+    );
+    layout->addWidget(_ptpWhiteBalanceLabel, row, 0, Qt::AlignLeft);
+    layout->addWidget(_ptpWhiteBalanceCombo, row, 1, 1, 2);
+    row++;
+    
+    // Capture Target
+    _ptpCaptureTargetLabel = new QLabel("Save To:");
+    _ptpCaptureTargetLabel->setStyleSheet("color: white;");
+    _ptpCaptureTargetCombo = new QComboBox();
+    _ptpCaptureTargetCombo->addItem("Camera Storage (SD Card)");
+    _ptpCaptureTargetCombo->addItem("Computer (USB Transfer)");
+    _ptpCaptureTargetCombo->setStyleSheet(
+        "QComboBox { background-color: rgba(60, 60, 60, 200); color: white; "
+        "border: 2px solid rgba(100, 100, 100, 200); border-radius: 5px; padding: 5px; }"
+        "QComboBox QAbstractItemView { background-color: rgba(60, 60, 60, 220); color: white; }"
+    );
+    layout->addWidget(_ptpCaptureTargetLabel, row, 0, Qt::AlignLeft);
+    layout->addWidget(_ptpCaptureTargetCombo, row, 1, 1, 2);
+    row++;
+}
+
+void CameraControlsPanel::updateControlsVisibility()
+{
+    bool isPTP = _controller->isPTPCamera();
+    
+    if (_uvcControlsWidget) {
+        _uvcControlsWidget->setVisible(!isPTP);
+    }
+    
+    if (_ptpControlsWidget) {
+        _ptpControlsWidget->setVisible(isPTP);
+        
+        // Populate PTP controls if visible
+        if (isPTP) {
+            // Get capabilities from PTP service
+            auto capabilities = _controller->getPTPCapabilities();
+            
+            // Populate Exposure Mode
+            _ptpExposureModeCombo->clear();
+            if (capabilities.contains("exposuremode")) {
+                QStringList modes = capabilities["exposuremode"].toStringList();
+                for (const QString& mode : modes) {
+                    _ptpExposureModeCombo->addItem(mode);
+                }
+            }
+            
+            // Populate ISO
+            _ptpIsoCombo->clear();
+            if (capabilities.contains("iso")) {
+                QStringList isoValues = capabilities["iso"].toStringList();
+                for (const QString& iso : isoValues) {
+                    _ptpIsoCombo->addItem(iso);
+                }
+            }
+            
+            // Populate Shutter Speed
+            _ptpShutterSpeedCombo->clear();
+            if (capabilities.contains("shutterspeed")) {
+                QStringList shutters = capabilities["shutterspeed"].toStringList();
+                for (const QString& shutter : shutters) {
+                    _ptpShutterSpeedCombo->addItem(shutter);
+                }
+            }
+            
+            // Populate Aperture
+            _ptpApertureCombo->clear();
+            if (capabilities.contains("aperture")) {
+                QStringList apertures = capabilities["aperture"].toStringList();
+                for (const QString& aperture : apertures) {
+                    _ptpApertureCombo->addItem(aperture);
+                }
+            }
+            
+            // Populate White Balance
+            _ptpWhiteBalanceCombo->clear();
+            if (capabilities.contains("whitebalance")) {
+                QStringList wbModes = capabilities["whitebalance"].toStringList();
+                for (const QString& wb : wbModes) {
+                    _ptpWhiteBalanceCombo->addItem(wb);
+                }
+            }
+            
+            // Connect PTP combo signals to handlers (disconnect first to avoid duplicates)
+            disconnect(_ptpExposureModeCombo, nullptr, this, nullptr);
+            disconnect(_ptpIsoCombo, nullptr, this, nullptr);
+            disconnect(_ptpShutterSpeedCombo, nullptr, this, nullptr);
+            disconnect(_ptpApertureCombo, nullptr, this, nullptr);
+            disconnect(_ptpWhiteBalanceCombo, nullptr, this, nullptr);
+            disconnect(_ptpCaptureTargetCombo, nullptr, this, nullptr);
+            
+            connect(_ptpExposureModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                    this, &CameraControlsPanel::onPTPExposureModeChanged);
+            connect(_ptpIsoCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                    this, &CameraControlsPanel::onPTPIsoChanged);
+            connect(_ptpShutterSpeedCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                    this, &CameraControlsPanel::onPTPShutterSpeedChanged);
+            connect(_ptpApertureCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                    this, &CameraControlsPanel::onPTPApertureChanged);
+            connect(_ptpWhiteBalanceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                    this, &CameraControlsPanel::onPTPWhiteBalanceChanged);
+            connect(_ptpCaptureTargetCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                    this, &CameraControlsPanel::onPTPCaptureTargetChanged);
+        }
+    }
+}
+
+void CameraControlsPanel::onPTPExposureModeChanged(int index)
+{
+    if (index < 0) return;
+    QString mode = _ptpExposureModeCombo->currentText();
+    _controller->setPTPSetting("exposuremode", mode);
+}
+
+void CameraControlsPanel::onPTPIsoChanged(int index)
+{
+    if (index < 0) return;
+    QString iso = _ptpIsoCombo->currentText();
+    _controller->setPTPSetting("iso", iso);
+}
+
+void CameraControlsPanel::onPTPShutterSpeedChanged(int index)
+{
+    if (index < 0) return;
+    QString shutter = _ptpShutterSpeedCombo->currentText();
+    _controller->setPTPSetting("shutterspeed", shutter);
+}
+
+void CameraControlsPanel::onPTPApertureChanged(int index)
+{
+    if (index < 0) return;
+    QString aperture = _ptpApertureCombo->currentText();
+    _controller->setPTPSetting("aperture", aperture);
+}
+
+void CameraControlsPanel::onPTPWhiteBalanceChanged(int index)
+{
+    if (index < 0) return;
+    QString wb = _ptpWhiteBalanceCombo->currentText();
+    _controller->setPTPSetting("whitebalance", wb);
+}
+
+void CameraControlsPanel::onPTPCaptureTargetChanged(int index)
+{
+    if (index < 0) return;
+    // Map UI text to gphoto2 capture target value
+    QString target = (index == 0) ? "Memory card" : "Internal RAM";
+    _controller->setPTPSetting("capturetarget", target);
+}

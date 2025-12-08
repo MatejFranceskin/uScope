@@ -21,7 +21,8 @@ A cross-platform open-source microscopy application for educational institutions
 ### Dependencies
 
 - **Qt 6.10+** with modules: Core, Widgets, Multimedia, Svg
-- **OpenCV 4.x** (optional, for advanced image processing)
+- **OpenCV 4.x** (for camera processing and image analysis)
+- **libgphoto2** (for PTP camera support - DSLR/mirrorless cameras)
 - **Tesseract OCR 4.x** (optional, for scale bar detection)
 - **GStreamer** (optional, for RTSP streaming)
 - **CMake 3.21+**
@@ -40,6 +41,7 @@ sudo apt install -y \
     qt6-svg-dev \
     libqt6multimedia6 \
     libopencv-dev \
+    libgphoto2-dev \
     tesseract-ocr \
     libtesseract-dev \
     gstreamer1.0-plugins-base \
@@ -66,6 +68,7 @@ sudo dnf install -y \
     qt6-qtmultimedia-devel \
     qt6-qtsvg-devel \
     opencv-devel \
+    libgphoto2-devel \
     tesseract-devel \
     gstreamer1-plugins-base-devel
 
@@ -85,7 +88,7 @@ cmake --build build
 4. Install dependencies via vcpkg:
 
 ```cmd
-vcpkg install opencv:x64-windows tesseract:x64-windows
+vcpkg install opencv:x64-windows tesseract:x64-windows libgphoto2:x64-windows
 ```
 
 5. Build:
@@ -99,7 +102,7 @@ cmake --build build --config Release
 
 ```bash
 # Install dependencies via Homebrew
-brew install qt@6 opencv tesseract gstreamer
+brew install qt@6 opencv tesseract gstreamer libgphoto2
 
 # Build
 cmake -B build -DCMAKE_PREFIX_PATH=$(brew --prefix qt@6)

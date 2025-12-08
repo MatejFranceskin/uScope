@@ -13,6 +13,7 @@
 class CameraController;
 class ZoomController;
 class CameraProfile;
+class QGridLayout;
 
 /**
  * Camera controls panel as modal tile dialog
@@ -49,6 +50,14 @@ private slots:
     void onFlipHorizontalClicked();
     void onFlipVerticalClicked();
     void onResetDefaultsClicked();
+    
+    // PTP camera control slots
+    void onPTPExposureModeChanged(int index);
+    void onPTPIsoChanged(int index);
+    void onPTPShutterSpeedChanged(int index);
+    void onPTPApertureChanged(int index);
+    void onPTPWhiteBalanceChanged(int index);
+    void onPTPCaptureTargetChanged(int index);
 
 protected:
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = nullptr) override;
@@ -56,6 +65,9 @@ protected:
 
 private:
     void setupUI();
+    void setupUVCControls(QGridLayout* layout, int& row);
+    void setupPTPControls(QGridLayout* layout, int& row);
+    void updateControlsVisibility();
 
     CameraController* _controller;
     ZoomController* _zoomController;
@@ -67,7 +79,8 @@ private:
     QList<QSize> _availableResolutions;
     QList<double> _availableFrameRates;
     
-    // Camera control widgets
+    // UVC Camera control widgets
+    QWidget* _uvcControlsWidget;
     QSlider* _exposureSlider;
     QSlider* _brightnessSlider;
     QSlider* _contrastSlider;
@@ -90,6 +103,21 @@ private:
     QPushButton* _resetDefaultsBtn;
     bool _autoExposureEnabled;
     bool _autoWhiteBalanceEnabled;
+    
+    // PTP Camera control widgets
+    QWidget* _ptpControlsWidget;
+    QComboBox* _ptpExposureModeCombo;
+    QComboBox* _ptpIsoCombo;
+    QComboBox* _ptpShutterSpeedCombo;
+    QComboBox* _ptpApertureCombo;
+    QComboBox* _ptpWhiteBalanceCombo;
+    QComboBox* _ptpCaptureTargetCombo;
+    QLabel* _ptpExposureModeLabel;
+    QLabel* _ptpIsoLabel;
+    QLabel* _ptpShutterSpeedLabel;
+    QLabel* _ptpApertureLabel;
+    QLabel* _ptpWhiteBalanceLabel;
+    QLabel* _ptpCaptureTargetLabel;
 };
 
 #endif // CAMERACONTROLSPANEL_H

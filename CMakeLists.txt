@@ -53,6 +53,11 @@ endif()
 
 include_directories(${OpenCV_INCLUDE_DIRS})
 
+# Find libgphoto2 for PTP camera support
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GPHOTO2 REQUIRED libgphoto2)
+include_directories(${GPHOTO2_INCLUDE_DIRS})
+
 # Resources
 # Generate platform-specific icons from SVG
 # Modern ImageMagick (v7+) uses 'magick' command on all platforms
@@ -116,11 +121,15 @@ set(PROJECT_SOURCES
     models/CapturedImage.h
     models/ZoomState.cpp
     models/ZoomState.h
+    models/PTPCamera.cpp
+    models/PTPCamera.h
     # Services
     services/CameraService.cpp
     services/CameraService.h
     services/CaptureThread.cpp
     services/CaptureThread.h
+    services/PTPCameraService.cpp
+    services/PTPCameraService.h
     # Controllers
     controllers/CameraController.cpp
     controllers/CameraController.h
@@ -151,6 +160,7 @@ target_link_libraries(uScope PRIVATE
     Qt6::Multimedia
     Qt6::Svg
     ${OpenCV_LIBS}
+    ${GPHOTO2_LIBRARIES}
 )
 
 # Platform-specific configuration

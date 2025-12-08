@@ -9,10 +9,17 @@
 #include "../models/CapturedImage.h"
 
 class CameraService;
+class PTPCameraService;
+
+enum class CameraType {
+    UVC,    // USB Video Class (V4L2)
+    PTP     // Picture Transfer Protocol (DSLR/Mirrorless)
+};
 
 /**
  * Camera business logic controller
  * Coordinates camera operations and manages capture workflow
+ * Supports both UVC (webcam/microscope) and PTP (DSLR) cameras
  */
 class CameraController : public QObject
 {
@@ -32,6 +39,8 @@ public:
     // Camera lifecycle
     bool isActive() const;
     QString currentCameraId() const;
+    CameraType currentCameraType() const { return _currentCameraType; }
+    bool isPTPCamera() const { return _currentCameraType == CameraType::PTP; }
     
     // Settings persistence
     void saveCurrentCamera();
@@ -59,6 +68,10 @@ public:
     // Camera monitoring for reconnection
     void startCameraMonitoring();
     void stopCameraMonitoring();
+    
+    // PTP camera capabilities and settings
+    QMap<QString, QVariant> getPTPCapabilities() const;
+    void setPTPSetting(const QString& name, const QString& value);
 
 public slots:
     void startCamera(const QString& cameraId);
@@ -95,6 +108,8 @@ private slots:
 
 private:
     CameraService* _service;
+    PTPCameraService* _ptpService;
+    CameraType _currentCameraType;
     QString _lastCameraName;  // Last successfully connected camera name
     QTimer* _monitorTimer;    // Timer for camera reconnection monitoring
     
@@ -108,6 +123,10 @@ private:
     int _whiteBalance;      // QCamera::WhiteBalanceMode as int
     bool _autoExposure;     // Auto exposure enabled
     bool _autoWhiteBalance; // Auto white balance enabled
+    
+    // Helper methods
+    CameraType detectCameraType(const QString& cameraId) const;
+    void cleanupServices();
 };
 
 #endif // CAMERACONTROLLER_H

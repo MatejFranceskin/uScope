@@ -50,7 +50,7 @@ jobs:
         .\bootstrap-vcpkg.bat
         # Enable binary caching
         $env:VCPKG_BINARY_SOURCES="clear;files,$env:LOCALAPPDATA\vcpkg\archives,readwrite"
-        .\vcpkg install opencv:x64-windows tesseract:x64-windows --triplet=x64-windows
+        .\vcpkg install opencv:x64-windows tesseract:x64-windows libgphoto2:x64-windows --triplet=x64-windows
         
     - name: Configure CMake
       run: |

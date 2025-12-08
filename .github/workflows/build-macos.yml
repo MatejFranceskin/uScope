@@ -44,7 +44,7 @@ jobs:
         
     - name: Install Homebrew dependencies
       run: |
-        brew install opencv tesseract gstreamer create-dmg
+        brew install opencv tesseract gstreamer create-dmg libgphoto2
         
     - name: Configure CMake
       run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$Qt6_DIR/..

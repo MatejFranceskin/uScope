@@ -191,9 +191,9 @@
 - [X] T092 [US2] Test zoom range: verify zoom works from "Fit Width/Height" (whichever smaller) to 10.0x maximum
 - [X] T092a [US2] Fix zoom to apply only to video background layer: add setVideoTransform() to VideoGraphicsScene, apply transform in drawBackground() with painter save/restore, tiles remain at fixed positions
 - [X] T092b [US2] Implement zoom-to-point: mouse wheel zooms into cursor position, pinch gesture zooms into pinch center, calculate pan offset adjustment to keep focal point fixed during zoom
-- [ ] T093 [US2] Test zoom controls panel: verify opens on Zoom tile click, closes when option selected or zoom changed externally, Zoom tile state toggles correctly
-- [ ] T094 [US2] Test pan: verify smooth dragging when zoomed in, constrained to image bounds, cursor changes to hand/grab icon
-- [ ] T095 [US2] Test touch gestures on touch-enabled device: verify pinch zoom works smoothly, pan with single-finger drag
+- [X] T093 [US2] Test zoom controls panel: verify opens on Zoom tile click, closes when option selected or zoom changed externally, Zoom tile state toggles correctly
+- [X] T094 [US2] Test pan: verify smooth dragging when zoomed in, constrained to image bounds, cursor changes to hand/grab icon
+- [X] T095 [US2] Test touch gestures on touch-enabled device: verify pinch zoom works smoothly, pan with single-finger drag
 
 **Checkpoint**: User Stories 1 AND 2 (zoom/pan) both work independently
 
@@ -216,23 +216,23 @@
 - [X] T104 [US3] Add persistence of camera settings to QSettings per camera ID via CameraController::saveCameraControls() and restoreCameraControls(), restore on camera selection in CameraControlsPanel::onCameraSelected(), store with key pattern "camera/{cameraId}/controls/{setting}", includes QLabel value indicators for sliders and reduced dialog transparency (alpha 180 background, alpha 60 dim overlay) for visual feedback
 - [X] T102 [US3] Implement auto white balance by sampling center region of current frame (10% area), calculating RGB averages, adjusting color temperature (2500K-9000K) based on blue/red ratio, applying via QCamera::setWhiteBalanceMode(Manual) + setColorTemperature()
 - [X] T103 [US3] Verify <200ms latency for exposure/brightness/contrast/saturation adjustments (SC-004 requirement) - implemented QElapsedTimer instrumentation in CameraService to measure control-to-frame latency, automatic PASS/FAIL logging in console, documented in docs/testing/T103-latency-testing.md
-- [ ] T105 [US3] Test manual controls: verify real-time updates, flip works correctly, white balance corrects color cast
+- [X] T105 [US3] Test manual controls: verify real-time updates, flip works correctly, white balance corrects color cast
 
 ### Refactoring: OpenCV-based Camera Capture (Technical Debt)
 
 **Rationale**: Qt6 QCamera API removed hardware control APIs (brightness, contrast, saturation, direct exposure control). Manual camera controls (US3) require hardware access. OpenCV will be needed extensively for future image processing (calibration, measurement, stitching, EDF). Refactor now to use OpenCV VideoCapture as primary capture mechanism, pass frames to Qt for display.
 
-- [ ] T105a [P] [REFACTOR] Remove QCamera/QMediaCaptureSession from CameraService, keep only QVideoSink for display
-- [ ] T105b [P] [REFACTOR] Refactor CameraService::startCamera() to use cv::VideoCapture, open camera by index extracted from device ID
-- [ ] T105c [REFACTOR] Add frame capture loop: create QTimer in CameraService that calls cv::VideoCapture::read() at target FPS (30fps)
-- [ ] T105c1 [REFACTOR] Design frame pipeline to support alternative capture sources: create processFrame(cv::Mat) method that accepts frames from any source (OpenCV VideoCapture, libgphoto2 PTP, future network streams), allowing custom capture implementations to bypass cv::VideoCapture::read() while reusing common OpenCV processing pipeline
-- [ ] T105d [REFACTOR] Convert cv::Mat to QVideoFrame: implement cvMatToQVideoFrame() helper using QImage intermediate (cv::Mat -> QImage -> QVideoFrame)
-- [ ] T105e [REFACTOR] Emit QVideoFrame via existing frameReady signal, ensure VideoGraphicsScene receives and displays frames correctly
-- [ ] T105f [REFACTOR] Update enumerateCameras() to use OpenCV camera enumeration or keep Qt enumeration for device list, map to indices
-- [ ] T105g [REFACTOR] Verify camera controls now work: exposure (CAP_PROP_EXPOSURE), brightness (CAP_PROP_BRIGHTNESS), contrast (CAP_PROP_CONTRAST), saturation (CAP_PROP_SATURATION), white balance (CAP_PROP_WB_TEMPERATURE)
-- [ ] T105h [REFACTOR] Test: verify live preview still works, camera selection works, all existing functionality preserved
-- [ ] T105i [REFACTOR] Update CameraControlsPanel slider ranges to match OpenCV property ranges (exposure: -13 to -1, brightness/contrast/saturation: 0-255)
-- [ ] T105j [REFACTOR] Add color temperature slider to CameraControlsPanel (2800-6500K range)
+- [X] T105a [P] [REFACTOR] Remove QCamera/QMediaCaptureSession from CameraService, keep only QVideoSink for display
+- [X] T105b [P] [REFACTOR] Refactor CameraService::startCamera() to use cv::VideoCapture, open camera by index extracted from device ID
+- [X] T105c [REFACTOR] Add frame capture loop: create QTimer in CameraService that calls cv::VideoCapture::read() at target FPS (30fps)
+- [X] T105c1 [REFACTOR] Design frame pipeline to support alternative capture sources: create processFrame(cv::Mat) method that accepts frames from any source (OpenCV VideoCapture, libgphoto2 PTP, future network streams), allowing custom capture implementations to bypass cv::VideoCapture::read() while reusing common OpenCV processing pipeline
+- [X] T105d [REFACTOR] Convert cv::Mat to QVideoFrame: implement cvMatToQVideoFrame() helper using QImage intermediate (cv::Mat -> QImage -> QVideoFrame)
+- [X] T105e [REFACTOR] Emit QVideoFrame via existing frameReady signal, ensure VideoGraphicsScene receives and displays frames correctly
+- [X] T105f [REFACTOR] Update enumerateCameras() to use OpenCV camera enumeration or keep Qt enumeration for device list, map to indices
+- [X] T105g [REFACTOR] Verify camera controls now work: exposure (CAP_PROP_EXPOSURE), brightness (CAP_PROP_BRIGHTNESS), contrast (CAP_PROP_CONTRAST), saturation (CAP_PROP_SATURATION), white balance (CAP_PROP_WB_TEMPERATURE)
+- [X] T105h [REFACTOR] Test: verify live preview still works, camera selection works, all existing functionality preserved
+- [X] T105i [REFACTOR] Update CameraControlsPanel slider ranges to match OpenCV property ranges (exposure: -13 to -1, brightness/contrast/saturation: 0-255)
+- [X] T105j [REFACTOR] Add color temperature slider to CameraControlsPanel (2800-6500K range)
 
 **Checkpoint**: OpenCV-based capture working, hardware controls functional, all US1-US3 features preserved
 
@@ -285,37 +285,38 @@
 
 **Goal**: Researcher connects professional DSLR/mirrorless camera, accesses manufacturer-specific controls, uses live view, captures high-resolution images/videos
 
-**Independent Test**: Connect Canon DSLR, verify appears in camera list. Select PTP camera, verify live view. Adjust ISO/shutter, capture image to camera SD card, verify settings applied.
+**Note**: Focus and zoom controls are excluded (not needed for microscopy). Only aperture priority and manual exposure modes are supported.
+
+**Independent Test**: Connect Canon DSLR, verify appears in camera list. Select PTP camera, verify live view. Adjust ISO/shutter/aperture in manual mode, capture image to camera SD card, verify settings applied.
 
 ### Implementation for User Story 4
 
-- [ ] T135 [P] [US4] Add libgphoto2 dependency to CMakeLists.txt (find_package(Gphoto2 REQUIRED), target_link_libraries(uScope PRIVATE PkgConfig::Gphoto2))
-- [ ] T136 [P] [US4] Update README.md and build workflows with libgphoto2 installation (apt: libgphoto2-dev, brew: libgphoto2, vcpkg: libgphoto2)
-- [ ] T137 [P] [US4] Create services/PTPCameraService.h with QObject subclass, GPContext* _context, Camera* _camera, methods for detectCameras(), connect(cameraInfo), disconnect(), getLiveViewFrame(), captureImage(), startRecording(), stopRecording()
-- [ ] T138 [US4] Create services/PTPCameraService.cpp implementing gp_camera_autodetect() for camera enumeration, gp_camera_init() for connection, gp_camera_exit() for cleanup
-- [ ] T139 [US4] Implement PTPCameraService::getLiveViewFrame() using gp_camera_capture_preview() to retrieve JPEG preview, decode to QImage, emit frameReady signal at camera's native live view rate
-- [ ] T140 [US4] Implement PTPCameraService::getCapabilities() using gp_camera_get_abilities() and gp_camera_get_config() to query supported settings (ISO range, shutter speeds, aperture values, image formats, video modes)
-- [ ] T141 [US4] Implement PTPCameraService setting control: gp_widget_get_value()/gp_widget_set_value() for ISO, shutter speed, aperture, white balance, image quality, capture target (camera storage vs computer)
-- [ ] T142 [US4] Implement PTPCameraService::captureImage() using gp_camera_capture() with GP_CAPTURE_IMAGE, handle both camera storage mode (return thumbnail + download option) and computer mode (transfer via gp_camera_file_get())
-- [ ] T143 [US4] Implement PTPCameraService::startRecording()/stopRecording() using gp_camera_capture() with GP_CAPTURE_MOVIE for on-camera video recording (stores to SD card)
-- [ ] T144 [P] [US4] Create models/PTPCamera.h with QString id/manufacturer/model/serialNumber, enum ConnectionType (USB, Network), QMap<QString, QVariant> capabilities, QMap<QString, QVariant> currentSettings
-- [ ] T145 [P] [US4] Create models/PTPCamera.cpp with constructor, capabilities parser (ISO values, shutter speeds, aperture values), settings validator
-- [ ] T146 [P] [US4] Update CameraController.h to support both V4L2 (CameraService) and PTP (PTPCameraService) backends, add enum CameraType (UVC, PTP), factory method to create appropriate service
-- [ ] T147 [US4] Update CameraController::enumerateCameras() to query both V4L2 devices (via CameraService) and PTP cameras (via PTPCameraService::detectCameras()), merge into unified list with type indication
-- [ ] T148 [US4] Update CameraController::startCamera(id) to detect camera type from id prefix (e.g., "v4l:/dev/video0" vs "ptp://usb:001,005"), instantiate appropriate service, connect signals
-- [ ] T149 [P] [US4] Create ui/PTPCameraSettingsPanel.h with TileDialog subclass, dynamic layout for camera-specific controls organized by category (Exposure, Image, Advanced)
-- [ ] T150 [US4] Create ui/PTPCameraSettingsPanel.cpp implementing dynamic control generation: QComboBox for enumeration settings (ISO, shutter, aperture, WB mode), QSlider for range settings, QPushButton for toggle settings, all embedded in scrollable TileDialog content widget
-- [ ] T151 [US4] Update ui/CameraControlsPanel to show "PTP Settings" QPushButton when PTP camera active, opens PTPCameraSettingsPanel dialog
-- [ ] T152 [US4] Implement capture target selection: QComboBox with options "Camera Storage (SD Card)" and "Computer (USB Transfer)" in PTPCameraSettingsPanel, update PTPCameraService capture target config
-- [ ] T153 [US4] Implement thumbnail preview + download workflow for camera storage mode: show thumbnail after capture, "Download Full Resolution" button triggers gp_camera_file_get()
-- [ ] T154 [US4] Add autofocus support: TileButton "AF" triggers gp_camera_trigger_capture() with half-press simulation (if supported by camera model)
-- [ ] T155 [US4] Implement hot-plug detection: poll gp_camera_autodetect() every 2 seconds, emit cameraConnected/cameraDisconnected signals
-- [ ] T156 [US4] Handle PTP errors gracefully: detect camera busy (GP_ERROR_CAMERA_BUSY), battery warnings, storage full (GP_ERROR_NO_SPACE), show user notifications
-- [ ] T157 [US4] Add EXIF metadata embedding: extract camera settings from PTP response after capture, embed in saved image file (ISO, shutter, aperture, focal length, WB, timestamp)
-- [ ] T158 [US4] Test with Canon DSLR: verify detection, live view at 10-30fps, ISO/shutter/aperture control, image capture to SD card and computer, EXIF metadata correct
-- [ ] T159 [US4] Test with Nikon DSLR: verify manufacturer-specific controls appear correctly, settings apply successfully
-- [ ] T160 [US4] Test camera switching: verify smooth transition between V4L2 and PTP cameras, settings panels adapt dynamically
-- [ ] T161 [US4] Test error conditions: disconnect camera during live view, verify graceful fallback; fill SD card, verify storage full warning
+- [X] T135 [P] [US4] Add libgphoto2 dependency to CMakeLists.txt (find_package(Gphoto2 REQUIRED), target_link_libraries(uScope PRIVATE PkgConfig::Gphoto2))
+- [X] T136 [P] [US4] Update README.md and build workflows with libgphoto2 installation (apt: libgphoto2-dev, brew: libgphoto2, vcpkg: libgphoto2)
+- [X] T137 [P] [US4] Create services/PTPCameraService.h with QObject subclass, GPContext* _context, Camera* _camera, methods for detectCameras(), connect(cameraInfo), disconnect(), getLiveViewFrame(), captureImage(), startRecording(), stopRecording()
+- [X] T138 [US4] Create services/PTPCameraService.cpp implementing gp_camera_autodetect() for camera enumeration, gp_camera_init() for connection, gp_camera_exit() for cleanup
+- [X] T139 [US4] Implement PTPCameraService::getLiveViewFrame() using gp_camera_capture_preview() to retrieve JPEG preview, decode to QImage, emit frameReady signal at camera's native live view rate
+- [X] T140 [US4] Implement PTPCameraService::getCapabilities() using gp_camera_get_abilities() and gp_camera_get_config() to query supported settings (ISO range, shutter speeds, aperture values, image formats, video modes, exposure modes - filter to only Aperture Priority and Manual)
+- [X] T141 [US4] Implement PTPCameraService setting control: gp_widget_get_value()/gp_widget_set_value() for exposure mode (Manual/Aperture Priority only), ISO, shutter speed, aperture, white balance, image quality, capture target (camera storage vs computer)
+- [X] T142 [US4] Implement PTPCameraService::captureImage() using gp_camera_capture() with GP_CAPTURE_IMAGE, handle both camera storage mode (return thumbnail + download option) and computer mode (transfer via gp_camera_file_get())
+- [X] T143 [US4] Implement PTPCameraService::startRecording()/stopRecording() using gp_camera_capture() with GP_CAPTURE_MOVIE for on-camera video recording (stores to SD card)
+- [X] T144 [P] [US4] Create models/PTPCamera.h with QString id/manufacturer/model/serialNumber, enum ConnectionType (USB, Network), QMap<QString, QVariant> capabilities, QMap<QString, QVariant> currentSettings
+- [X] T145 [P] [US4] Create models/PTPCamera.cpp with constructor, capabilities parser (exposure modes filtered to Manual/Aperture Priority, ISO values, shutter speeds, aperture values), settings validator
+- [X] T146 [P] [US4] Update CameraController.h to support both V4L2 (CameraService) and PTP (PTPCameraService) backends, add enum CameraType (UVC, PTP), factory method to create appropriate service
+- [X] T147 [US4] Update CameraController::enumerateCameras() to query both V4L2 devices (via CameraService) and PTP cameras (via PTPCameraService::detectCameras()), merge into unified list with type indication
+- [X] T148 [US4] Update CameraController::startCamera(id) to detect camera type from id prefix (e.g., "v4l:/dev/video0" vs "ptp://usb:001,005"), instantiate appropriate service, connect signals
+- [X] T149 [P] [US4] Create ui/PTPCameraSettingsPanel.h with TileDialog subclass, dynamic layout for camera-specific controls organized by category (Exposure, Image, Advanced) - exclude focus/zoom controls
+- [X] T150 [US4] Create ui/PTPCameraSettingsPanel.cpp implementing dynamic control generation: QComboBox for exposure mode (Manual/Aperture Priority only), ISO, shutter speed, aperture, white balance mode, image quality - all embedded in scrollable TileDialog content widget
+- [X] T151 [US4] Update ui/CameraControlsPanel to show "PTP Settings" QPushButton when PTP camera active, opens PTPCameraSettingsPanel dialog
+- [ ] T152 [US4] Update PTPCameraService::captureImage() to always capture to camera SD card: use gp_camera_capture() with GP_CAPTURE_IMAGE, retrieve CameraFilePath from result
+- [ ] T153 [US4] Implement automatic USB transfer after capture: use gp_camera_file_get() with CameraFilePath from T152, download to ~/Documents/uScope/captures/, emit imageCaptured signal with local file path
+- [ ] T154 [US4] Implement hot-plug detection: poll gp_camera_autodetect() every 2 seconds, emit cameraConnected/cameraDisconnected signals
+- [ ] T155 [US4] Handle PTP errors gracefully: detect camera busy (GP_ERROR_CAMERA_BUSY), battery warnings, storage full (GP_ERROR_NO_SPACE), show user notifications
+- [ ] T156 [US4] Add EXIF metadata embedding: extract camera settings from PTP response after capture, embed in saved image file (ISO, shutter, aperture, focal length, WB, timestamp)
+- [ ] T157 [US4] Test with Canon DSLR: verify detection, live view at 10-30fps, manual and aperture priority modes, ISO/shutter/aperture control, image capture to SD card and computer, EXIF metadata correct
+- [ ] T158 [US4] Test with Nikon DSLR: verify manufacturer-specific controls appear correctly, settings apply successfully
+- [ ] T159 [US4] Test camera switching: verify smooth transition between V4L2 and PTP cameras, settings panels adapt dynamically
+- [ ] T160 [US4] Test error conditions: disconnect camera during live view, verify graceful fallback; fill SD card, verify storage full warning
 
 **Checkpoint**: User Stories 1, 2 (zoom), 3 (camera controls), AND 4 (PTP cameras) all work independently
 
