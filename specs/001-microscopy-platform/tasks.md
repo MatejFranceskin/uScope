@@ -311,7 +311,7 @@
 - [X] T152 [US4] Update PTPCameraService::captureImage() to always capture to camera SD card: use gp_camera_capture() with GP_CAPTURE_IMAGE, retrieve CameraFilePath from result
 - [X] T153 [US4] Implement automatic USB transfer after capture: use gp_camera_file_get() with CameraFilePath from T152, download to ~/Documents/uScope/captures/, emit imageCaptured signal with local file path
 - [X] T154 [US4] Implement hot-plug detection: poll gp_camera_autodetect() every 2 seconds, emit cameraConnected/cameraDisconnected signals
-- [ ] T155 [US4] Handle PTP errors gracefully: detect camera busy (GP_ERROR_CAMERA_BUSY), battery warnings, storage full (GP_ERROR_NO_SPACE), show user notifications
+- [X] T155 [US4] Handle PTP errors gracefully: detect camera busy (GP_ERROR_CAMERA_BUSY), battery warnings, storage full (GP_ERROR_NO_SPACE), show user notifications
 - [ ] T156 [US4] Add EXIF metadata embedding: extract camera settings from PTP response after capture, embed in saved image file (ISO, shutter, aperture, focal length, WB, timestamp)
 - [ ] T157 [US4] Test with Canon DSLR: verify detection, live view at 10-30fps, manual and aperture priority modes, ISO/shutter/aperture control, image capture to SD card and computer, EXIF metadata correct
 - [ ] T158 [US4] Test with Nikon DSLR: verify manufacturer-specific controls appear correctly, settings apply successfully

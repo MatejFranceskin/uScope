@@ -434,15 +434,64 @@ bool PTPCameraService::stopRecording()
 
 bool PTPCameraService::checkError(int result, const QString& operation)
 {
-    if (result != GP_OK) {
-        QString errorMsg = QString("PTP error during %1: %2")
-                               .arg(operation)
-                               .arg(gp_result_as_string(result));
-        qWarning() << errorMsg;
-        emit error(errorMsg);
-        return false;
+    if (result == GP_OK) {
+        return true;
     }
-    return true;
+
+    QString errorMsg;
+    bool isCritical = true;
+
+    // Handle specific error codes with user-friendly messages
+    switch (result) {
+    case GP_ERROR_CAMERA_BUSY:
+        errorMsg = QString("Camera is busy during %1. Please wait and try again.").arg(operation);
+        isCritical = false;
+        break;
+    
+    case GP_ERROR_NO_SPACE:
+        errorMsg = QString("Storage full on camera SD card. Please free up space or use a different card.");
+        break;
+    
+    case GP_ERROR_FILE_NOT_FOUND:
+        errorMsg = QString("File or folder not found on camera during %1.").arg(operation);
+        break;
+    
+    case GP_ERROR_IO:
+    case GP_ERROR_IO_USB_FIND:
+    case GP_ERROR_IO_USB_CLAIM:
+        errorMsg = QString("USB communication error during %1. Check cable connection.").arg(operation);
+        break;
+    
+    case GP_ERROR_TIMEOUT:
+        errorMsg = QString("Camera timeout during %1. The camera may be unresponsive.").arg(operation);
+        break;
+    
+    case GP_ERROR_NOT_SUPPORTED:
+        errorMsg = QString("Operation '%1' is not supported by this camera model.").arg(operation);
+        break;
+    
+    case GP_ERROR_CANCEL:
+        errorMsg = QString("Operation cancelled by user.");
+        isCritical = false;
+        break;
+    
+    default:
+        errorMsg = QString("PTP error during %1: %2 (code %3)")
+                       .arg(operation)
+                       .arg(gp_result_as_string(result))
+                       .arg(result);
+        break;
+    }
+
+    qWarning() << errorMsg;
+    
+    if (isCritical) {
+        emit error(errorMsg);
+    } else {
+        emit warning(errorMsg);
+    }
+    
+    return false;
 }
 
 CameraWidget* PTPCameraService::findWidget(const QString& name)
@@ -529,6 +578,81 @@ void PTPCameraService::checkCameraConnection()
     }
     
     _lastDetectedCameras = currentCameras;
+    
+    // Check battery level if camera is connected
+    if (_camera) {
+        int batteryLevel = getBatteryLevel();
+        if (batteryLevel >= 0 && batteryLevel <= 20) {
+            QString msg = QString("Camera battery low: %1%").arg(batteryLevel);
+            qWarning() << msg;
+            emit warning(msg);
+        }
+    }
+}
+
+int PTPCameraService::getBatteryLevel()
+{
+    if (!_camera) {
+        return -1;
+    }
+    
+    CameraWidget *config = nullptr;
+    int ret = gp_camera_get_config(_camera, &config, _context);
+    if (ret != GP_OK) {
+        return -1;
+    }
+    
+    CameraWidget *batteryWidget = nullptr;
+    ret = gp_widget_get_child_by_name(config, "batterylevel", &batteryWidget);
+    if (ret != GP_OK) {
+        // Try alternative battery widget names
+        ret = gp_widget_get_child_by_name(config, "battery", &batteryWidget);
+        if (ret != GP_OK) {
+            ret = gp_widget_get_child_by_name(config, "batterypower", &batteryWidget);
+        }
+    }
+    
+    int batteryLevel = -1;
+    if (ret == GP_OK && batteryWidget) {
+        CameraWidgetType type;
+        gp_widget_get_type(batteryWidget, &type);
+        
+        if (type == GP_WIDGET_TEXT || type == GP_WIDGET_MENU) {
+            char *value = nullptr;
+            ret = gp_widget_get_value(batteryWidget, &value);
+            if (ret == GP_OK && value) {
+                QString batteryStr = QString::fromUtf8(value);
+                // Try to parse percentage (e.g., "80%", "80", "High", etc.)
+                if (batteryStr.contains("%")) {
+                    batteryStr.remove("%");
+                }
+                bool ok;
+                int parsed = batteryStr.toInt(&ok);
+                if (ok && parsed >= 0 && parsed <= 100) {
+                    batteryLevel = parsed;
+                } else {
+                    // Handle text values like "High", "Medium", "Low"
+                    QString lower = batteryStr.toLower();
+                    if (lower.contains("high") || lower.contains("full")) {
+                        batteryLevel = 100;
+                    } else if (lower.contains("medium") || lower.contains("normal")) {
+                        batteryLevel = 50;
+                    } else if (lower.contains("low")) {
+                        batteryLevel = 20;
+                    }
+                }
+            }
+        } else if (type == GP_WIDGET_RANGE) {
+            float value;
+            ret = gp_widget_get_value(batteryWidget, &value);
+            if (ret == GP_OK) {
+                batteryLevel = static_cast<int>(value);
+            }
+        }
+    }
+    
+    gp_widget_free(config);
+    return batteryLevel;
 }
 
 QString PTPCameraService::getCurrentCameraPort() const

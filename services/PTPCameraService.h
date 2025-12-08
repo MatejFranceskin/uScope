@@ -48,6 +48,9 @@ public:
     bool stopRecording();
     bool isRecording() const { return _isRecording; }
     
+    // Battery monitoring
+    int getBatteryLevel();  // Returns 0-100, or -1 if unavailable
+    
     // Hot-plug detection
     void startHotplugMonitoring();
     void stopHotplugMonitoring();
@@ -58,6 +61,7 @@ signals:
     void cameraDisconnected();
     void captureComplete(const QString& filePath);
     void error(const QString& message);
+    void warning(const QString& message);  // For non-critical issues
     
     // Hot-plug signals
     void cameraPlugged(const PTPCameraInfo& info);
