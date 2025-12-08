@@ -11,6 +11,7 @@ PTPCameraService::PTPCameraService(QObject *parent)
     , _context(nullptr)
     , _camera(nullptr)
     , _isRecording(false)
+    , _hotplugTimer(nullptr)
 {
     _context = gp_context_new();
     
@@ -21,10 +22,16 @@ PTPCameraService::PTPCameraService(QObject *parent)
         dir.mkpath(capturesPath);
         qDebug() << "Created captures directory:" << capturesPath;
     }
+    
+    // Create hot-plug monitoring timer
+    _hotplugTimer = new QTimer(this);
+    _hotplugTimer->setInterval(2000); // Check every 2 seconds
+    QObject::connect(_hotplugTimer, &QTimer::timeout, this, &PTPCameraService::checkCameraConnection);
 }
 
 PTPCameraService::~PTPCameraService()
 {
+    stopHotplugMonitoring();
     disconnect();
     
     if (_context) {
@@ -460,4 +467,87 @@ CameraWidget* PTPCameraService::findWidget(const QString& name)
     
     // Note: Don't free config here as widget is part of it
     return (ret == GP_OK) ? widget : nullptr;
+}
+
+void PTPCameraService::startHotplugMonitoring()
+{
+    if (_hotplugTimer && !_hotplugTimer->isActive()) {
+        qDebug() << "Starting PTP camera hot-plug monitoring (2 second interval)";
+        _lastDetectedCameras = detectCameras();
+        _hotplugTimer->start();
+    }
+}
+
+void PTPCameraService::stopHotplugMonitoring()
+{
+    if (_hotplugTimer && _hotplugTimer->isActive()) {
+        qDebug() << "Stopping PTP camera hot-plug monitoring";
+        _hotplugTimer->stop();
+    }
+}
+
+void PTPCameraService::checkCameraConnection()
+{
+    QList<PTPCameraInfo> currentCameras = detectCameras();
+    
+    // Check for newly plugged cameras
+    for (const PTPCameraInfo& camera : currentCameras) {
+        bool found = false;
+        for (const PTPCameraInfo& lastCamera : _lastDetectedCameras) {
+            if (camera.id == lastCamera.id) {
+                found = true;
+                break;
+            }
+        }
+        
+        if (!found) {
+            qDebug() << "PTP camera plugged:" << camera.manufacturer << camera.model;
+            emit cameraPlugged(camera);
+        }
+    }
+    
+    // Check for unplugged cameras
+    for (const PTPCameraInfo& lastCamera : _lastDetectedCameras) {
+        bool found = false;
+        for (const PTPCameraInfo& camera : currentCameras) {
+            if (camera.id == lastCamera.id) {
+                found = true;
+                break;
+            }
+        }
+        
+        if (!found) {
+            qDebug() << "PTP camera unplugged:" << lastCamera.manufacturer << lastCamera.model;
+            emit cameraUnplugged(lastCamera.id);
+            
+            // If the unplugged camera was the connected one, disconnect
+            if (_camera && lastCamera.port == getCurrentCameraPort()) {
+                qWarning() << "Active camera was unplugged, disconnecting";
+                disconnect();
+            }
+        }
+    }
+    
+    _lastDetectedCameras = currentCameras;
+}
+
+QString PTPCameraService::getCurrentCameraPort() const
+{
+    if (!_camera) {
+        return QString();
+    }
+    
+    GPPortInfo portinfo;
+    int ret = gp_camera_get_port_info(_camera, &portinfo);
+    if (ret != GP_OK) {
+        return QString();
+    }
+    
+    char *path;
+    ret = gp_port_info_get_path(portinfo, &path);
+    if (ret == GP_OK && path) {
+        return QString::fromUtf8(path);
+    }
+    
+    return QString();
 }

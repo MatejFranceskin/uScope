@@ -6,6 +6,7 @@
 #include <QImage>
 #include <QMap>
 #include <QVariant>
+#include <QTimer>
 #include <gphoto2/gphoto2.h>
 
 struct PTPCameraInfo {
@@ -46,6 +47,10 @@ public:
     bool startRecording();
     bool stopRecording();
     bool isRecording() const { return _isRecording; }
+    
+    // Hot-plug detection
+    void startHotplugMonitoring();
+    void stopHotplugMonitoring();
 
 signals:
     void frameReady(const QImage& frame);
@@ -53,15 +58,25 @@ signals:
     void cameraDisconnected();
     void captureComplete(const QString& filePath);
     void error(const QString& message);
+    
+    // Hot-plug signals
+    void cameraPlugged(const PTPCameraInfo& info);
+    void cameraUnplugged(const QString& cameraId);
+
+private slots:
+    void checkCameraConnection();
 
 private:
     GPContext* _context;
     Camera* _camera;
     bool _isRecording;
+    QTimer* _hotplugTimer;
+    QList<PTPCameraInfo> _lastDetectedCameras;
     
     // Helper methods
     bool checkError(int result, const QString& operation);
     CameraWidget* findWidget(const QString& name);
     QString getCameraManufacturer();
     QString getCameraModel();
+    QString getCurrentCameraPort() const;
 };
