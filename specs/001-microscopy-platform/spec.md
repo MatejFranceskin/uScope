@@ -127,9 +127,9 @@ A researcher connects their USB microscope camera, sees a live video feed immedi
 
 1. **Given** a UVC camera is connected, **When** application launches, **Then** camera is auto-detected and live preview starts at maximum supported frame rate
 2. **Given** live preview is running, **When** user clicks "Snap Image" button, **Then** a full-resolution still image is captured and saved with timestamp filename
-3. **Given** multiple cameras are connected, **When** user opens camera dropdown, **Then** all detected cameras are listed and user can switch between them
+3. **Given** multiple cameras are connected, **When** user opens camera dropdown (QComboBox), **Then** all detected cameras are listed and user can switch between them
 4. **Given** live preview is running, **When** user adjusts preview window size, **Then** video scales appropriately while maintaining aspect ratio
-5. **Given** camera supports multiple resolutions, **When** user selects different resolution, **Then** preview updates without interruption
+5. **Given** camera supports multiple resolutions, **When** user selects different resolution from format dropdown (QComboBox), **Then** preview updates without interruption
 
 ---
 
@@ -181,6 +181,10 @@ A researcher adjusts exposure, white balance, and color settings to achieve opti
 3. **Given** image needs adjustment, **When** user modifies brightness/contrast/saturation sliders, **Then** changes appear immediately on live feed
 4. **Given** camera is mounted inverted, **When** user toggles horizontal/vertical flip, **Then** image orientation corrects instantly
 5. **Given** low-light specimen, **When** user increases gain/ISO, **Then** image becomes brighter with acceptable noise levels
+6. **Given** user has adjusted multiple camera settings, **When** user clicks "Reset Defaults" button, **Then** all manual controls (exposure, brightness, contrast, saturation, flip settings) return to default values
+7. **Given** user is adjusting camera controls, **When** user drags any slider, **Then** current numeric value is displayed in a label next to the slider (e.g., "Exposure: 250 ms", "Brightness: -20")
+8. **Given** camera controls dialog is open, **When** user views the video feed through the semi-transparent dialog, **Then** the video remains clearly visible with minimal dimming (dialog background alpha 180, dim overlay alpha 60) allowing real-time visual feedback of control changes
+9. **Given** user has adjusted camera settings for a specific camera, **When** user closes app and reopens, selects same camera, **Then** all camera control settings (exposure, brightness, contrast, saturation, flip states) are restored to their previous values per camera ID
 
 ---
 

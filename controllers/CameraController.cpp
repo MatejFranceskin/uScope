@@ -6,6 +6,13 @@
 CameraController::CameraController(QObject* parent)
     : QObject(parent)
     , _monitorTimer(nullptr)
+    , _exposure(100.0)  // Default 100ms
+    , _brightness(0)
+    , _contrast(0)
+    , _saturation(0)
+    , _flipHorizontal(false)
+    , _flipVertical(false)
+    , _whiteBalance(static_cast<int>(QCamera::WhiteBalanceAuto))
 {
     _service = new CameraService(this);
     
@@ -284,36 +291,92 @@ void CameraController::onServiceError(const QString& message)
 // Camera controls (US3)
 void CameraController::setExposure(qreal value)
 {
+    _exposure = value;
     _service->setExposure(value);
+    saveCameraControls(currentCameraId());
 }
 
 void CameraController::setWhiteBalance(int mode)
 {
+    _whiteBalance = mode;
     _service->setWhiteBalance(static_cast<QCamera::WhiteBalanceMode>(mode));
+    saveCameraControls(currentCameraId());
 }
 
 void CameraController::setBrightness(int value)
 {
+    _brightness = value;
     _service->setBrightness(value);
+    saveCameraControls(currentCameraId());
 }
 
 void CameraController::setContrast(int value)
 {
+    _contrast = value;
     _service->setContrast(value);
+    saveCameraControls(currentCameraId());
 }
 
 void CameraController::setSaturation(int value)
 {
+    _saturation = value;
     _service->setSaturation(value);
+    saveCameraControls(currentCameraId());
 }
 
 void CameraController::setFlipHorizontal(bool enabled)
 {
+    _flipHorizontal = enabled;
     _service->setFlipHorizontal(enabled);
+    saveCameraControls(currentCameraId());
 }
 
 void CameraController::setFlipVertical(bool enabled)
 {
+    _flipVertical = enabled;
     _service->setFlipVertical(enabled);
+    saveCameraControls(currentCameraId());
+}
+
+void CameraController::saveCameraControls(const QString& cameraId)
+{
+    if (cameraId.isEmpty()) {
+        return;  // No camera selected
+    }
+    
+    QSettings settings("uScope", "uScope");
+    QString prefix = QString("camera/%1/controls/").arg(cameraId);
+    
+    settings.setValue(prefix + "exposure", _exposure);
+    settings.setValue(prefix + "brightness", _brightness);
+    settings.setValue(prefix + "contrast", _contrast);
+    settings.setValue(prefix + "saturation", _saturation);
+    settings.setValue(prefix + "flipHorizontal", _flipHorizontal);
+    settings.setValue(prefix + "flipVertical", _flipVertical);
+    settings.setValue(prefix + "whiteBalance", _whiteBalance);
+    
+    qDebug() << "CameraController::saveCameraControls - saved for" << cameraId;
+}
+
+void CameraController::restoreCameraControls(const QString& cameraId)
+{
+    if (cameraId.isEmpty()) {
+        return;  // No camera selected
+    }
+    
+    QSettings settings("uScope", "uScope");
+    QString prefix = QString("camera/%1/controls/").arg(cameraId);
+    
+    // Restore with defaults if not found
+    _exposure = settings.value(prefix + "exposure", 100.0).toReal();
+    _brightness = settings.value(prefix + "brightness", 0).toInt();
+    _contrast = settings.value(prefix + "contrast", 0).toInt();
+    _saturation = settings.value(prefix + "saturation", 0).toInt();
+    _flipHorizontal = settings.value(prefix + "flipHorizontal", false).toBool();
+    _flipVertical = settings.value(prefix + "flipVertical", false).toBool();
+    _whiteBalance = settings.value(prefix + "whiteBalance", static_cast<int>(QCamera::WhiteBalanceAuto)).toInt();
+    
+    qDebug() << "CameraController::restoreCameraControls - restored for" << cameraId
+             << "exposure:" << _exposure << "brightness:" << _brightness;
 }
 

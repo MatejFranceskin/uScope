@@ -125,14 +125,14 @@
 - [X] T061 [US1] Create controllers/CameraController.cpp with startCamera(id) slot calling _service->startCamera(), captureImage() slot calling _service->captureFrame(), signal forwarding
 - [X] T062 [US1] Update VideoGraphicsScene to render QVideoFrame as background via QGraphicsPixmapItem, connect to CameraController::frameReady signal
 - [X] T063 [US1] Update MainWindow constructor to create CameraController instance, auto-start first available camera
-- [X] T064 [US1] Create ui/CameraControlsPanel.h with TileDialog subclass, QListWidget for camera selection list (no OK/Cancel buttons - instant camera switching)
+- [X] T064 [US1] Create ui/CameraControlsPanel.h with TileDialog subclass, QComboBox for camera selection dropdown (no OK/Cancel buttons - instant camera switching on selection)
 - [X] T065 [US1] Create ui/CameraControlsPanel.cpp populating camera list from CameraController::enumerateCameras(), connecting currentRowChanged to instant camera switch via CameraController::startCamera(), using setContentWidget() for scrollable Qt controls, dialog closes via ESC key or clicking outside
 - [X] T066 [US1] Add CameraControlsPanel tile to MainWindow _leftTiles, position at top-left with updateGeometry
 - [X] T067 [US1] Implement image save to ~/Documents/uScope/ with filename format "image_yyyyMMdd_HHmmss.png" using QDateTime
 - [X] T067a [US1] Implement auto fit-to-width when selecting camera: pass ZoomController reference to CameraControlsPanel, call setFitWidth() on camera selection to automatically scale different resolutions
 - [X] T067b [US1] Implement content size auto-update: connect CameraController::frameReady signal to lambda that extracts frame size and updates ZoomController content size dynamically
 - [X] T067c [US1] Fix fit-to-width zoom persistence: update ZoomController::setContentSize() to recalculate zoom scale for FitWidth/FitHeight modes when content size changes, ensuring camera switches maintain correct zoom mode
-- [X] T067d [US1] Add camera format selection UI: add second QListWidget to CameraControlsPanel for resolution/frame rate selection, query available formats via CameraController::availableFormats(), display as "WIDTHxHEIGHT @ FPS fps", implement setCameraFormat() to switch formats on selection
+- [X] T067d [US1] Add camera format selection UI: add second QComboBox to CameraControlsPanel for resolution/frame rate selection dropdown, query available formats via CameraController::availableFormats(), display as "WIDTHxHEIGHT @ FPS fps", implement setCameraFormat() to switch formats on selection, uses compact dropdown instead of list for space efficiency
 - [X] T067e [US1] Sort camera formats by quality: sort available formats from highest resolution (pixels) to lowest, then highest frame rate to lowest, using std::sort with custom comparator in CameraControlsPanel::onCameraSelected()
 - [X] T067f [US1] Fix TileDialog size constraints: set scroll area to fixed size matching dialog bounds (boundingRect - padding), set proxy widget size policy to Fixed, enable ItemClipsChildrenToShape flag to prevent content from expanding dialog beyond specified tile dimensions
 - [X] T067g [US1] Implement camera persistence with QSettings: save camera name (not device ID) and format (resolution + fps) when user selects camera/format via CameraControlsPanel::saveCameraSelection(), restore on startup via CameraController::restoreLastCamera(), store in QSettings under "camera/lastCameraName", "camera/lastResolution{Width,Height}", "camera/lastFrameRate"
@@ -213,9 +213,9 @@
 - [X] T099 [P] [US3] Add manual camera controls to CameraControlsPanel TileDialog: add QSlider widgets for exposure, brightness, contrast, saturation following existing TileDialog pattern with Qt controls (not TileSlider - use standard QSlider via QGraphicsProxyWidget as per TileDialog architecture)
 - [X] T100 [US3] Connect camera control sliders in CameraControlsPanel to CameraController slots (setExposure, setBrightness, setContrast, setSaturation) with proper value ranges and signal forwarding
 - [X] T101 [P] [US3] Add QPushButton widgets in CameraControlsPanel for auto white balance (one-click on center of frame), flip horizontal, flip vertical following TileDialog Qt controls pattern
+- [X] T104 [US3] Add persistence of camera settings to QSettings per camera ID via CameraController::saveCameraControls() and restoreCameraControls(), restore on camera selection in CameraControlsPanel::onCameraSelected(), store with key pattern "camera/{cameraId}/controls/{setting}", includes QLabel value indicators for sliders and reduced dialog transparency (alpha 180 background, alpha 60 dim overlay) for visual feedback
 - [ ] T102 [US3] Implement auto white balance by sampling center region of current frame, calculating color correction, applying via QCamera::setColorTemperature()
 - [ ] T103 [US3] Verify <200ms latency for exposure/brightness/contrast/saturation adjustments (SC-004 requirement)
-- [ ] T104 [US3] Add persistence of camera settings to QSettings per camera ID, restore on camera selection
 - [ ] T105 [US3] Test manual controls: verify real-time updates, flip works correctly, white balance corrects color cast
 
 **Checkpoint**: User Stories 1, 2 (zoom), AND 3 (camera controls) all work independently

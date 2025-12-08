@@ -49,6 +49,16 @@ TileDialog::~TileDialog()
     // Qt's parent-child ownership handles cleanup automatically
 }
 
+void TileDialog::setDimOpacity(int alpha)
+{
+    if (_dimOverlay) {
+        // Update existing overlay
+        _dimOverlay->setBrush(QColor(0, 0, 0, alpha));
+    }
+    // Note: If overlay doesn't exist yet, the alpha will be applied when it's created in show()
+    // For now, we rely on subclasses to call setDimOpacity() after show()
+}
+
 void TileDialog::show(float baseTileSize, float sceneWidth)
 {
     if (!scene()) {

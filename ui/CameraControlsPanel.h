@@ -3,9 +3,10 @@
 
 #include "../TileDialog.h"
 #include <QList>
-#include <QListWidget>
+#include <QComboBox>
 #include <QPushButton>
 #include <QSlider>
+#include <QLabel>
 #include <QCameraFormat>
 
 class CameraController;
@@ -25,6 +26,8 @@ public:
                                  ZoomController* zoomController,
                                  QGraphicsItem* parent = nullptr);
 
+    void show(float baseTileSize, float sceneWidth) override;
+
 public slots:
     void refreshCameras();
 
@@ -41,6 +44,7 @@ private slots:
     void onAutoWhiteBalanceClicked();
     void onFlipHorizontalClicked();
     void onFlipVerticalClicked();
+    void onResetDefaultsClicked();
 
 protected:
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = nullptr) override;
@@ -51,8 +55,8 @@ private:
 
     CameraController* _controller;
     ZoomController* _zoomController;
-    QListWidget* _cameraList;
-    QListWidget* _formatList;
+    QComboBox* _cameraCombo;
+    QComboBox* _formatCombo;
     QWidget* _contentWidget;
     QList<CameraProfile> _availableCameras;
     QList<QCameraFormat> _availableFormats;
@@ -62,9 +66,14 @@ private:
     QSlider* _brightnessSlider;
     QSlider* _contrastSlider;
     QSlider* _saturationSlider;
+    QLabel* _exposureLabel;
+    QLabel* _brightnessLabel;
+    QLabel* _contrastLabel;
+    QLabel* _saturationLabel;
     QPushButton* _autoWhiteBalanceBtn;
     QPushButton* _flipHorizontalBtn;
     QPushButton* _flipVerticalBtn;
+    QPushButton* _resetDefaultsBtn;
 };
 
 #endif // CAMERACONTROLSPANEL_H

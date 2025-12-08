@@ -41,13 +41,16 @@ public:
     
     virtual ~TileDialog();
 
-    void show(float baseTileSize, float sceneWidth);
+    virtual void show(float baseTileSize, float sceneWidth);
     void hide();
     bool isVisible() const;
     
     // Content widget access - subclasses set content during construction
     void setContentWidget(QWidget* content);
     QWidget* contentWidget() const;
+    
+    // Dim overlay customization
+    void setDimOpacity(int alpha);  // 0-255, default 180
     
     /**
      * @brief Update geometry of dialog and child tiles
