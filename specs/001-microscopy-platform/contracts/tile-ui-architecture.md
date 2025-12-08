@@ -213,6 +213,8 @@ protected:
 
 ### TileSlider: Tile with Slider Control
 
+**Note**: TileSlider is for standalone overlay sliders. For modal dialogs (TileDialog subclasses), use standard Qt controls (QSlider, etc.) embedded in a QWidget layout, following the CameraControlsPanel pattern.
+
 ```cpp
 class TileSlider : public Tile {
     Q_OBJECT

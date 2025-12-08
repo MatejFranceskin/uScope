@@ -209,10 +209,10 @@
 
 - [X] T096 [P] [US3] Update CameraService.h with setExposure(qreal value), setWhiteBalance(mode), setBrightness(int), setContrast(int), setSaturation(int), flipHorizontal(bool), flipVertical(bool) methods
 - [X] T097 [US3] Implement CameraService camera control methods calling QCamera::setManualExposureTime(), QCamera::setWhiteBalanceMode(), updating exposure/color parameters
-- [ ] T098 [US3] Add flip transform via QVideoSink transformation matrix (QTransform::scale(-1, 1) for horizontal, (1, -1) for vertical)
-- [ ] T099 [P] [US3] Update ui/CameraControlsPanel.h adding TileSlider for exposure, TileSlider for brightness, TileSlider for contrast, TileSlider for saturation
-- [ ] T100 [US3] Update ui/CameraControlsPanel.cpp connecting sliders to CameraController slots (setExposure, setBrightness, setContrast, setSaturation)
-- [ ] T101 [P] [US3] Add TileButton for auto white balance (one-click on center of frame), TileButton for flip horizontal, TileButton for flip vertical
+- [X] T098 [US3] Add flip transform via QVideoSink transformation matrix (QTransform::scale(-1, 1) for horizontal, (1, -1) for vertical)
+- [ ] T099 [P] [US3] Add manual camera controls to CameraControlsPanel TileDialog: add QSlider widgets for exposure, brightness, contrast, saturation following existing TileDialog pattern with Qt controls (not TileSlider - use standard QSlider via QGraphicsProxyWidget as per TileDialog architecture)
+- [ ] T100 [US3] Connect camera control sliders in CameraControlsPanel to CameraController slots (setExposure, setBrightness, setContrast, setSaturation) with proper value ranges and signal forwarding
+- [ ] T101 [P] [US3] Add QPushButton widgets in CameraControlsPanel for auto white balance (one-click on center of frame), flip horizontal, flip vertical following TileDialog Qt controls pattern
 - [ ] T102 [US3] Implement auto white balance by sampling center region of current frame, calculating color correction, applying via QCamera::setColorTemperature()
 - [ ] T103 [US3] Verify <200ms latency for exposure/brightness/contrast/saturation adjustments (SC-004 requirement)
 - [ ] T104 [US3] Add persistence of camera settings to QSettings per camera ID, restore on camera selection
