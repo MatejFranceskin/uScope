@@ -171,7 +171,7 @@
 - [X] T085 [P] [US2] Create Zoom tile (TileButton) at Right,0,6 displaying current zoom factor (e.g., "2.3x", "Fit W", "100%")
 - [X] T086 [US2] Implement zoom controls panel: create 3 sub-tiles (TileButton instances) for "1:1 (100%)", "Fit Width", "Fit Height" positioned at Right,1,6 through Right,3,6
 - [X] T087 [US2] Implement zoom controls panel toggle: clicking Zoom tile sets state to Active and shows 3 sub-tiles, clicking again or selecting zoom option hides panel and returns to Normal state
-- [X] T088 [US2] Connect zoom control buttons: "1:1" → ZoomController::setOneToOne(), "Fit Width" → setFitWidth(), "Fit Height" → setFitHeight(), all close panel after execution
+- [X] T088 [US2] Connect zoom control buttons: "1:1" → ZoomController::setOneToOne(), "Fit Width" → setFitWidth(), "Fit Height" → setFitHeight(), all close panel after execution and reset pan offset to (0,0) to center image
 - [X] T089 [US2] Implement auto-close panel behavior: when zoom changes via mouse wheel or pinch gesture, close zoom controls panel if open
 - [X] T090 [US2] Update Zoom tile display in real-time: connect to ZoomController::zoomChanged signal, update text to show current factor/mode
 - [X] T091 [US2] Ensure captured images are always full camera resolution regardless of display zoom level

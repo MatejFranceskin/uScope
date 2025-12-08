@@ -72,6 +72,9 @@ void ZoomController::setFitWidth()
     // Set mode first, then zoom factor without changing mode
     _zoomState->setMode(ZoomState::Mode::FitWidth);
     _zoomState->setZoomFactorInternal(scale);
+    
+    // Reset pan to center
+    _zoomState->setPanOffset(QPointF(0, 0));
 }
 
 void ZoomController::setFitHeight()
@@ -83,6 +86,9 @@ void ZoomController::setFitHeight()
     // Set mode first, then zoom factor without changing mode
     _zoomState->setMode(ZoomState::Mode::FitHeight);
     _zoomState->setZoomFactorInternal(scale);
+    
+    // Reset pan to center
+    _zoomState->setPanOffset(QPointF(0, 0));
 }
 
 void ZoomController::setOneToOne()
@@ -90,6 +96,9 @@ void ZoomController::setOneToOne()
     // Set mode first, then zoom factor to 1.0
     _zoomState->setMode(ZoomState::Mode::OneToOne);
     _zoomState->setZoomFactorInternal(1.0);
+    
+    // Reset pan to center
+    _zoomState->setPanOffset(QPointF(0, 0));
 }
 
 void ZoomController::setPanOffset(const QPointF& offset)
