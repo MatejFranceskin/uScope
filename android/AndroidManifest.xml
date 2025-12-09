@@ -25,6 +25,10 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     
+    <!-- USB Host mode for PTP camera support via libgphoto2 -->
+    <!-- Note: USB permissions are granted at runtime via UsbManager, not declared here -->
+    <uses-feature android:name="android.hardware.usb.host" android:required="false"/>
+    
     <uses-feature android:name="android.hardware.camera" android:required="true"/>
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
 </manifest>

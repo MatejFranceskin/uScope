@@ -1,13 +1,17 @@
 #include "CameraController.h"
 #include "../services/CameraService.h"
+#if !defined(Q_OS_IOS)
 #include "../services/PTPCameraService.h"
+#endif
 #include <QTimer>
 #include <QSettings>
 
 CameraController::CameraController(QObject* parent)
     : QObject(parent)
     , _service(nullptr)
+#if !defined(Q_OS_IOS)
     , _ptpService(nullptr)
+#endif
     , _currentCameraType(CameraType::UVC)
     , _monitorTimer(nullptr)
     , _exposure(100.0)  // Default 100ms
@@ -21,7 +25,9 @@ CameraController::CameraController(QObject* parent)
     , _autoWhiteBalance(true)  // Auto white balance on by default
 {
     _service = new CameraService(this);
+#if !defined(Q_OS_IOS)
     _ptpService = new PTPCameraService(this);
+#endif
     
     // Forward signals from V4L2 service
     connect(_service, &CameraService::frameReady, 
@@ -33,6 +39,7 @@ CameraController::CameraController(QObject* parent)
     connect(_service, &CameraService::error, 
             this, &CameraController::onServiceError);
     
+#if !defined(Q_OS_IOS)
     // Forward signals from PTP service
     connect(_ptpService, &PTPCameraService::frameReady,
             this, [this](const QImage& frame) {
@@ -48,6 +55,7 @@ CameraController::CameraController(QObject* parent)
             });
     connect(_ptpService, &PTPCameraService::error,
             this, &CameraController::onServiceError);
+#endif
     
     // Create timer for camera monitoring (not started yet)
     _monitorTimer = new QTimer(this);
@@ -65,16 +73,20 @@ void CameraController::cleanupServices()
     if (_service) {
         _service->stopCamera();
     }
+#if !defined(Q_OS_IOS)
     if (_ptpService) {
         _ptpService->disconnect();
     }
+#endif
 }
 
 CameraType CameraController::detectCameraType(const QString& cameraId) const
 {
+#if !defined(Q_OS_IOS)
     if (cameraId.startsWith("ptp://")) {
         return CameraType::PTP;
     }
+#endif
     return CameraType::UVC;
 }
 
@@ -85,55 +97,67 @@ QList<CameraProfile> CameraController::availableCameras()
     // Get V4L2 cameras
     cameras.append(_service->enumerateCameras());
     
+#if !defined(Q_OS_IOS)
     // Get PTP cameras
     QList<PTPCameraInfo> ptpCameras = _ptpService->detectCameras();
     for (const PTPCameraInfo& info : ptpCameras) {
         CameraProfile profile(info.id, QString("%1 %2 (PTP)").arg(info.manufacturer, info.model));
         cameras.append(profile);
     }
+#endif
     
     return cameras;
 }
 
 QList<QSize> CameraController::availableResolutions(const QString& cameraId)
 {
+#if !defined(Q_OS_IOS)
     if (detectCameraType(cameraId) == CameraType::PTP) {
         // PTP cameras don't have resolution selection - return empty list
         return QList<QSize>();
     }
+#endif
     return _service->availableResolutions(cameraId);
 }
 
 QList<double> CameraController::availableFrameRates(const QString& cameraId, const QSize& resolution)
 {
+#if !defined(Q_OS_IOS)
     if (detectCameraType(cameraId) == CameraType::PTP) {
         // PTP cameras have fixed frame rate - return empty list
         return QList<double>();
     }
+#endif
     return _service->availableFrameRates(cameraId, resolution);
 }
 
 QSize CameraController::currentResolution() const
 {
+#if !defined(Q_OS_IOS)
     if (_currentCameraType == CameraType::PTP) {
         return QSize(); // PTP cameras handle resolution internally
     }
+#endif
     return _service->currentResolution();
 }
 
 double CameraController::currentFrameRate() const
 {
+#if !defined(Q_OS_IOS)
     if (_currentCameraType == CameraType::PTP) {
         return 0.0; // PTP cameras handle frame rate internally
     }
+#endif
     return _service->currentFrameRate();
 }
 
 bool CameraController::isActive() const
 {
+#if !defined(Q_OS_IOS)
     if (_currentCameraType == CameraType::PTP) {
         return _ptpService->isConnected();
     }
+#endif
     return _service->isActive();
 }
 
@@ -147,6 +171,7 @@ void CameraController::startCamera(const QString& cameraId)
     qDebug() << "CameraController::startCamera (no resolution) - cameraId:" << cameraId;
     _currentCameraType = detectCameraType(cameraId);
     
+#if !defined(Q_OS_IOS)
     if (_currentCameraType == CameraType::PTP) {
         // Stop V4L2 camera if active
         _service->stopCamera();
@@ -159,9 +184,13 @@ void CameraController::startCamera(const QString& cameraId)
                 break;
             }
         }
-    } else {
+    } else
+#endif
+    {
+#if !defined(Q_OS_IOS)
         // Stop PTP camera if active
         _ptpService->disconnect();
+#endif
         
         // Start V4L2 camera
         _service->startCamera(cameraId);
@@ -175,6 +204,7 @@ void CameraController::startCamera(const QString& cameraId, const QSize& resolut
     
     _currentCameraType = detectCameraType(cameraId);
     
+#if !defined(Q_OS_IOS)
     if (_currentCameraType == CameraType::PTP) {
         // Stop V4L2 camera if active
         _service->stopCamera();
@@ -187,9 +217,13 @@ void CameraController::startCamera(const QString& cameraId, const QSize& resolut
                 break;
             }
         }
-    } else {
+    } else
+#endif
+    {
+#if !defined(Q_OS_IOS)
         // Stop PTP camera if active
         _ptpService->disconnect();
+#endif
         
         // Start V4L2 camera
         _service->startCamera(cameraId, resolution, frameRate);
@@ -198,9 +232,12 @@ void CameraController::startCamera(const QString& cameraId, const QSize& resolut
 
 void CameraController::stopCamera()
 {
+#if !defined(Q_OS_IOS)
     if (_currentCameraType == CameraType::PTP) {
         _ptpService->disconnect();
-    } else {
+    } else
+#endif
+    {
         _service->stopCamera();
     }
 }
@@ -291,17 +328,21 @@ void CameraController::stopCameraMonitoring()
 
 QMap<QString, QVariant> CameraController::getPTPCapabilities() const
 {
+#if !defined(Q_OS_IOS)
     if (_currentCameraType == CameraType::PTP && _ptpService) {
         return _ptpService->getCapabilities();
     }
+#endif
     return QMap<QString, QVariant>();
 }
 
 void CameraController::setPTPSetting(const QString& name, const QString& value)
 {
+#if !defined(Q_OS_IOS)
     if (_currentCameraType == CameraType::PTP && _ptpService) {
         _ptpService->setSetting(name, value);
     }
+#endif
 }
 
 void CameraController::checkForLastCamera()

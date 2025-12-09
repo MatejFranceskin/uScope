@@ -6,12 +6,25 @@
 #include <QDateTime>
 #include <QFileInfo>
 
+#ifdef Q_OS_ANDROID
+#include "AndroidUsbHelper.h"
+
+// Forward declare libgphoto2 Android USB function
+// This is defined in libgphoto2_port when compiled with HAVE_LIBUSB_WRAP_SYS_DEVICE
+extern "C" {
+    int gp_port_usb_set_sys_device(int fd);
+}
+#endif
+
 PTPCameraService::PTPCameraService(QObject *parent)
     : QObject(parent)
     , _context(nullptr)
     , _camera(nullptr)
     , _isRecording(false)
     , _hotplugTimer(nullptr)
+#ifdef Q_OS_ANDROID
+    , _androidUsbFd(-1)
+#endif
 {
     _context = gp_context_new();
     
@@ -34,6 +47,13 @@ PTPCameraService::~PTPCameraService()
     stopHotplugMonitoring();
     disconnect();
     
+#ifdef Q_OS_ANDROID
+    if (_androidUsbFd >= 0) {
+        AndroidUsbHelper::closeDevice(_androidUsbFd);
+        _androidUsbFd = -1;
+    }
+#endif
+    
     if (_context) {
         gp_context_unref(_context);
         _context = nullptr;
@@ -44,6 +64,27 @@ QList<PTPCameraInfo> PTPCameraService::detectCameras()
 {
     QList<PTPCameraInfo> cameras;
     
+#ifdef Q_OS_ANDROID
+    // On Android, enumerate USB devices using UsbManager
+    QList<AndroidUsbHelper::UsbDeviceInfo> usbDevices = AndroidUsbHelper::getUsbDevices();
+    
+    for (const auto& usbDevice : usbDevices) {
+        PTPCameraInfo info;
+        info.id = QString("android-usb://%1").arg(usbDevice.deviceName);
+        info.model = usbDevice.product.isEmpty() ? 
+                     QString("USB Camera %1:%2").arg(usbDevice.vendorId, 4, 16, QChar('0'))
+                                                  .arg(usbDevice.productId, 4, 16, QChar('0')) :
+                     usbDevice.product;
+        info.manufacturer = usbDevice.manufacturer;
+        info.port = usbDevice.deviceName;  // Store device name in port field
+        cameras.append(info);
+        
+        qDebug() << "Found Android USB camera:" << info.model << "at" << info.port;
+    }
+    
+    return cameras;
+#else
+    // On desktop platforms, use libgphoto2 autodetect
     CameraList *list;
     int ret = gp_list_new(&list);
     if (ret != GP_OK) {
@@ -84,6 +125,7 @@ QList<PTPCameraInfo> PTPCameraService::detectCameras()
     
     gp_list_free(list);
     return cameras;
+#endif // Q_OS_ANDROID
 }
 
 bool PTPCameraService::connect(const PTPCameraInfo& cameraInfo)
@@ -97,7 +139,46 @@ bool PTPCameraService::connect(const PTPCameraInfo& cameraInfo)
         return false;
     }
     
-    // Set the camera port
+#ifdef Q_OS_ANDROID
+    // On Android, use USB file descriptor approach
+    _androidDeviceName = cameraInfo.port;  // port contains device name
+    
+    // Request permission if needed
+    if (!AndroidUsbHelper::hasPermission(_androidDeviceName)) {
+        qDebug() << "Requesting USB permission for" << _androidDeviceName;
+        AndroidUsbHelper::requestPermission(_androidDeviceName);
+        // Permission request is async, connection will fail for now
+        // User should retry after granting permission
+        emit error("USB permission required. Please grant permission and try again.");
+        gp_camera_free(_camera);
+        _camera = nullptr;
+        return false;
+    }
+    
+    // Open USB device and get file descriptor
+    _androidUsbFd = AndroidUsbHelper::openDevice(_androidDeviceName);
+    if (_androidUsbFd < 0) {
+        qWarning() << "Failed to open USB device:" << _androidDeviceName;
+        emit error("Failed to open USB device");
+        gp_camera_free(_camera);
+        _camera = nullptr;
+        return false;
+    }
+    
+    // Set the USB device file descriptor globally before initializing
+    // gp_port_usb_set_sys_device is a global function in libgphoto2
+    ret = gp_port_usb_set_sys_device(_androidUsbFd);
+    if (!checkError(ret, "set USB device file descriptor")) {
+        AndroidUsbHelper::closeDevice(_androidUsbFd);
+        _androidUsbFd = -1;
+        gp_camera_free(_camera);
+        _camera = nullptr;
+        return false;
+    }
+    
+    qDebug() << "Set USB FD" << _androidUsbFd << "for camera";
+#else
+    // On desktop platforms, use standard port detection
     GPPortInfoList *portinfolist;
     GPPortInfo portinfo;
     
@@ -141,10 +222,15 @@ bool PTPCameraService::connect(const PTPCameraInfo& cameraInfo)
         _camera = nullptr;
         return false;
     }
+#endif // Q_OS_ANDROID
     
     // Initialize camera
     ret = gp_camera_init(_camera, _context);
     if (!checkError(ret, "initialize camera")) {
+#ifdef Q_OS_ANDROID
+        AndroidUsbHelper::closeDevice(_androidUsbFd);
+        _androidUsbFd = -1;
+#endif
         gp_camera_free(_camera);
         _camera = nullptr;
         return false;
@@ -164,6 +250,14 @@ void PTPCameraService::disconnect()
         gp_camera_exit(_camera, _context);
         gp_camera_free(_camera);
         _camera = nullptr;
+        
+#ifdef Q_OS_ANDROID
+        if (_androidUsbFd >= 0) {
+            AndroidUsbHelper::closeDevice(_androidUsbFd);
+            _androidUsbFd = -1;
+        }
+        _androidDeviceName.clear();
+#endif
         
         emit cameraDisconnected();
     }

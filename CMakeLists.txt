@@ -54,9 +54,64 @@ endif()
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 # Find libgphoto2 for PTP camera support
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GPHOTO2 REQUIRED libgphoto2)
-include_directories(${GPHOTO2_INCLUDE_DIRS})
+# libgphoto2 allows access to external digital cameras via USB using PTP protocol
+# Note: iOS does not support USB host mode
+# Android supports it via USB host API (requires android.hardware.usb.host permission)
+if(NOT IOS)
+    if(WIN32)
+        # On Windows, use MSYS2/MinGW-w64 pre-built binaries
+        set(GPHOTO2_ROOT "${CMAKE_SOURCE_DIR}/thirdparty/libgphoto2-windows-x64")
+        set(GPHOTO2_INCLUDE_DIRS "${GPHOTO2_ROOT}/include")
+        set(GPHOTO2_LIBRARY_DIRS "${GPHOTO2_ROOT}/lib")
+        
+        # MSYS2 packages use .dll.a import libraries (for dynamic linking with DLLs)
+        # Include libgphoto2 and its dependencies
+        set(GPHOTO2_LIBRARIES 
+            "${GPHOTO2_ROOT}/lib/libgphoto2.dll.a"
+            "${GPHOTO2_ROOT}/lib/libgphoto2_port.dll.a"
+            "${GPHOTO2_ROOT}/lib/libusb-1.0.dll.a"
+            "${GPHOTO2_ROOT}/lib/libexif.dll.a"
+            "${GPHOTO2_ROOT}/lib/libjpeg.dll.a"
+            "${GPHOTO2_ROOT}/lib/libltdl.dll.a"
+            ws2_32  # Windows sockets for network operations
+            setupapi  # For USB device enumeration
+        )
+        
+        # Check if the main libraries exist
+        if(EXISTS "${GPHOTO2_ROOT}/lib/libgphoto2.dll.a" AND EXISTS "${GPHOTO2_ROOT}/lib/libgphoto2_port.dll.a")
+            set(GPHOTO2_FOUND TRUE)
+            include_directories(${GPHOTO2_INCLUDE_DIRS})
+            message(STATUS "Found libgphoto2 at ${GPHOTO2_ROOT}")
+        else()
+            message(FATAL_ERROR "libgphoto2 libraries not found at ${GPHOTO2_ROOT}/lib - required for PTP camera support")
+        endif()
+    elseif(ANDROID)
+        # On Android, use our custom NDK build
+        set(GPHOTO2_ROOT "${CMAKE_SOURCE_DIR}/thirdparty/libgphoto2-android")
+        set(GPHOTO2_INCLUDE_DIRS "${GPHOTO2_ROOT}/include")
+        set(GPHOTO2_LIBRARY_DIRS "${GPHOTO2_ROOT}/lib")
+        set(GPHOTO2_LIBRARIES 
+            "${GPHOTO2_ROOT}/lib/libgphoto2.a"
+            "${GPHOTO2_ROOT}/lib/libgphoto2_port.a"
+            "${GPHOTO2_ROOT}/lib/libltdl.a"
+        )
+        
+        # Check if the libraries exist
+        if(EXISTS "${GPHOTO2_ROOT}/lib/libgphoto2.a" AND EXISTS "${GPHOTO2_ROOT}/lib/libgphoto2_port.a")
+            set(GPHOTO2_FOUND TRUE)
+            include_directories(${GPHOTO2_INCLUDE_DIRS})
+            message(STATUS "Found libgphoto2 for Android at ${GPHOTO2_ROOT}")
+        else()
+            message(STATUS "libgphoto2 libraries not found for Android - PTP support disabled")
+            set(GPHOTO2_FOUND FALSE)
+        endif()
+    else()
+        # On Unix systems (Linux, macOS), use pkg-config
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(GPHOTO2 REQUIRED libgphoto2)
+        include_directories(${GPHOTO2_INCLUDE_DIRS})
+    endif()
+endif()
 
 # Resources
 # Generate platform-specific icons from SVG
@@ -121,15 +176,11 @@ set(PROJECT_SOURCES
     models/CapturedImage.h
     models/ZoomState.cpp
     models/ZoomState.h
-    models/PTPCamera.cpp
-    models/PTPCamera.h
     # Services
     services/CameraService.cpp
     services/CameraService.h
     services/CaptureThread.cpp
     services/CaptureThread.h
-    services/PTPCameraService.cpp
-    services/PTPCameraService.h
     # Controllers
     controllers/CameraController.cpp
     controllers/CameraController.h
@@ -141,6 +192,27 @@ set(PROJECT_SOURCES
     ui/ZoomTile.cpp
     ui/ZoomTile.h
 )
+
+# Add PTP camera support for platforms with libgphoto2
+if(NOT IOS)
+    # Only add if GPHOTO2 was found (or Windows which builds it)
+    if(GPHOTO2_FOUND OR WIN32)
+        list(APPEND PROJECT_SOURCES
+            models/PTPCamera.cpp
+            models/PTPCamera.h
+            services/PTPCameraService.cpp
+            services/PTPCameraService.h
+        )
+        
+        # Add Android USB helper for Android platform
+        if(ANDROID)
+            list(APPEND PROJECT_SOURCES
+                services/AndroidUsbHelper.cpp
+                services/AndroidUsbHelper.h
+            )
+        endif()
+    endif()
+endif()
 
 # Create executable using Qt's helper (handles Android/iOS as shared libraries automatically)
 qt_add_executable(uScope
@@ -160,8 +232,18 @@ target_link_libraries(uScope PRIVATE
     Qt6::Multimedia
     Qt6::Svg
     ${OpenCV_LIBS}
-    ${GPHOTO2_LIBRARIES}
 )
+
+# Link libgphoto2 for platforms that support it
+if(NOT IOS)
+    if(GPHOTO2_FOUND OR WIN32)
+        target_link_libraries(uScope PRIVATE ${GPHOTO2_LIBRARIES})
+        if(NOT WIN32 AND NOT ANDROID)
+            target_link_directories(uScope PRIVATE ${GPHOTO2_LIBRARY_DIRS})
+            target_compile_options(uScope PRIVATE ${GPHOTO2_CFLAGS_OTHER})
+        endif()
+    endif()
+endif()
 
 # Platform-specific configuration
 if(ANDROID)
@@ -191,6 +273,43 @@ elseif(WIN32)
         WIN32_EXECUTABLE TRUE
     )
     # Icon is embedded via resources.qrc
+    
+    # Install libgphoto2 DLLs to output directory
+    if(GPHOTO2_FOUND)
+        file(GLOB GPHOTO2_DLLS "${GPHOTO2_ROOT}/bin/*.dll")
+        if(GPHOTO2_DLLS)
+            # Copy DLLs to build directory for running from IDE
+            foreach(DLL_FILE ${GPHOTO2_DLLS})
+                add_custom_command(TARGET uScope POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${DLL_FILE}"
+                    $<TARGET_FILE_DIR:uScope>
+                )
+            endforeach()
+            
+            # Install DLLs for deployment
+            install(FILES ${GPHOTO2_DLLS} DESTINATION bin)
+        endif()
+        
+        # Copy camera driver plugins (camlibs) and port drivers (iolibs)
+        if(EXISTS "${GPHOTO2_ROOT}/lib/libgphoto2")
+            add_custom_command(TARGET uScope POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${GPHOTO2_ROOT}/lib/libgphoto2"
+                "$<TARGET_FILE_DIR:uScope>/libgphoto2"
+            )
+            install(DIRECTORY "${GPHOTO2_ROOT}/lib/libgphoto2" DESTINATION bin)
+        endif()
+        
+        if(EXISTS "${GPHOTO2_ROOT}/lib/libgphoto2_port")
+            add_custom_command(TARGET uScope POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${GPHOTO2_ROOT}/lib/libgphoto2_port"
+                "$<TARGET_FILE_DIR:uScope>/libgphoto2_port"
+            )
+            install(DIRECTORY "${GPHOTO2_ROOT}/lib/libgphoto2_port" DESTINATION bin)
+        endif()
+    endif()
 elseif(APPLE)
     # macOS configuration
     

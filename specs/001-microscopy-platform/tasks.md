@@ -313,6 +313,7 @@
 - [X] T154 [US4] Implement hot-plug detection: poll gp_camera_autodetect() every 2 seconds, emit cameraConnected/cameraDisconnected signals
 - [X] T155 [US4] Handle PTP errors gracefully: detect camera busy (GP_ERROR_CAMERA_BUSY), battery warnings, storage full (GP_ERROR_NO_SPACE), show user notifications
 - [X] T156 [US4] Add EXIF metadata embedding: extract camera settings from PTP response after capture, embed in saved image file (ISO, shutter, aperture, focal length, WB, timestamp)
+- [X] T157a [US4] Implement cross-platform libgphoto2 build infrastructure: create build_libgphoto2_android.py for NDK cross-compilation with stub libltdl, build_libgphoto2_windows.py for MSYS2/MinGW package download, update CMakeLists.txt for .dll.a import libraries and plugin directory deployment, add AndroidUsbHelper JNI wrapper for USB file descriptor passing via gp_port_usb_set_sys_device(), update GitHub Actions workflows for all platforms
 - [ ] T157 [US4] Test with Canon DSLR: verify detection, live view at 10-30fps, manual and aperture priority modes, ISO/shutter/aperture control, image capture to SD card and computer, EXIF metadata correct
 - [ ] T158 [US4] Test with Nikon DSLR: verify manufacturer-specific controls appear correctly, settings apply successfully
 - [ ] T159 [US4] Test camera switching: verify smooth transition between V4L2 and PTP cameras, settings panels adapt dynamically

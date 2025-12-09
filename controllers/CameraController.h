@@ -9,7 +9,9 @@
 #include "../models/CapturedImage.h"
 
 class CameraService;
+#if !defined(Q_OS_IOS)
 class PTPCameraService;
+#endif
 
 enum class CameraType {
     UVC,    // USB Video Class (V4L2)
@@ -40,7 +42,11 @@ public:
     bool isActive() const;
     QString currentCameraId() const;
     CameraType currentCameraType() const { return _currentCameraType; }
+#if !defined(Q_OS_IOS)
     bool isPTPCamera() const { return _currentCameraType == CameraType::PTP; }
+#else
+    bool isPTPCamera() const { return false; }
+#endif
     
     // Settings persistence
     void saveCurrentCamera();
@@ -108,7 +114,9 @@ private slots:
 
 private:
     CameraService* _service;
+#if !defined(Q_OS_IOS)
     PTPCameraService* _ptpService;
+#endif
     CameraType _currentCameraType;
     QString _lastCameraName;  // Last successfully connected camera name
     QTimer* _monitorTimer;    // Timer for camera reconnection monitoring

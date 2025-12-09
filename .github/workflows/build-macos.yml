@@ -15,6 +15,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        submodules: recursive
       
     - name: Install ImageMagick
       run: brew install imagemagick
@@ -56,6 +58,36 @@ jobs:
       run: |
         # CMake already created uScope.app in build directory
         macdeployqt build/uScope.app -always-overwrite
+        
+    - name: Bundle Homebrew dependencies
+      run: |
+        # Copy OpenCV, Tesseract, and other Homebrew dylibs into the app bundle
+        mkdir -p build/uScope.app/Contents/Frameworks
+        
+        # Find and copy all dylib dependencies from Homebrew
+        # OpenCV
+        cp /usr/local/opt/opencv/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || \
+        cp /opt/homebrew/opt/opencv/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || true
+        
+        # Tesseract
+        cp /usr/local/opt/tesseract/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || \
+        cp /opt/homebrew/opt/tesseract/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || true
+        
+        # Leptonica (Tesseract dependency)
+        cp /usr/local/opt/leptonica/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || \
+        cp /opt/homebrew/opt/leptonica/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || true
+        
+        # libgphoto2
+        cp /usr/local/opt/libgphoto2/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || \
+        cp /opt/homebrew/opt/libgphoto2/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || true
+        
+        # Fix install names to use @rpath
+        for dylib in build/uScope.app/Contents/Frameworks/*.dylib; do
+          if [ -f "$dylib" ]; then
+            chmod +w "$dylib"
+            install_name_tool -id "@rpath/$(basename $dylib)" "$dylib" 2>/dev/null || true
+          fi
+        done
         
     - name: Create DMG
       run: |

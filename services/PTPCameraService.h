@@ -9,6 +9,10 @@
 #include <QTimer>
 #include <gphoto2/gphoto2.h>
 
+#ifdef Q_OS_ANDROID
+#include "AndroidUsbHelper.h"
+#endif
+
 struct PTPCameraInfo {
     QString id;
     QString manufacturer;
@@ -76,6 +80,11 @@ private:
     bool _isRecording;
     QTimer* _hotplugTimer;
     QList<PTPCameraInfo> _lastDetectedCameras;
+    
+#ifdef Q_OS_ANDROID
+    int _androidUsbFd;  // Android USB file descriptor
+    QString _androidDeviceName;  // Android USB device name
+#endif
     
     // Helper methods
     bool checkError(int result, const QString& operation);
