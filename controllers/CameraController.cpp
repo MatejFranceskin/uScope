@@ -102,11 +102,8 @@ QList<CameraProfile> CameraController::availableCameras()
 {
     QList<CameraProfile> cameras;
     
-    // Get V4L2 cameras
-    cameras.append(_service->enumerateCameras());
-    
 #if !defined(Q_OS_IOS)
-    // Get PTP cameras
+    // Get PTP cameras first (higher priority for professional cameras)
     QList<PTPCameraInfo> ptpCameras = _ptpService->detectCameras();
     for (const PTPCameraInfo& info : ptpCameras) {
         // Use model name directly - it already contains manufacturer (e.g., "Sony UMC-R10C")
@@ -114,6 +111,9 @@ QList<CameraProfile> CameraController::availableCameras()
         cameras.append(profile);
     }
 #endif
+    
+    // Get V4L2 cameras
+    cameras.append(_service->enumerateCameras());
     
     return cameras;
 }
@@ -291,8 +291,9 @@ void CameraController::restoreLastCamera()
     qDebug() << "CameraController::restoreLastCamera - read cameraName:" << _lastCameraName;
     
     if (_lastCameraName.isEmpty()) {
-        qDebug() << "CameraController::restoreLastCamera - no saved camera, returning";
-        return;  // No saved camera
+        qDebug() << "CameraController::restoreLastCamera - no saved camera, auto-starting first available";
+        autoStartCamera();  // Fall back to auto-start (PTP cameras have priority)
+        return;
     }
     
     // Try to start the last camera immediately by searching for the name

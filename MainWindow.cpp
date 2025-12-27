@@ -32,9 +32,6 @@ MainWindow::MainWindow(QWidget *parent)
     setupUi();
     createControllers();
     createTiles();
-    
-    // Auto-start first available camera
-    _cameraController->autoStartCamera();
 }
 
 MainWindow::~MainWindow()
