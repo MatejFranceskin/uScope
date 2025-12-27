@@ -55,7 +55,7 @@ private slots:
     void onPTPExposureModeChanged(int index);
     void onPTPIsoChanged(int index);
     void onPTPShutterSpeedChanged(int index);
-    void onPTPApertureChanged(int index);
+    void onPTPExposureCompChanged(int index);
     void onPTPWhiteBalanceChanged(int index);
     void onPTPCaptureTargetChanged(int index);
 
@@ -111,13 +111,13 @@ private:
     QComboBox* _ptpExposureModeCombo;
     QComboBox* _ptpIsoCombo;
     QComboBox* _ptpShutterSpeedCombo;
-    QComboBox* _ptpApertureCombo;
+    QComboBox* _ptpExposureCompCombo;
     QComboBox* _ptpWhiteBalanceCombo;
     QComboBox* _ptpCaptureTargetCombo;
     QLabel* _ptpExposureModeLabel;
     QLabel* _ptpIsoLabel;
     QLabel* _ptpShutterSpeedLabel;
-    QLabel* _ptpApertureLabel;
+    QLabel* _ptpExposureCompLabel;
     QLabel* _ptpWhiteBalanceLabel;
     QLabel* _ptpCaptureTargetLabel;
 };

@@ -83,6 +83,11 @@ private:
     QTimer* _liveViewTimer;
     QList<PTPCameraInfo> _lastDetectedCameras;
     
+    // Cache of widget names for manufacturer-specific properties
+    QString _exposureModeWidgetName;
+    QString _shutterSpeedWidgetName;
+    QString _whiteBalanceWidgetName;
+    
 #ifdef Q_OS_ANDROID
     int _androidUsbFd;  // Android USB file descriptor
     QString _androidDeviceName;  // Android USB device name
@@ -95,4 +100,10 @@ private:
     QString getCameraModel();
     QString getCurrentCameraPort() const;
     void embedExifMetadata(const QString& filePath);
+    
+    // Helper functions to convert numeric PTP values to readable strings
+    QString convertShutterSpeedToReadable(const QString& rawValue);
+    QString convertWhiteBalanceToReadable(const QString& rawValue);
+    QString convertReadableToShutterSpeed(const QString& readable);
+    QString convertReadableToWhiteBalance(const QString& readable);
 };

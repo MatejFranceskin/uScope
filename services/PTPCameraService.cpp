@@ -418,33 +418,111 @@ QMap<QString, QVariant> PTPCameraService::getCapabilities()
 {
     QMap<QString, QVariant> capabilities;
     
+    qDebug() << "PTPCameraService::getCapabilities - called";
+    
     if (!_camera) {
+        qDebug() << "PTPCameraService::getCapabilities - no camera connected";
         return capabilities;
     }
     
     CameraWidget *config;
     int ret = gp_camera_get_config(_camera, &config, _context);
     if (!checkError(ret, "get camera config")) {
+        qDebug() << "PTPCameraService::getCapabilities - failed to get config";
         return capabilities;
     }
     
+    qDebug() << "PTPCameraService::getCapabilities - got config successfully";
+    
     // Get exposure modes and filter to Manual and Aperture Priority
+    // Try standard widget names first
     CameraWidget *exposureMode = findWidget("expprogram");
+    if (!exposureMode) {
+        exposureMode = findWidget("exposuremode");
+    }
+    if (!exposureMode) {
+        exposureMode = findWidget("autoexposuremode");
+    }
+    
+    // If standard names not found, search through all widgets for one that looks like exposure mode
+    if (!exposureMode) {
+        qDebug() << "PTPCameraService::getCapabilities - searching all widgets for exposure mode";
+        
+        // Enumerate all child widgets of config
+        int childCount = gp_widget_count_children(config);
+        for (int i = 0; i < childCount && !exposureMode; i++) {
+            CameraWidget *section;
+            gp_widget_get_child(config, i, &section);
+            
+            int sectionChildCount = gp_widget_count_children(section);
+            for (int j = 0; j < sectionChildCount && !exposureMode; j++) {
+                CameraWidget *widget;
+                gp_widget_get_child(section, j, &widget);
+                
+                const char *label;
+                gp_widget_get_label(widget, &label);
+                QString labelStr = QString::fromUtf8(label);
+                
+                // Check if label contains "exposure" and "mode" or "program"
+                if ((labelStr.contains("Exposure", Qt::CaseInsensitive) && 
+                     labelStr.contains("Mode", Qt::CaseInsensitive)) ||
+                    labelStr.contains("ExposureMode", Qt::CaseInsensitive) ||
+                    (labelStr.contains("Exposure", Qt::CaseInsensitive) && 
+                     labelStr.contains("Program", Qt::CaseInsensitive))) {
+                    
+                    qDebug() << "PTPCameraService::getCapabilities - found potential exposure mode widget:" << labelStr;
+                    exposureMode = widget;
+                    break;
+                }
+            }
+        }
+    }
     if (exposureMode) {
+        // Store the widget name for later use when setting values
+        const char *widgetName;
+        gp_widget_get_name(exposureMode, &widgetName);
+        _exposureModeWidgetName = QString::fromUtf8(widgetName);
+        qDebug() << "PTPCameraService::getCapabilities - exposure mode widget name:" << _exposureModeWidgetName;
+        
         int count = gp_widget_count_choices(exposureMode);
         QStringList modes;
+        QStringList allModes;  // For debugging
         for (int i = 0; i < count; i++) {
             const char *choice;
             gp_widget_get_choice(exposureMode, i, &choice);
             QString mode = QString::fromUtf8(choice);
-            // Only include Manual and Aperture Priority modes
-            if (mode.contains("Manual", Qt::CaseInsensitive) || 
-                mode.contains("Aperture", Qt::CaseInsensitive) ||
-                mode.contains("A", Qt::CaseInsensitive) ||
-                mode.contains("M", Qt::CaseInsensitive)) {
-                modes.append(mode);
+            allModes.append(mode);  // Collect all for debug
+            
+            // Map Sony numeric codes to readable names and filter for microscopy
+            QString readableMode;
+            bool isSonyNumeric = false;
+            int modeValue = mode.toInt(&isSonyNumeric);
+            
+            if (isSonyNumeric) {
+                // Sony PTP numeric exposure modes
+                switch (modeValue) {
+                    case 1: readableMode = "Manual"; break;
+                    case 2: readableMode = "Program Auto"; break;
+                    case 3: readableMode = "Aperture Priority"; break;
+                    case 4: readableMode = "Shutter Priority"; break;
+                    case 32768:
+                    case 32769: readableMode = "Auto"; break;
+                    default: readableMode = mode; break;
+                }
+            } else {
+                readableMode = mode;
+            }
+            
+            // Only include Manual and Aperture Priority modes for microscopy
+            if (readableMode.contains("Manual", Qt::CaseInsensitive) || 
+                readableMode.contains("Aperture", Qt::CaseInsensitive) ||
+                readableMode == "M" || readableMode == "A" ||
+                modeValue == 1 || modeValue == 3) {  // Manual=1, Aperture Priority=3
+                modes.append(readableMode);
             }
         }
+        qDebug() << "PTPCameraService::getCapabilities - all exposure modes:" << allModes;
+        qDebug() << "PTPCameraService::getCapabilities - filtered exposure modes:" << modes;
         capabilities["exposuremode"] = modes;  // Match UI expectation
     }
     
@@ -463,28 +541,120 @@ QMap<QString, QVariant> PTPCameraService::getCapabilities()
     
     // Get shutter speeds
     CameraWidget *shutter = findWidget("shutterspeed");
+    if (!shutter) {
+        shutter = findWidget("shutterspeed2");
+    }
+    if (!shutter) {
+        shutter = findWidget("eos-shutterspeed");
+    }
+    
+    // If standard names not found, search all widgets
+    if (!shutter) {
+        int childCount = gp_widget_count_children(config);
+        for (int i = 0; i < childCount && !shutter; i++) {
+            CameraWidget *section;
+            gp_widget_get_child(config, i, &section);
+            
+            int sectionChildCount = gp_widget_count_children(section);
+            for (int j = 0; j < sectionChildCount && !shutter; j++) {
+                CameraWidget *widget;
+                gp_widget_get_child(section, j, &widget);
+                
+                const char *label;
+                gp_widget_get_label(widget, &label);
+                QString labelStr = QString::fromUtf8(label);
+                
+                if (labelStr.contains("Shutter", Qt::CaseInsensitive) && 
+                    (labelStr.contains("Speed", Qt::CaseInsensitive) || labelStr == "Shutter speed")) {
+                    qDebug() << "PTPCameraService::getCapabilities - found shutter speed widget:" << labelStr;
+                    shutter = widget;
+                    break;
+                }
+            }
+        }
+    }
+    
     if (shutter) {
+        const char *widgetName;
+        gp_widget_get_name(shutter, &widgetName);
+        _shutterSpeedWidgetName = QString::fromUtf8(widgetName);
         int count = gp_widget_count_choices(shutter);
         QStringList shutterSpeeds;
         for (int i = 0; i < count; i++) {
             const char *choice;
             gp_widget_get_choice(shutter, i, &choice);
-            shutterSpeeds.append(QString::fromUtf8(choice));
+            QString rawValue = QString::fromUtf8(choice);
+            QString readable = convertShutterSpeedToReadable(rawValue);
+            shutterSpeeds.append(readable);
         }
+        qDebug() << "PTPCameraService::getCapabilities - shutter speed values:" << shutterSpeeds;
         capabilities["shutterspeed"] = shutterSpeeds;  // Match UI expectation
     }
     
-    // Get aperture values
-    CameraWidget *aperture = findWidget("aperture");
-    if (aperture) {
-        int count = gp_widget_count_choices(aperture);
-        QStringList apertureValues;
+    // Get exposure compensation values
+    CameraWidget *exposureComp = findWidget("exposurecompensation");
+    if (exposureComp) {
+        int count = gp_widget_count_choices(exposureComp);
+        QStringList expCompValues;
         for (int i = 0; i < count; i++) {
             const char *choice;
-            gp_widget_get_choice(aperture, i, &choice);
-            apertureValues.append(QString::fromUtf8(choice));
+            gp_widget_get_choice(exposureComp, i, &choice);
+            expCompValues.append(QString::fromUtf8(choice));
         }
-        capabilities["aperture"] = apertureValues;  // Match UI expectation
+        capabilities["exposurecompensation"] = expCompValues;  // Match UI expectation
+    }
+    
+    // Get white balance modes
+    CameraWidget *whiteBalance = findWidget("whitebalance");
+    if (!whiteBalance) {
+        whiteBalance = findWidget("wb");
+    }
+    if (!whiteBalance) {
+        whiteBalance = findWidget("eos-whitebalance");
+    }
+    
+    // If standard names not found, search all widgets
+    if (!whiteBalance) {
+        int childCount = gp_widget_count_children(config);
+        for (int i = 0; i < childCount && !whiteBalance; i++) {
+            CameraWidget *section;
+            gp_widget_get_child(config, i, &section);
+            
+            int sectionChildCount = gp_widget_count_children(section);
+            for (int j = 0; j < sectionChildCount && !whiteBalance; j++) {
+                CameraWidget *widget;
+                gp_widget_get_child(section, j, &widget);
+                
+                const char *label;
+                gp_widget_get_label(widget, &label);
+                QString labelStr = QString::fromUtf8(label);
+                
+                if (labelStr.contains("WhiteBalance", Qt::CaseInsensitive) ||
+                    (labelStr.contains("White", Qt::CaseInsensitive) && labelStr.contains("Balance", Qt::CaseInsensitive)) ||
+                    labelStr == "WB") {
+                    qDebug() << "PTPCameraService::getCapabilities - found white balance widget:" << labelStr;
+                    whiteBalance = widget;
+                    break;
+                }
+            }
+        }
+    }
+    
+    if (whiteBalance) {
+        const char *widgetName;
+        gp_widget_get_name(whiteBalance, &widgetName);
+        _whiteBalanceWidgetName = QString::fromUtf8(widgetName);
+        int count = gp_widget_count_choices(whiteBalance);
+        QStringList wbModes;
+        for (int i = 0; i < count; i++) {
+            const char *choice;
+            gp_widget_get_choice(whiteBalance, i, &choice);
+            QString rawValue = QString::fromUtf8(choice);
+            QString readable = convertWhiteBalanceToReadable(rawValue);
+            wbModes.append(readable);
+        }
+        qDebug() << "PTPCameraService::getCapabilities - white balance values:" << wbModes;
+        capabilities["whitebalance"] = wbModes;  // Match UI expectation
     }
     
     gp_widget_free(config);
@@ -497,31 +667,100 @@ bool PTPCameraService::setSetting(const QString& name, const QVariant& value)
         return false;
     }
     
-    CameraWidget *config;
-    int ret = gp_camera_get_config(_camera, &config, _context);
-    if (!checkError(ret, "get camera config for setting")) {
-        return false;
-    }
-    
-    CameraWidget *widget = findWidget(name);
-    if (!widget) {
-        qWarning() << "Setting not found:" << name;
-        gp_widget_free(config);
-        return false;
+    // Use cached widget name if available
+    QString widgetName = name;
+    if (name == "exposuremode" && !_exposureModeWidgetName.isEmpty()) {
+        widgetName = _exposureModeWidgetName;
+    } else if (name == "shutterspeed" && !_shutterSpeedWidgetName.isEmpty()) {
+        widgetName = _shutterSpeedWidgetName;
+    } else if (name == "whitebalance" && !_whiteBalanceWidgetName.isEmpty()) {
+        widgetName = _whiteBalanceWidgetName;
     }
     
     QString valueStr = value.toString();
-    ret = gp_widget_set_value(widget, valueStr.toUtf8().constData());
+    QString originalValue = valueStr;
     
-    if (!checkError(ret, "set widget value")) {
-        gp_widget_free(config);
-        return false;
+    // Special handling for exposure mode - convert readable names to numeric codes
+    if (name == "exposuremode") {
+        if (valueStr == "Manual") valueStr = "1";
+        else if (valueStr == "Program Auto") valueStr = "2";
+        else if (valueStr == "Aperture Priority") valueStr = "3";
+        else if (valueStr == "Shutter Priority") valueStr = "4";
+        else if (valueStr == "Auto") valueStr = "32768";
+    }
+    // Convert shutter speed from readable format ("1/250") to numeric code
+    else if (name == "shutterspeed") {
+        valueStr = convertReadableToShutterSpeed(valueStr);
+    }
+    // Convert white balance from readable format ("Daylight") to numeric code
+    else if (name == "whitebalance") {
+        valueStr = convertReadableToWhiteBalance(valueStr);
     }
     
-    ret = gp_camera_set_config(_camera, config, _context);
-    gp_widget_free(config);
+    qDebug() << "PTPCameraService::setSetting -" << name << "readable:" << originalValue << "raw:" << valueStr;
     
-    return checkError(ret, "apply camera config");
+    // Try gp_camera_get_single_config first (recommended by gphoto2)
+    CameraWidget *widget = nullptr;
+    int ret = gp_camera_get_single_config(_camera, widgetName.toUtf8().constData(), &widget, _context);
+    
+    if (ret == GP_OK && widget) {
+        // Set the value
+        ret = gp_widget_set_value(widget, valueStr.toUtf8().constData());
+        
+        if (ret == GP_OK) {
+            // Apply using gp_camera_set_single_config
+            ret = gp_camera_set_single_config(_camera, widgetName.toUtf8().constData(), widget, _context);
+            if (!checkError(ret, "apply single config")) {
+                gp_widget_free(widget);
+                return false;
+            }
+        } else {
+            checkError(ret, "set widget value");
+            gp_widget_free(widget);
+            return false;
+        }
+        
+        gp_widget_free(widget);
+    } else {
+        // Fallback: use full config tree
+        qDebug() << "PTPCameraService::setSetting - single config failed, using full tree";
+        
+        CameraWidget *config;
+        ret = gp_camera_get_config(_camera, &config, _context);
+        if (!checkError(ret, "get camera config for setting")) {
+            return false;
+        }
+        
+        widget = findWidget(widgetName);
+        if (!widget) {
+            qWarning() << "Setting not found:" << widgetName << "(requested:" << name << ")";
+            gp_widget_free(config);
+            return false;
+        }
+        
+        ret = gp_widget_set_value(widget, valueStr.toUtf8().constData());
+        if (!checkError(ret, "set widget value")) {
+            gp_widget_free(config);
+            return false;
+        }
+        
+        ret = gp_camera_set_config(_camera, config, _context);
+        gp_widget_free(config);
+        
+        if (!checkError(ret, "apply camera config")) {
+            return false;
+        }
+    }
+    
+    // Pause and restart live view to apply settings to preview
+    _liveViewTimer->stop();
+    QTimer::singleShot(100, this, [this]() {
+        if (_camera) {
+            _liveViewTimer->start();
+        }
+    });
+    
+    return true;
 }
 
 QVariant PTPCameraService::getSetting(const QString& name)
@@ -536,7 +775,17 @@ QVariant PTPCameraService::getSetting(const QString& name)
         return QVariant();
     }
     
-    CameraWidget *widget = findWidget(name);
+    // Use cached widget name if available
+    QString widgetName = name;
+    if (name == "exposuremode" && !_exposureModeWidgetName.isEmpty()) {
+        widgetName = _exposureModeWidgetName;
+    } else if (name == "shutterspeed" && !_shutterSpeedWidgetName.isEmpty()) {
+        widgetName = _shutterSpeedWidgetName;
+    } else if (name == "whitebalance" && !_whiteBalanceWidgetName.isEmpty()) {
+        widgetName = _whiteBalanceWidgetName;
+    }
+    
+    CameraWidget *widget = findWidget(widgetName);
     if (!widget) {
         gp_widget_free(config);
         return QVariant();
@@ -548,7 +797,32 @@ QVariant PTPCameraService::getSetting(const QString& name)
     gp_widget_free(config);
     
     if (ret == GP_OK && value) {
-        return QString::fromUtf8(value);
+        QString rawValue = QString::fromUtf8(value);
+        QString readableValue = rawValue;
+        
+        // Convert numeric values to readable format
+        if (name == "shutterspeed") {
+            readableValue = convertShutterSpeedToReadable(rawValue);
+        } else if (name == "whitebalance") {
+            readableValue = convertWhiteBalanceToReadable(rawValue);
+        } else if (name == "exposuremode") {
+            // Convert numeric exposure mode to readable
+            bool isNumeric;
+            int modeValue = rawValue.toInt(&isNumeric);
+            if (isNumeric) {
+                switch (modeValue) {
+                    case 1: readableValue = "Manual"; break;
+                    case 2: readableValue = "Program Auto"; break;
+                    case 3: readableValue = "Aperture Priority"; break;
+                    case 4: readableValue = "Shutter Priority"; break;
+                    case 32768:
+                    case 32769: readableValue = "Auto"; break;
+                }
+            }
+        }
+        
+        qDebug() << "PTPCameraService::getSetting -" << name << "raw:" << rawValue << "readable:" << readableValue;
+        return readableValue;
     }
     
     return QVariant();
@@ -705,6 +979,113 @@ bool PTPCameraService::checkError(int result, const QString& operation)
     }
     
     return false;
+}
+
+// Helper function to convert Sony's numeric shutter speed to readable format
+QString PTPCameraService::convertShutterSpeedToReadable(const QString& rawValue)
+{
+    bool ok;
+    int value = rawValue.toInt(&ok);
+    
+    // If it's not a number, it's already readable (Canon/Nikon/Fuji return text like "1/250", "0.0040s")
+    if (!ok) return rawValue;
+    
+    // Sony encodes shutter speed as: high 16 bits = numerator, low 16 bits = denominator
+    // Special values: -2 = bulb, very high values = special modes
+    if (value == -2) return "Bulb";
+    if (value >= 10000000) return rawValue; // Unknown format, return as-is
+    
+    int numerator = (value >> 16) & 0xFFFF;
+    int denominator = value & 0xFFFF;
+    
+    if (numerator == 0 && denominator > 0) {
+        // Fractional second (1/denominator)
+        return QString("1/%1").arg(denominator);
+    } else if (numerator > 0 && denominator == 0) {
+        // Whole seconds
+        return QString("%1s").arg(numerator);
+    } else if (numerator > 0 && denominator > 0) {
+        // General fraction
+        return QString("%1/%2").arg(numerator).arg(denominator);
+    }
+    
+    return rawValue; // Fallback
+}
+
+// Helper function to convert readable shutter speed back to Sony's numeric format
+QString PTPCameraService::convertReadableToShutterSpeed(const QString& readable)
+{
+    // Check if it's already numeric (Canon/Nikon/Fuji cameras use text values directly)
+    bool ok;
+    readable.toInt(&ok);
+    if (ok) return readable; // Already numeric, pass through
+    
+    // Convert text to Sony's numeric format
+    if (readable == "Bulb") return "-2";
+    
+    // Try to parse formats like "1/250", "1/15", "2s", etc.
+    if (readable.contains('/')) {
+        QStringList parts = readable.split('/');
+        if (parts.size() == 2) {
+            int num = parts[0].toInt();
+            int denom = parts[1].toInt();
+            return QString::number((num << 16) | denom);
+        }
+    } else if (readable.endsWith('s')) {
+        int seconds = readable.left(readable.length() - 1).toInt();
+        return QString::number(seconds << 16);
+    }
+    
+    return readable; // Return as-is (Canon/Nikon cameras expect text like "1/250")
+}
+
+// Helper function to convert Sony's numeric white balance to readable format
+QString PTPCameraService::convertWhiteBalanceToReadable(const QString& rawValue)
+{
+    bool ok;
+    int value = rawValue.toInt(&ok);
+    
+    // If it's not a number, it's already readable (Canon/Nikon/Fuji return text like "Auto", "Daylight")
+    if (!ok) return rawValue;
+    
+    // Common white balance codes (may vary by manufacturer)
+    switch (value) {
+        case 2: return "Auto";
+        case 4: return "Daylight";
+        case 6: return "Cloudy";
+        case 7: return "Shade";
+        case 8: return "Tungsten";
+        case 32768: return "Flash";
+        case 32769: return "Fluorescent";
+        case 32770: return "Tungsten";
+        case 32771: return "Fluorescent";
+        case 32772: return "Flash";
+        case 32784: return "Shade";
+        case 32785: return "Color Temperature";
+        case 32786: return "Custom";
+        default: return rawValue; // Return numeric value if unknown
+    }
+}
+
+// Helper function to convert readable white balance back to Sony's numeric format
+QString PTPCameraService::convertReadableToWhiteBalance(const QString& readable)
+{
+    // Check if it's already numeric  
+    bool ok;
+    readable.toInt(&ok);
+    if (ok) return readable; // Already numeric, pass through
+    
+    // Convert text to Sony's numeric format (only for Sony cameras that need it)
+    if (readable == "Auto") return "2";
+    if (readable == "Daylight") return "4";
+    if (readable == "Cloudy") return "6";
+    if (readable == "Shade") return "32784";
+    if (readable == "Tungsten") return "32770";
+    if (readable == "Fluorescent") return "32771";
+    if (readable == "Flash") return "32772";
+    if (readable == "Custom") return "32786";
+    
+    return readable; // Return as-is (Canon/Nikon/Fuji cameras expect text like "Auto")
 }
 
 CameraWidget* PTPCameraService::findWidget(const QString& name)

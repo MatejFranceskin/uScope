@@ -77,7 +77,10 @@ public:
     
     // PTP camera capabilities and settings
     QMap<QString, QVariant> getPTPCapabilities() const;
+    QVariant getPTPSetting(const QString& name);
     void setPTPSetting(const QString& name, const QString& value);
+    void savePTPSetting(const QString& name, const QVariant& value);
+    void restorePTPSettings();
 
 public slots:
     void startCamera(const QString& cameraId);

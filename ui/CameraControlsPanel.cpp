@@ -963,19 +963,17 @@ void CameraControlsPanel::setupPTPControls(QGridLayout* layout, int& row)
     layout->addWidget(_ptpShutterSpeedCombo, row, 1, 1, 2);
     row++;
     
-    // Aperture - hidden for microscopy (aperture is fixed)
-    _ptpApertureLabel = new QLabel("Aperture:");
-    _ptpApertureLabel->setStyleSheet("color: white;");
-    _ptpApertureLabel->setVisible(false);
-    _ptpApertureCombo = new QComboBox();
-    _ptpApertureCombo->setStyleSheet(
+    // Exposure Compensation
+    _ptpExposureCompLabel = new QLabel("Exp Comp:");
+    _ptpExposureCompLabel->setStyleSheet("color: white;");
+    _ptpExposureCompCombo = new QComboBox();
+    _ptpExposureCompCombo->setStyleSheet(
         "QComboBox { background-color: rgba(60, 60, 60, 200); color: white; "
         "border: 2px solid rgba(100, 100, 100, 200); border-radius: 5px; padding: 5px; }"
         "QComboBox QAbstractItemView { background-color: rgba(60, 60, 60, 220); color: white; }"
     );
-    _ptpApertureCombo->setVisible(false);
-    layout->addWidget(_ptpApertureLabel, row, 0, Qt::AlignLeft);
-    layout->addWidget(_ptpApertureCombo, row, 1, 1, 2);
+    layout->addWidget(_ptpExposureCompLabel, row, 0, Qt::AlignLeft);
+    layout->addWidget(_ptpExposureCompCombo, row, 1, 1, 2);
     row++;
     
     // White Balance Mode
@@ -1011,6 +1009,8 @@ void CameraControlsPanel::updateControlsVisibility()
 {
     bool isPTP = _controller->isPTPCamera();
     
+    qDebug() << "CameraControlsPanel::updateControlsVisibility - called, isPTP:" << isPTP;
+    
     // Hide resolution and FPS controls for PTP cameras
     if (_resolutionLabel) {
         _resolutionLabel->setVisible(!isPTP);
@@ -1035,11 +1035,14 @@ void CameraControlsPanel::updateControlsVisibility()
         // Populate PTP controls if visible
         if (isPTP) {
             // Get capabilities from PTP service
+            qDebug() << "CameraControlsPanel::updateControlsVisibility - fetching PTP capabilities";
             auto capabilities = _controller->getPTPCapabilities();
+            qDebug() << "CameraControlsPanel::updateControlsVisibility - got capabilities, keys:" << capabilities.keys();
             
             // Populate Exposure Mode - filter to Aperture Priority and Manual only for microscopy
             _ptpExposureModeCombo->blockSignals(true);
             _ptpExposureModeCombo->clear();
+            bool hasExposureMode = false;
             if (capabilities.contains("exposuremode")) {
                 QStringList modes = capabilities["exposuremode"].toStringList();
                 for (const QString& mode : modes) {
@@ -1048,10 +1051,14 @@ void CameraControlsPanel::updateControlsVisibility()
                         mode.contains("Manual", Qt::CaseInsensitive) ||
                         mode == "A" || mode == "M") {
                         _ptpExposureModeCombo->addItem(mode);
+                        hasExposureMode = true;
                     }
                 }
             }
             _ptpExposureModeCombo->blockSignals(false);
+            // Hide exposure mode controls if not available
+            _ptpExposureModeLabel->setVisible(hasExposureMode);
+            _ptpExposureModeCombo->setVisible(hasExposureMode);
             
             // Populate ISO
             _ptpIsoCombo->blockSignals(true);
@@ -1075,16 +1082,33 @@ void CameraControlsPanel::updateControlsVisibility()
             }
             _ptpShutterSpeedCombo->blockSignals(false);
             
-            // Populate Aperture (hidden for microscopy)
-            _ptpApertureCombo->blockSignals(true);
-            _ptpApertureCombo->clear();
-            if (capabilities.contains("aperture")) {
-                QStringList apertures = capabilities["aperture"].toStringList();
-                for (const QString& aperture : apertures) {
-                    _ptpApertureCombo->addItem(aperture);
+            // Hide shutter speed if no exposure mode or not in manual mode
+            bool hasShutterSpeed = capabilities.contains("shutterspeed") && !capabilities["shutterspeed"].toStringList().isEmpty();
+            _ptpShutterSpeedLabel->setVisible(hasShutterSpeed && hasExposureMode);
+            _ptpShutterSpeedCombo->setVisible(hasShutterSpeed && hasExposureMode);
+            
+            // Populate Exposure Compensation
+            _ptpExposureCompCombo->blockSignals(true);
+            _ptpExposureCompCombo->clear();
+            bool hasExposureComp = false;
+            if (capabilities.contains("exposurecompensation")) {
+                QStringList expCompValues = capabilities["exposurecompensation"].toStringList();
+                for (const QString& expComp : expCompValues) {
+                    _ptpExposureCompCombo->addItem(expComp);
+                    hasExposureComp = true;
                 }
             }
-            _ptpApertureCombo->blockSignals(false);
+            _ptpExposureCompCombo->blockSignals(false);
+            
+            // Hide exposure compensation in manual mode (user controls shutter directly)
+            bool showExposureComp = hasExposureComp;
+            if (hasExposureMode) {
+                QString currentMode = _ptpExposureModeCombo->currentText();
+                bool isManualMode = currentMode.contains("Manual", Qt::CaseInsensitive) || currentMode == "M";
+                showExposureComp = hasExposureComp && !isManualMode;
+            }
+            _ptpExposureCompLabel->setVisible(showExposureComp);
+            _ptpExposureCompCombo->setVisible(showExposureComp);
             
             // Update shutter speed visibility based on current exposure mode
             QString currentMode = _ptpExposureModeCombo->currentText();
@@ -1105,7 +1129,7 @@ void CameraControlsPanel::updateControlsVisibility()
             disconnect(_ptpExposureModeCombo, nullptr, this, nullptr);
             disconnect(_ptpIsoCombo, nullptr, this, nullptr);
             disconnect(_ptpShutterSpeedCombo, nullptr, this, nullptr);
-            disconnect(_ptpApertureCombo, nullptr, this, nullptr);
+            disconnect(_ptpExposureCompCombo, nullptr, this, nullptr);
             disconnect(_ptpWhiteBalanceCombo, nullptr, this, nullptr);
             disconnect(_ptpCaptureTargetCombo, nullptr, this, nullptr);
             
@@ -1115,12 +1139,43 @@ void CameraControlsPanel::updateControlsVisibility()
                     this, &CameraControlsPanel::onPTPIsoChanged);
             connect(_ptpShutterSpeedCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
                     this, &CameraControlsPanel::onPTPShutterSpeedChanged);
-            connect(_ptpApertureCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-                    this, &CameraControlsPanel::onPTPApertureChanged);
+            connect(_ptpExposureCompCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                    this, &CameraControlsPanel::onPTPExposureCompChanged);
             connect(_ptpWhiteBalanceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
                     this, &CameraControlsPanel::onPTPWhiteBalanceChanged);
             connect(_ptpCaptureTargetCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
                     this, &CameraControlsPanel::onPTPCaptureTargetChanged);
+            
+            // Read and select current values from camera
+            QString currentExposureMode = _controller->getPTPSetting("exposuremode").toString();
+            if (!currentExposureMode.isEmpty()) {
+                int idx = _ptpExposureModeCombo->findText(currentExposureMode);
+                if (idx >= 0) _ptpExposureModeCombo->setCurrentIndex(idx);
+            }
+            
+            QString currentIso = _controller->getPTPSetting("iso").toString();
+            if (!currentIso.isEmpty()) {
+                int idx = _ptpIsoCombo->findText(currentIso);
+                if (idx >= 0) _ptpIsoCombo->setCurrentIndex(idx);
+            }
+            
+            QString currentShutter = _controller->getPTPSetting("shutterspeed").toString();
+            if (!currentShutter.isEmpty()) {
+                int idx = _ptpShutterSpeedCombo->findText(currentShutter);
+                if (idx >= 0) _ptpShutterSpeedCombo->setCurrentIndex(idx);
+            }
+            
+            QString currentExpComp = _controller->getPTPSetting("exposurecompensation").toString();
+            if (!currentExpComp.isEmpty()) {
+                int idx = _ptpExposureCompCombo->findText(currentExpComp);
+                if (idx >= 0) _ptpExposureCompCombo->setCurrentIndex(idx);
+            }
+            
+            QString currentWB = _controller->getPTPSetting("whitebalance").toString();
+            if (!currentWB.isEmpty()) {
+                int idx = _ptpWhiteBalanceCombo->findText(currentWB);
+                if (idx >= 0) _ptpWhiteBalanceCombo->setCurrentIndex(idx);
+            }
         }
     }
 }
@@ -1135,6 +1190,11 @@ void CameraControlsPanel::onPTPExposureModeChanged(int index)
     bool isManualMode = mode.contains("Manual", Qt::CaseInsensitive) || mode == "M";
     _ptpShutterSpeedLabel->setVisible(isManualMode);
     _ptpShutterSpeedCombo->setVisible(isManualMode);
+    
+    // Show/hide exposure compensation based on mode (hidden in Manual mode)
+    bool showExposureComp = !isManualMode && _ptpExposureCompCombo->count() > 0;
+    _ptpExposureCompLabel->setVisible(showExposureComp);
+    _ptpExposureCompCombo->setVisible(showExposureComp);
 }
 
 void CameraControlsPanel::onPTPIsoChanged(int index)
@@ -1151,11 +1211,11 @@ void CameraControlsPanel::onPTPShutterSpeedChanged(int index)
     _controller->setPTPSetting("shutterspeed", shutter);
 }
 
-void CameraControlsPanel::onPTPApertureChanged(int index)
+void CameraControlsPanel::onPTPExposureCompChanged(int index)
 {
     if (index < 0) return;
-    QString aperture = _ptpApertureCombo->currentText();
-    _controller->setPTPSetting("aperture", aperture);
+    QString expComp = _ptpExposureCompCombo->currentText();
+    _controller->setPTPSetting("exposurecompensation", expComp);
 }
 
 void CameraControlsPanel::onPTPWhiteBalanceChanged(int index)

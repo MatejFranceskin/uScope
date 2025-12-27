@@ -53,6 +53,14 @@ CameraController::CameraController(QObject* parent)
                 }
                 emit frameReady(videoFrame);
             });
+    connect(_ptpService, &PTPCameraService::cameraConnected,
+            this, [this](const PTPCameraInfo& info) {
+                qDebug() << "CameraController - PTP camera connected:" << info.model;
+                // Restore saved settings after camera connects
+                QTimer::singleShot(500, this, [this]() {
+                    restorePTPSettings();
+                });
+            });
     connect(_ptpService, &PTPCameraService::error,
             this, &CameraController::onServiceError);
 #endif
@@ -352,13 +360,65 @@ QMap<QString, QVariant> CameraController::getPTPCapabilities() const
     return QMap<QString, QVariant>();
 }
 
+QVariant CameraController::getPTPSetting(const QString& name)
+{
+#if !defined(Q_OS_IOS)
+    if (_currentCameraType == CameraType::PTP && _ptpService) {
+        return _ptpService->getSetting(name);
+    }
+#endif
+    return QVariant();
+}
+
 void CameraController::setPTPSetting(const QString& name, const QString& value)
 {
 #if !defined(Q_OS_IOS)
     if (_currentCameraType == CameraType::PTP && _ptpService) {
+        qDebug() << "CameraController::setPTPSetting -" << name << "=" << value;
         _ptpService->setSetting(name, value);
+        // Save PTP setting for persistence
+        savePTPSetting(name, value);
     }
 #endif
+}
+
+void CameraController::savePTPSetting(const QString& name, const QVariant& value)
+{
+    QString cameraId = currentCameraId();
+    if (cameraId.isEmpty() || !cameraId.startsWith("ptp://")) {
+        return;  // Only save for PTP cameras
+    }
+    
+    QSettings settings("uScope", "uScope");
+    QString prefix = QString("camera/%1/ptp/").arg(cameraId);
+    settings.setValue(prefix + name, value);
+}
+
+void CameraController::restorePTPSettings()
+{
+    QString cameraId = currentCameraId();
+    if (cameraId.isEmpty() || !cameraId.startsWith("ptp://")) {
+        qDebug() << "CameraController::restorePTPSettings - skipping, not PTP camera";
+        return;  // Only restore for PTP cameras
+    }
+    
+    qDebug() << "CameraController::restorePTPSettings - restoring for" << cameraId;
+    
+    QSettings settings("uScope", "uScope");
+    QString prefix = QString("camera/%1/ptp/").arg(cameraId);
+    
+    // Restore saved PTP settings
+    QStringList settingNames = {"exposuremode", "iso", "shutterspeed", "exposurecompensation", "whitebalance"};
+    
+    for (const QString& name : settingNames) {
+        QVariant value = settings.value(prefix + name);
+        if (value.isValid() && !value.toString().isEmpty()) {
+            qDebug() << "CameraController::restorePTPSettings - restoring" << name << "=" << value.toString();
+            setPTPSetting(name, value.toString());
+        } else {
+            qDebug() << "CameraController::restorePTPSettings - no saved value for" << name;
+        }
+    }
 }
 
 void CameraController::checkForLastCamera()
