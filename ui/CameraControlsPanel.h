@@ -74,6 +74,8 @@ private:
     QComboBox* _cameraCombo;
     QComboBox* _resolutionCombo;
     QComboBox* _fpsCombo;
+    QLabel* _resolutionLabel;
+    QLabel* _fpsLabel;
     QWidget* _contentWidget;
     QList<CameraProfile> _availableCameras;
     QList<QSize> _availableResolutions;

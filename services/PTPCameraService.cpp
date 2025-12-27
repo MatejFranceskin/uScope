@@ -445,7 +445,7 @@ QMap<QString, QVariant> PTPCameraService::getCapabilities()
                 modes.append(mode);
             }
         }
-        capabilities["exposureModes"] = modes;
+        capabilities["exposuremode"] = modes;  // Match UI expectation
     }
     
     // Get ISO values
@@ -458,7 +458,7 @@ QMap<QString, QVariant> PTPCameraService::getCapabilities()
             gp_widget_get_choice(iso, i, &choice);
             isoValues.append(QString::fromUtf8(choice));
         }
-        capabilities["isoValues"] = isoValues;
+        capabilities["iso"] = isoValues;  // Match UI expectation
     }
     
     // Get shutter speeds
@@ -471,7 +471,7 @@ QMap<QString, QVariant> PTPCameraService::getCapabilities()
             gp_widget_get_choice(shutter, i, &choice);
             shutterSpeeds.append(QString::fromUtf8(choice));
         }
-        capabilities["shutterSpeeds"] = shutterSpeeds;
+        capabilities["shutterspeed"] = shutterSpeeds;  // Match UI expectation
     }
     
     // Get aperture values
@@ -484,7 +484,7 @@ QMap<QString, QVariant> PTPCameraService::getCapabilities()
             gp_widget_get_choice(aperture, i, &choice);
             apertureValues.append(QString::fromUtf8(choice));
         }
-        capabilities["apertureValues"] = apertureValues;
+        capabilities["aperture"] = apertureValues;  // Match UI expectation
     }
     
     gp_widget_free(config);

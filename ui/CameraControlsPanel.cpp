@@ -20,6 +20,8 @@ CameraControlsPanel::CameraControlsPanel(CameraController* cameraController,
     , _cameraCombo(nullptr)
     , _resolutionCombo(nullptr)
     , _fpsCombo(nullptr)
+    , _resolutionLabel(nullptr)
+    , _fpsLabel(nullptr)
     , _contentWidget(nullptr)
     , _exposureSlider(nullptr)
     , _brightnessSlider(nullptr)
@@ -322,16 +324,16 @@ void CameraControlsPanel::setupUI()
     row++;
     
     // Resolution selection (spans value column since no value label)
-    QLabel* resolutionLabel = new QLabel("Resolution:");
-    resolutionLabel->setStyleSheet("color: white;");
-    controlsGrid->addWidget(resolutionLabel, row, 0, Qt::AlignLeft);
+    _resolutionLabel = new QLabel("Resolution:");
+    _resolutionLabel->setStyleSheet("color: white;");
+    controlsGrid->addWidget(_resolutionLabel, row, 0, Qt::AlignLeft);
     controlsGrid->addWidget(_resolutionCombo, row, 1, 1, 2);  // Span columns 1-2
     row++;
     
     // Frame rate selection (spans value column since no value label)
-    QLabel* fpsLabel = new QLabel("Frame Rate:");
-    fpsLabel->setStyleSheet("color: white;");
-    controlsGrid->addWidget(fpsLabel, row, 0, Qt::AlignLeft);
+    _fpsLabel = new QLabel("Frame Rate:");
+    _fpsLabel->setStyleSheet("color: white;");
+    controlsGrid->addWidget(_fpsLabel, row, 0, Qt::AlignLeft);
     controlsGrid->addWidget(_fpsCombo, row, 1, 1, 2);  // Span columns 1-2
     row++;
     
@@ -507,6 +509,14 @@ void CameraControlsPanel::onCameraSelected(int index)
                 if (_zoomController) {
                     _zoomController->setFitWidth();
                 }
+                
+                // Delay capability fetch to allow camera to initialize
+                QTimer::singleShot(500, this, [this]() {
+                    updateControlsVisibility();
+                });
+            } else {
+                // Camera already active, just update controls
+                updateControlsVisibility();
             }
         } else {
             // Sort resolutions: higher resolution first
@@ -914,7 +924,7 @@ void CameraControlsPanel::setupUVCControls(QGridLayout* layout, int& row)
 
 void CameraControlsPanel::setupPTPControls(QGridLayout* layout, int& row)
 {
-    // Exposure Mode
+    // Exposure Mode (Aperture Priority or Manual only for microscopy)
     _ptpExposureModeLabel = new QLabel("Exp Mode:");
     _ptpExposureModeLabel->setStyleSheet("color: white;");
     _ptpExposureModeCombo = new QComboBox();
@@ -940,7 +950,7 @@ void CameraControlsPanel::setupPTPControls(QGridLayout* layout, int& row)
     layout->addWidget(_ptpIsoCombo, row, 1, 1, 2);
     row++;
     
-    // Shutter Speed
+    // Shutter Speed (only visible in Manual mode)
     _ptpShutterSpeedLabel = new QLabel("Shutter:");
     _ptpShutterSpeedLabel->setStyleSheet("color: white;");
     _ptpShutterSpeedCombo = new QComboBox();
@@ -953,15 +963,17 @@ void CameraControlsPanel::setupPTPControls(QGridLayout* layout, int& row)
     layout->addWidget(_ptpShutterSpeedCombo, row, 1, 1, 2);
     row++;
     
-    // Aperture
+    // Aperture - hidden for microscopy (aperture is fixed)
     _ptpApertureLabel = new QLabel("Aperture:");
     _ptpApertureLabel->setStyleSheet("color: white;");
+    _ptpApertureLabel->setVisible(false);
     _ptpApertureCombo = new QComboBox();
     _ptpApertureCombo->setStyleSheet(
         "QComboBox { background-color: rgba(60, 60, 60, 200); color: white; "
         "border: 2px solid rgba(100, 100, 100, 200); border-radius: 5px; padding: 5px; }"
         "QComboBox QAbstractItemView { background-color: rgba(60, 60, 60, 220); color: white; }"
     );
+    _ptpApertureCombo->setVisible(false);
     layout->addWidget(_ptpApertureLabel, row, 0, Qt::AlignLeft);
     layout->addWidget(_ptpApertureCombo, row, 1, 1, 2);
     row++;
@@ -999,6 +1011,20 @@ void CameraControlsPanel::updateControlsVisibility()
 {
     bool isPTP = _controller->isPTPCamera();
     
+    // Hide resolution and FPS controls for PTP cameras
+    if (_resolutionLabel) {
+        _resolutionLabel->setVisible(!isPTP);
+    }
+    if (_resolutionCombo) {
+        _resolutionCombo->setVisible(!isPTP);
+    }
+    if (_fpsLabel) {
+        _fpsLabel->setVisible(!isPTP);
+    }
+    if (_fpsCombo) {
+        _fpsCombo->setVisible(!isPTP);
+    }
+    
     if (_uvcControlsWidget) {
         _uvcControlsWidget->setVisible(!isPTP);
     }
@@ -1011,16 +1037,24 @@ void CameraControlsPanel::updateControlsVisibility()
             // Get capabilities from PTP service
             auto capabilities = _controller->getPTPCapabilities();
             
-            // Populate Exposure Mode
+            // Populate Exposure Mode - filter to Aperture Priority and Manual only for microscopy
+            _ptpExposureModeCombo->blockSignals(true);
             _ptpExposureModeCombo->clear();
             if (capabilities.contains("exposuremode")) {
                 QStringList modes = capabilities["exposuremode"].toStringList();
                 for (const QString& mode : modes) {
-                    _ptpExposureModeCombo->addItem(mode);
+                    // Only show Aperture Priority and Manual modes for microscopy
+                    if (mode.contains("Aperture", Qt::CaseInsensitive) || 
+                        mode.contains("Manual", Qt::CaseInsensitive) ||
+                        mode == "A" || mode == "M") {
+                        _ptpExposureModeCombo->addItem(mode);
+                    }
                 }
             }
+            _ptpExposureModeCombo->blockSignals(false);
             
             // Populate ISO
+            _ptpIsoCombo->blockSignals(true);
             _ptpIsoCombo->clear();
             if (capabilities.contains("iso")) {
                 QStringList isoValues = capabilities["iso"].toStringList();
@@ -1028,8 +1062,10 @@ void CameraControlsPanel::updateControlsVisibility()
                     _ptpIsoCombo->addItem(iso);
                 }
             }
+            _ptpIsoCombo->blockSignals(false);
             
             // Populate Shutter Speed
+            _ptpShutterSpeedCombo->blockSignals(true);
             _ptpShutterSpeedCombo->clear();
             if (capabilities.contains("shutterspeed")) {
                 QStringList shutters = capabilities["shutterspeed"].toStringList();
@@ -1037,8 +1073,10 @@ void CameraControlsPanel::updateControlsVisibility()
                     _ptpShutterSpeedCombo->addItem(shutter);
                 }
             }
+            _ptpShutterSpeedCombo->blockSignals(false);
             
-            // Populate Aperture
+            // Populate Aperture (hidden for microscopy)
+            _ptpApertureCombo->blockSignals(true);
             _ptpApertureCombo->clear();
             if (capabilities.contains("aperture")) {
                 QStringList apertures = capabilities["aperture"].toStringList();
@@ -1046,6 +1084,13 @@ void CameraControlsPanel::updateControlsVisibility()
                     _ptpApertureCombo->addItem(aperture);
                 }
             }
+            _ptpApertureCombo->blockSignals(false);
+            
+            // Update shutter speed visibility based on current exposure mode
+            QString currentMode = _ptpExposureModeCombo->currentText();
+            bool isManualMode = currentMode.contains("Manual", Qt::CaseInsensitive) || currentMode == "M";
+            _ptpShutterSpeedLabel->setVisible(isManualMode);
+            _ptpShutterSpeedCombo->setVisible(isManualMode);
             
             // Populate White Balance
             _ptpWhiteBalanceCombo->clear();
@@ -1085,6 +1130,11 @@ void CameraControlsPanel::onPTPExposureModeChanged(int index)
     if (index < 0) return;
     QString mode = _ptpExposureModeCombo->currentText();
     _controller->setPTPSetting("exposuremode", mode);
+    
+    // Show/hide shutter speed based on mode (only visible in Manual mode)
+    bool isManualMode = mode.contains("Manual", Qt::CaseInsensitive) || mode == "M";
+    _ptpShutterSpeedLabel->setVisible(isManualMode);
+    _ptpShutterSpeedCombo->setVisible(isManualMode);
 }
 
 void CameraControlsPanel::onPTPIsoChanged(int index)
