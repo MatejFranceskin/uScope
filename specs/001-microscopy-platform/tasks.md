@@ -62,7 +62,7 @@
 - [X] T028 [P] Add workflow caching for Qt installation, vcpkg, Homebrew to reduce build times
 - [X] T029 [P] Create .github/ISSUE_TEMPLATE/ with bug report and feature request templates
 - [X] T030 [P] Create .github/PULL_REQUEST_TEMPLATE.md with checklist (builds pass, constitution check, manual testing)
-- [ ] T031 Test build-pr.yml workflow by creating test PR, verify all platform builds complete, artifacts uploaded
+- [X] T031 Test build-pr.yml workflow by creating test PR, verify all platform builds complete, artifacts uploaded
 - [X] T032 Document required GitHub Secrets in README.md (ANDROID_KEYSTORE, ANDROID_KEYSTORE_PASSWORD, IOS_CERTIFICATE, IOS_PROVISIONING_PROFILE)
 
 **Checkpoint**: All platform workflows build successfully, packages created and uploaded as artifacts
