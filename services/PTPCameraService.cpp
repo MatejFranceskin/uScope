@@ -5,6 +5,7 @@
 #include <QStandardPaths>
 #include <QDateTime>
 #include <QFileInfo>
+#include <QThread>
 
 #ifdef Q_OS_ANDROID
 #include "AndroidUsbHelper.h"
@@ -418,21 +419,15 @@ QMap<QString, QVariant> PTPCameraService::getCapabilities()
 {
     QMap<QString, QVariant> capabilities;
     
-    qDebug() << "PTPCameraService::getCapabilities - called";
-    
     if (!_camera) {
-        qDebug() << "PTPCameraService::getCapabilities - no camera connected";
         return capabilities;
     }
     
     CameraWidget *config;
     int ret = gp_camera_get_config(_camera, &config, _context);
     if (!checkError(ret, "get camera config")) {
-        qDebug() << "PTPCameraService::getCapabilities - failed to get config";
         return capabilities;
     }
-    
-    qDebug() << "PTPCameraService::getCapabilities - got config successfully";
     
     // Get exposure modes and filter to Manual and Aperture Priority
     // Try standard widget names first
@@ -446,8 +441,6 @@ QMap<QString, QVariant> PTPCameraService::getCapabilities()
     
     // If standard names not found, search through all widgets for one that looks like exposure mode
     if (!exposureMode) {
-        qDebug() << "PTPCameraService::getCapabilities - searching all widgets for exposure mode";
-        
         // Enumerate all child widgets of config
         int childCount = gp_widget_count_children(config);
         for (int i = 0; i < childCount && !exposureMode; i++) {
@@ -470,7 +463,6 @@ QMap<QString, QVariant> PTPCameraService::getCapabilities()
                     (labelStr.contains("Exposure", Qt::CaseInsensitive) && 
                      labelStr.contains("Program", Qt::CaseInsensitive))) {
                     
-                    qDebug() << "PTPCameraService::getCapabilities - found potential exposure mode widget:" << labelStr;
                     exposureMode = widget;
                     break;
                 }
@@ -482,7 +474,6 @@ QMap<QString, QVariant> PTPCameraService::getCapabilities()
         const char *widgetName;
         gp_widget_get_name(exposureMode, &widgetName);
         _exposureModeWidgetName = QString::fromUtf8(widgetName);
-        qDebug() << "PTPCameraService::getCapabilities - exposure mode widget name:" << _exposureModeWidgetName;
         
         int count = gp_widget_count_choices(exposureMode);
         QStringList modes;
@@ -521,8 +512,6 @@ QMap<QString, QVariant> PTPCameraService::getCapabilities()
                 modes.append(readableMode);
             }
         }
-        qDebug() << "PTPCameraService::getCapabilities - all exposure modes:" << allModes;
-        qDebug() << "PTPCameraService::getCapabilities - filtered exposure modes:" << modes;
         capabilities["exposuremode"] = modes;  // Match UI expectation
     }
     
@@ -566,7 +555,6 @@ QMap<QString, QVariant> PTPCameraService::getCapabilities()
                 
                 if (labelStr.contains("Shutter", Qt::CaseInsensitive) && 
                     (labelStr.contains("Speed", Qt::CaseInsensitive) || labelStr == "Shutter speed")) {
-                    qDebug() << "PTPCameraService::getCapabilities - found shutter speed widget:" << labelStr;
                     shutter = widget;
                     break;
                 }
@@ -587,7 +575,6 @@ QMap<QString, QVariant> PTPCameraService::getCapabilities()
             QString readable = convertShutterSpeedToReadable(rawValue);
             shutterSpeeds.append(readable);
         }
-        qDebug() << "PTPCameraService::getCapabilities - shutter speed values:" << shutterSpeeds;
         capabilities["shutterspeed"] = shutterSpeeds;  // Match UI expectation
     }
     
@@ -632,7 +619,6 @@ QMap<QString, QVariant> PTPCameraService::getCapabilities()
                 if (labelStr.contains("WhiteBalance", Qt::CaseInsensitive) ||
                     (labelStr.contains("White", Qt::CaseInsensitive) && labelStr.contains("Balance", Qt::CaseInsensitive)) ||
                     labelStr == "WB") {
-                    qDebug() << "PTPCameraService::getCapabilities - found white balance widget:" << labelStr;
                     whiteBalance = widget;
                     break;
                 }
@@ -653,7 +639,6 @@ QMap<QString, QVariant> PTPCameraService::getCapabilities()
             QString readable = convertWhiteBalanceToReadable(rawValue);
             wbModes.append(readable);
         }
-        qDebug() << "PTPCameraService::getCapabilities - white balance values:" << wbModes;
         capabilities["whitebalance"] = wbModes;  // Match UI expectation
     }
     
@@ -697,7 +682,6 @@ bool PTPCameraService::setSetting(const QString& name, const QVariant& value)
         valueStr = convertReadableToWhiteBalance(valueStr);
     }
     
-    qDebug() << "PTPCameraService::setSetting -" << name << "readable:" << originalValue << "raw:" << valueStr;
     
     // Try gp_camera_get_single_config first (recommended by gphoto2)
     CameraWidget *widget = nullptr;
@@ -821,7 +805,6 @@ QVariant PTPCameraService::getSetting(const QString& name)
             }
         }
         
-        qDebug() << "PTPCameraService::getSetting -" << name << "raw:" << rawValue << "readable:" << readableValue;
         return readableValue;
     }
     
@@ -835,56 +818,125 @@ QString PTPCameraService::captureImage()
         return QString();
     }
     
-    qDebug() << "PTPCameraService::captureImage - Capturing to camera SD card";
+    qDebug() << "PTPCameraService::captureImage - Pausing live view for capture";
     
-    // Step 1: Capture image to camera SD card
+    // Pause live view during capture
+    bool wasLiveViewActive = _liveViewTimer && _liveViewTimer->isActive();
+    if (wasLiveViewActive) {
+        _liveViewTimer->stop();
+        QThread::msleep(100);  // Brief pause
+    }
+    
+    qDebug() << "PTPCameraService::captureImage - Attempting triggered capture (GP_CAPTURE_IMAGE)";
+    
+    // Try triggered capture first (works for traditional cameras)
     CameraFilePath camera_file_path;
     int ret = gp_camera_capture(_camera, GP_CAPTURE_IMAGE, &camera_file_path, _context);
+    qDebug() << "PTPCameraService::captureImage - gp_camera_capture returned:" << ret << gp_result_as_string(ret);
     
-    if (!checkError(ret, "capture image to SD card")) {
-        return QString();
-    }
+    QString savePath;
     
-    qDebug() << "Image captured to camera:" << camera_file_path.folder << "/" << camera_file_path.name;
-    
-    // Step 2: Download image from camera via USB
-    CameraFile *file;
-    ret = gp_file_new(&file);
-    if (!checkError(ret, "create file for USB transfer")) {
-        return QString();
-    }
-    
-    ret = gp_camera_file_get(_camera, camera_file_path.folder, camera_file_path.name,
-                              GP_FILE_TYPE_NORMAL, file, _context);
-    
-    if (!checkError(ret, "download file via USB")) {
+    if (ret == GP_OK) {
+        // Traditional camera path - download captured image from SD card
+        qDebug() << "Image captured to camera:" << camera_file_path.folder << "/" << camera_file_path.name;
+        
+        CameraFile *file;
+        ret = gp_file_new(&file);
+        if (!checkError(ret, "create file for USB transfer")) {
+            if (wasLiveViewActive && _liveViewTimer) {
+                QTimer::singleShot(100, _liveViewTimer, [this]() { _liveViewTimer->start(); });
+            }
+            return QString();
+        }
+        
+        ret = gp_camera_file_get(_camera, camera_file_path.folder, camera_file_path.name,
+                                  GP_FILE_TYPE_NORMAL, file, _context);
+        
+        if (!checkError(ret, "download file via USB")) {
+            gp_file_free(file);
+            if (wasLiveViewActive && _liveViewTimer) {
+                QTimer::singleShot(100, _liveViewTimer, [this]() { _liveViewTimer->start(); });
+            }
+            return QString();
+        }
+        
+        // Save to local captures directory
+        QString capturesPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/uScope/captures";
+        QDir().mkpath(capturesPath);
+        
+        QString fileName = QString::fromUtf8(camera_file_path.name);
+        QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+        QString baseName = QFileInfo(fileName).completeBaseName();
+        QString extension = QFileInfo(fileName).suffix();
+        QString timestampedFileName = QString("%1_%2.%3").arg(timestamp, baseName, extension);
+        
+        savePath = QString("%1/%2").arg(capturesPath, timestampedFileName);
+        
+        ret = gp_file_save(file, savePath.toUtf8().constData());
         gp_file_free(file);
-        return QString();
-    }
-    
-    // Step 3: Save to local captures directory with timestamp
-    QString capturesPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/uScope/captures";
-    QString fileName = QString::fromUtf8(camera_file_path.name);
-    
-    // Add timestamp prefix to prevent overwrites
-    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
-    QString baseName = QFileInfo(fileName).completeBaseName();
-    QString extension = QFileInfo(fileName).suffix();
-    QString timestampedFileName = QString("%1_%2.%3").arg(timestamp, baseName, extension);
-    
-    QString savePath = QString("%1/%2").arg(capturesPath, timestampedFileName);
-    
-    ret = gp_file_save(file, savePath.toUtf8().constData());
-    gp_file_free(file);
-    
-    if (!checkError(ret, "save file to disk")) {
-        return QString();
+        
+        if (!checkError(ret, "save file to disk")) {
+            if (wasLiveViewActive && _liveViewTimer) {
+                QTimer::singleShot(100, _liveViewTimer, [this]() { _liveViewTimer->start(); });
+            }
+            return QString();
+        }
+        
+        qDebug() << "Traditional capture: Image transferred and saved to:" << savePath;
+        
+    } else {
+        // Fallback for live view cameras (Sony UMC-R10C, etc.) - save current preview frame
+        qDebug() << "PTPCameraService::captureImage - Triggered capture not supported, using live view frame";
+        
+        // Capture current preview frame
+        CameraFile *file;
+        ret = gp_file_new(&file);
+        if (!checkError(ret, "create file for preview capture")) {
+            if (wasLiveViewActive && _liveViewTimer) {
+                QTimer::singleShot(100, _liveViewTimer, [this]() { _liveViewTimer->start(); });
+            }
+            return QString();
+        }
+        
+        ret = gp_camera_capture_preview(_camera, file, _context);
+        if (!checkError(ret, "capture preview for saving")) {
+            gp_file_free(file);
+            if (wasLiveViewActive && _liveViewTimer) {
+                QTimer::singleShot(100, _liveViewTimer, [this]() { _liveViewTimer->start(); });
+            }
+            return QString();
+        }
+        
+        // Save preview to local captures directory
+        QString capturesPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/uScope/captures";
+        QDir().mkpath(capturesPath);
+        
+        QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+        QString timestampedFileName = QString("capture_%1.jpg").arg(timestamp);
+        
+        savePath = QString("%1/%2").arg(capturesPath, timestampedFileName);
+        
+        ret = gp_file_save(file, savePath.toUtf8().constData());
+        gp_file_free(file);
+        
+        if (!checkError(ret, "save preview to disk")) {
+            if (wasLiveViewActive && _liveViewTimer) {
+                QTimer::singleShot(100, _liveViewTimer, [this]() { _liveViewTimer->start(); });
+            }
+            return QString();
+        }
+        
+        qDebug() << "Live view capture: Preview saved to:" << savePath;
     }
     
     // Embed EXIF metadata with camera settings
     embedExifMetadata(savePath);
     
-    qDebug() << "Image transferred and saved to:" << savePath;
+    // Resume live view after successful capture
+    if (wasLiveViewActive && _liveViewTimer) {
+        QTimer::singleShot(100, _liveViewTimer, [this]() { _liveViewTimer->start(); });
+    }
+    
     emit captureComplete(savePath);
     return savePath;
 }

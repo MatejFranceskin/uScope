@@ -57,7 +57,7 @@ private slots:
     void onPTPShutterSpeedChanged(int index);
     void onPTPExposureCompChanged(int index);
     void onPTPWhiteBalanceChanged(int index);
-    void onPTPCaptureTargetChanged(int index);
+
 
 protected:
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = nullptr) override;
@@ -113,13 +113,13 @@ private:
     QComboBox* _ptpShutterSpeedCombo;
     QComboBox* _ptpExposureCompCombo;
     QComboBox* _ptpWhiteBalanceCombo;
-    QComboBox* _ptpCaptureTargetCombo;
+
     QLabel* _ptpExposureModeLabel;
     QLabel* _ptpIsoLabel;
     QLabel* _ptpShutterSpeedLabel;
     QLabel* _ptpExposureCompLabel;
     QLabel* _ptpWhiteBalanceLabel;
-    QLabel* _ptpCaptureTargetLabel;
+
 };
 
 #endif // CAMERACONTROLSPANEL_H

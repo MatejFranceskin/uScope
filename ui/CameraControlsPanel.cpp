@@ -989,20 +989,8 @@ void CameraControlsPanel::setupPTPControls(QGridLayout* layout, int& row)
     layout->addWidget(_ptpWhiteBalanceCombo, row, 1, 1, 2);
     row++;
     
-    // Capture Target
-    _ptpCaptureTargetLabel = new QLabel("Save To:");
-    _ptpCaptureTargetLabel->setStyleSheet("color: white;");
-    _ptpCaptureTargetCombo = new QComboBox();
-    _ptpCaptureTargetCombo->addItem("Camera Storage (SD Card)");
-    _ptpCaptureTargetCombo->addItem("Computer (USB Transfer)");
-    _ptpCaptureTargetCombo->setStyleSheet(
-        "QComboBox { background-color: rgba(60, 60, 60, 200); color: white; "
-        "border: 2px solid rgba(100, 100, 100, 200); border-radius: 5px; padding: 5px; }"
-        "QComboBox QAbstractItemView { background-color: rgba(60, 60, 60, 220); color: white; }"
-    );
-    layout->addWidget(_ptpCaptureTargetLabel, row, 0, Qt::AlignLeft);
-    layout->addWidget(_ptpCaptureTargetCombo, row, 1, 1, 2);
-    row++;
+    // Note: Capture target not needed - images are always captured to SD card
+    // then automatically transferred via USB (see PTPCameraService::captureImage)
 }
 
 void CameraControlsPanel::updateControlsVisibility()
@@ -1131,7 +1119,6 @@ void CameraControlsPanel::updateControlsVisibility()
             disconnect(_ptpShutterSpeedCombo, nullptr, this, nullptr);
             disconnect(_ptpExposureCompCombo, nullptr, this, nullptr);
             disconnect(_ptpWhiteBalanceCombo, nullptr, this, nullptr);
-            disconnect(_ptpCaptureTargetCombo, nullptr, this, nullptr);
             
             connect(_ptpExposureModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
                     this, &CameraControlsPanel::onPTPExposureModeChanged);
@@ -1143,8 +1130,6 @@ void CameraControlsPanel::updateControlsVisibility()
                     this, &CameraControlsPanel::onPTPExposureCompChanged);
             connect(_ptpWhiteBalanceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
                     this, &CameraControlsPanel::onPTPWhiteBalanceChanged);
-            connect(_ptpCaptureTargetCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-                    this, &CameraControlsPanel::onPTPCaptureTargetChanged);
             
             // Read and select current values from camera
             QString currentExposureMode = _controller->getPTPSetting("exposuremode").toString();
@@ -1225,10 +1210,6 @@ void CameraControlsPanel::onPTPWhiteBalanceChanged(int index)
     _controller->setPTPSetting("whitebalance", wb);
 }
 
-void CameraControlsPanel::onPTPCaptureTargetChanged(int index)
-{
-    if (index < 0) return;
-    // Map UI text to gphoto2 capture target value
-    QString target = (index == 0) ? "Memory card" : "Internal RAM";
-    _controller->setPTPSetting("capturetarget", target);
-}
+// Capture target removed - USB transfer is always enabled.
+// Images are captured to SD card then automatically transferred via USB.
+// See PTPCameraService::captureImage() for implementation.

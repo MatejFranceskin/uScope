@@ -375,7 +375,6 @@ void CameraController::setPTPSetting(const QString& name, const QString& value)
 {
 #if !defined(Q_OS_IOS)
     if (_currentCameraType == CameraType::PTP && _ptpService) {
-        qDebug() << "CameraController::setPTPSetting -" << name << "=" << value;
         _ptpService->setSetting(name, value);
         // Save PTP setting for persistence
         savePTPSetting(name, value);
