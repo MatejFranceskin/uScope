@@ -73,12 +73,14 @@ signals:
 
 private slots:
     void checkCameraConnection();
+    void captureLiveViewFrame();
 
 private:
     GPContext* _context;
     Camera* _camera;
     bool _isRecording;
     QTimer* _hotplugTimer;
+    QTimer* _liveViewTimer;
     QList<PTPCameraInfo> _lastDetectedCameras;
     
 #ifdef Q_OS_ANDROID

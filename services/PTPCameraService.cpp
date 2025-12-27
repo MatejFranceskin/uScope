@@ -16,17 +16,45 @@ extern "C" {
 }
 #endif
 
+// libgphoto2 error callback
+static void gp_context_error_func(GPContext *context, const char *text, void *data)
+{
+    Q_UNUSED(context);
+    Q_UNUSED(data);
+    qWarning() << "libgphoto2 error:" << text;
+}
+
+// libgphoto2 message callback
+static void gp_context_message_func(GPContext *context, const char *text, void *data)
+{
+    Q_UNUSED(context);
+    Q_UNUSED(data);
+    qDebug() << "libgphoto2 message:" << text;
+}
+
 PTPCameraService::PTPCameraService(QObject *parent)
     : QObject(parent)
     , _context(nullptr)
     , _camera(nullptr)
     , _isRecording(false)
     , _hotplugTimer(nullptr)
+    , _liveViewTimer(nullptr)
 #ifdef Q_OS_ANDROID
     , _androidUsbFd(-1)
 #endif
 {
     _context = gp_context_new();
+    
+    // Set up libgphoto2 callbacks for better debugging
+    gp_context_set_error_func(_context, gp_context_error_func, nullptr);
+    gp_context_set_message_func(_context, gp_context_message_func, nullptr);
+    
+    qDebug() << "PTPCameraService::PTPCameraService - initialized libgphoto2 context";
+    
+    // Create live view timer for continuous frame capture
+    _liveViewTimer = new QTimer(this);
+    _liveViewTimer->setInterval(33);  // ~30 fps
+    QObject::connect(_liveViewTimer, &QTimer::timeout, this, &PTPCameraService::captureLiveViewFrame);
     
     // Create captures directory if it doesn't exist
     QString capturesPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/uScope/captures";
@@ -64,9 +92,13 @@ QList<PTPCameraInfo> PTPCameraService::detectCameras()
 {
     QList<PTPCameraInfo> cameras;
     
+    qDebug() << "PTPCameraService::detectCameras - starting PTP camera detection";
+    
 #ifdef Q_OS_ANDROID
     // On Android, enumerate USB devices using UsbManager
     QList<AndroidUsbHelper::UsbDeviceInfo> usbDevices = AndroidUsbHelper::getUsbDevices();
+    
+    qDebug() << "PTPCameraService::detectCameras - found" << usbDevices.size() << "USB devices";
     
     for (const auto& usbDevice : usbDevices) {
         PTPCameraInfo info;
@@ -85,27 +117,76 @@ QList<PTPCameraInfo> PTPCameraService::detectCameras()
     return cameras;
 #else
     // On desktop platforms, use libgphoto2 autodetect
-    CameraList *list;
-    int ret = gp_list_new(&list);
+    qDebug() << "PTPCameraService::detectCameras - using libgphoto2 autodetect";
+    
+    // Initialize abilities list to ensure camera drivers are loaded
+    CameraAbilitiesList *abilities = nullptr;
+    int ret = gp_abilities_list_new(&abilities);
     if (ret != GP_OK) {
-        qWarning() << "Failed to create camera list:" << gp_result_as_string(ret);
+        qWarning() << "PTPCameraService::detectCameras - failed to create abilities list:" << gp_result_as_string(ret);
         return cameras;
     }
     
-    ret = gp_camera_autodetect(list, _context);
+    ret = gp_abilities_list_load(abilities, _context);
     if (ret != GP_OK) {
-        qWarning() << "Failed to autodetect cameras:" << gp_result_as_string(ret);
+        qWarning() << "PTPCameraService::detectCameras - failed to load abilities:" << gp_result_as_string(ret);
+        gp_abilities_list_free(abilities);
+        return cameras;
+    }
+    qDebug() << "PTPCameraService::detectCameras - loaded" << gp_abilities_list_count(abilities) << "camera abilities";
+    
+    // Initialize port info list
+    GPPortInfoList *portInfoList = nullptr;
+    ret = gp_port_info_list_new(&portInfoList);
+    if (ret != GP_OK) {
+        qWarning() << "PTPCameraService::detectCameras - failed to create port info list:" << gp_result_as_string(ret);
+        gp_abilities_list_free(abilities);
+        return cameras;
+    }
+    
+    ret = gp_port_info_list_load(portInfoList);
+    if (ret != GP_OK) {
+        qWarning() << "PTPCameraService::detectCameras - failed to load port info:" << gp_result_as_string(ret);
+        gp_port_info_list_free(portInfoList);
+        gp_abilities_list_free(abilities);
+        return cameras;
+    }
+    qDebug() << "PTPCameraService::detectCameras - loaded" << gp_port_info_list_count(portInfoList) << "ports";
+    
+    CameraList *list;
+    ret = gp_list_new(&list);
+    if (ret != GP_OK) {
+        qWarning() << "PTPCameraService::detectCameras - failed to create camera list:" << gp_result_as_string(ret);
+        gp_port_info_list_free(portInfoList);
+        gp_abilities_list_free(abilities);
+        return cameras;
+    }
+    
+    qDebug() << "PTPCameraService::detectCameras - calling gp_abilities_list_detect with" 
+             << gp_abilities_list_count(abilities) << "abilities and" 
+             << gp_port_info_list_count(portInfoList) << "ports";
+    ret = gp_abilities_list_detect(abilities, portInfoList, list, _context);
+    if (ret != GP_OK) {
+        qWarning() << "PTPCameraService::detectCameras - abilities_list_detect failed with error code" << ret << ":" << gp_result_as_string(ret);
         gp_list_free(list);
+        gp_port_info_list_free(portInfoList);
+        gp_abilities_list_free(abilities);
         return cameras;
     }
     
     int count = gp_list_count(list);
+    qDebug() << "PTPCameraService::detectCameras - gp_abilities_list_detect found" << count << "PTP cameras";
+    
     for (int i = 0; i < count; i++) {
         const char *name = nullptr;
         const char *port = nullptr;
         
         gp_list_get_name(list, i, &name);
         gp_list_get_value(list, i, &port);
+        
+        qDebug() << "PTPCameraService::detectCameras - camera" << i << ":" 
+                 << "name =" << (name ? name : "null")
+                 << "port =" << (port ? port : "null");
         
         if (name && port) {
             PTPCameraInfo info;
@@ -119,25 +200,38 @@ QList<PTPCameraInfo> PTPCameraService::detectCameras()
                 info.manufacturer = parts.first();
             }
             
+            qDebug() << "PTPCameraService::detectCameras - added PTP camera:" << info.model 
+                     << "manufacturer:" << info.manufacturer << "port:" << info.port;
+            
             cameras.append(info);
         }
     }
     
     gp_list_free(list);
+    gp_port_info_list_free(portInfoList);
+    gp_abilities_list_free(abilities);
+    
+    qDebug() << "PTPCameraService::detectCameras - returning" << cameras.size() << "PTP cameras";
     return cameras;
 #endif // Q_OS_ANDROID
 }
 
 bool PTPCameraService::connect(const PTPCameraInfo& cameraInfo)
 {
+    qDebug() << "PTPCameraService::connect - attempting to connect to" << cameraInfo.model << "at" << cameraInfo.port;
+    
     if (_camera) {
+        qDebug() << "PTPCameraService::connect - disconnecting existing camera first";
         disconnect();
     }
     
     int ret = gp_camera_new(&_camera);
     if (!checkError(ret, "create camera")) {
+        qDebug() << "PTPCameraService::connect - failed to create camera object";
         return false;
     }
+    
+    qDebug() << "PTPCameraService::connect - camera object created successfully";
     
 #ifdef Q_OS_ANDROID
     // On Android, use USB file descriptor approach
@@ -179,11 +273,14 @@ bool PTPCameraService::connect(const PTPCameraInfo& cameraInfo)
     qDebug() << "Set USB FD" << _androidUsbFd << "for camera";
 #else
     // On desktop platforms, use standard port detection
+    qDebug() << "PTPCameraService::connect - desktop platform, setting up port info";
+    
     GPPortInfoList *portinfolist;
     GPPortInfo portinfo;
     
     ret = gp_port_info_list_new(&portinfolist);
     if (!checkError(ret, "create port info list")) {
+        qDebug() << "PTPCameraService::connect - failed to create port info list";
         gp_camera_free(_camera);
         _camera = nullptr;
         return false;
@@ -191,23 +288,29 @@ bool PTPCameraService::connect(const PTPCameraInfo& cameraInfo)
     
     ret = gp_port_info_list_load(portinfolist);
     if (!checkError(ret, "load port info list")) {
+        qDebug() << "PTPCameraService::connect - failed to load port info list";
         gp_port_info_list_free(portinfolist);
         gp_camera_free(_camera);
         _camera = nullptr;
         return false;
     }
+    
+    qDebug() << "PTPCameraService::connect - looking up port:" << cameraInfo.port;
     
     int index = gp_port_info_list_lookup_path(portinfolist, cameraInfo.port.toUtf8().constData());
     if (index < 0) {
-        qWarning() << "Port not found:" << cameraInfo.port;
+        qWarning() << "PTPCameraService::connect - port not found:" << cameraInfo.port;
         gp_port_info_list_free(portinfolist);
         gp_camera_free(_camera);
         _camera = nullptr;
         return false;
     }
     
+    qDebug() << "PTPCameraService::connect - port found at index:" << index;
+    
     ret = gp_port_info_list_get_info(portinfolist, index, &portinfo);
     if (!checkError(ret, "get port info")) {
+        qDebug() << "PTPCameraService::connect - failed to get port info";
         gp_port_info_list_free(portinfolist);
         gp_camera_free(_camera);
         _camera = nullptr;
@@ -218,10 +321,13 @@ bool PTPCameraService::connect(const PTPCameraInfo& cameraInfo)
     gp_port_info_list_free(portinfolist);
     
     if (!checkError(ret, "set port info")) {
+        qDebug() << "PTPCameraService::connect - failed to set port info";
         gp_camera_free(_camera);
         _camera = nullptr;
         return false;
     }
+    
+    qDebug() << "PTPCameraService::connect - port info set successfully";
 #endif // Q_OS_ANDROID
     
     // Initialize camera
@@ -236,6 +342,11 @@ bool PTPCameraService::connect(const PTPCameraInfo& cameraInfo)
         return false;
     }
     
+    qDebug() << "PTPCameraService::connect - camera initialized, starting live view";
+    
+    // Start live view timer
+    _liveViewTimer->start();
+    
     emit cameraConnected(cameraInfo);
     return true;
 }
@@ -243,9 +354,14 @@ bool PTPCameraService::connect(const PTPCameraInfo& cameraInfo)
 void PTPCameraService::disconnect()
 {
     if (_camera) {
+        // Stop live view timer
+        _liveViewTimer->stop();
+        
         if (_isRecording) {
             stopRecording();
         }
+        
+        qDebug() << "PTPCameraService::disconnect - disconnecting camera";
         
         gp_camera_exit(_camera, _context);
         gp_camera_free(_camera);
@@ -844,3 +960,14 @@ void PTPCameraService::embedExifMetadata(const QString& filePath)
     // the EXIF segment into the JPEG file structure.
 }
 
+void PTPCameraService::captureLiveViewFrame()
+{
+    if (!_camera) {
+        return;
+    }
+    
+    QImage frame = getLiveViewFrame();
+    if (!frame.isNull()) {
+        emit frameReady(frame);
+    }
+}

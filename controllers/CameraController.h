@@ -118,6 +118,7 @@ private:
     PTPCameraService* _ptpService;
 #endif
     CameraType _currentCameraType;
+    QString _currentCameraId;  // ID of currently active camera
     QString _lastCameraName;  // Last successfully connected camera name
     QTimer* _monitorTimer;    // Timer for camera reconnection monitoring
     

@@ -101,7 +101,8 @@ QList<CameraProfile> CameraController::availableCameras()
     // Get PTP cameras
     QList<PTPCameraInfo> ptpCameras = _ptpService->detectCameras();
     for (const PTPCameraInfo& info : ptpCameras) {
-        CameraProfile profile(info.id, QString("%1 %2 (PTP)").arg(info.manufacturer, info.model));
+        // Use model name directly - it already contains manufacturer (e.g., "Sony UMC-R10C")
+        CameraProfile profile(info.id, info.model);
         cameras.append(profile);
     }
 #endif
@@ -163,18 +164,21 @@ bool CameraController::isActive() const
 
 QString CameraController::currentCameraId() const
 {
-    return _service->currentCameraId();
+    return _currentCameraId;
 }
 
 void CameraController::startCamera(const QString& cameraId)
 {
     qDebug() << "CameraController::startCamera (no resolution) - cameraId:" << cameraId;
+    _currentCameraId = cameraId;
     _currentCameraType = detectCameraType(cameraId);
     
 #if !defined(Q_OS_IOS)
     if (_currentCameraType == CameraType::PTP) {
-        // Stop V4L2 camera if active
+        // Stop V4L2 camera if active (suppress disconnection warning since we're switching)
+        disconnect(_service, &CameraService::cameraDisconnected, this, &CameraController::onCameraDisconnected);
         _service->stopCamera();
+        connect(_service, &CameraService::cameraDisconnected, this, &CameraController::onCameraDisconnected);
         
         // Extract PTP camera info from available cameras
         QList<PTPCameraInfo> ptpCameras = _ptpService->detectCameras();
@@ -188,7 +192,7 @@ void CameraController::startCamera(const QString& cameraId)
 #endif
     {
 #if !defined(Q_OS_IOS)
-        // Stop PTP camera if active
+        // Stop PTP camera if active (no signal emitted for PTP disconnect)
         _ptpService->disconnect();
 #endif
         
@@ -202,12 +206,15 @@ void CameraController::startCamera(const QString& cameraId, const QSize& resolut
     qDebug() << "CameraController::startCamera - cameraId:" << cameraId 
              << "resolution:" << resolution << "@" << frameRate << "fps";
     
+    _currentCameraId = cameraId;
     _currentCameraType = detectCameraType(cameraId);
     
 #if !defined(Q_OS_IOS)
     if (_currentCameraType == CameraType::PTP) {
-        // Stop V4L2 camera if active
+        // Stop V4L2 camera if active (suppress disconnection warning since we're switching)
+        disconnect(_service, &CameraService::cameraDisconnected, this, &CameraController::onCameraDisconnected);
         _service->stopCamera();
+        connect(_service, &CameraService::cameraDisconnected, this, &CameraController::onCameraDisconnected);
         
         // Extract PTP camera info from available cameras
         QList<PTPCameraInfo> ptpCameras = _ptpService->detectCameras();
@@ -221,7 +228,7 @@ void CameraController::startCamera(const QString& cameraId, const QSize& resolut
 #endif
     {
 #if !defined(Q_OS_IOS)
-        // Stop PTP camera if active
+        // Stop PTP camera if active (no signal emitted for PTP disconnect)
         _ptpService->disconnect();
 #endif
         
@@ -287,10 +294,19 @@ void CameraController::restoreLastCamera()
     for (const CameraProfile& camera : cameras) {
         if (camera.name() == _lastCameraName) {
             qDebug() << "CameraController::restoreLastCamera - found saved camera:" << camera.name() << "id:" << camera.id();
-            // Camera found, try to restore with same resolution
+            
+            // Check if this is a PTP camera (no resolutions available)
+            QList<QSize> resolutions = availableResolutions(camera.id());
+            if (resolutions.isEmpty()) {
+                // PTP camera - start without resolution
+                qDebug() << "CameraController::restoreLastCamera - PTP camera, starting without resolution";
+                startCamera(camera.id());
+                return;
+            }
+            
+            // V4L2 camera - try to restore with same resolution
             QSize savedResolution = getSavedResolution(camera.id());
             if (savedResolution.isValid()) {
-                QList<QSize> resolutions = availableResolutions(camera.id());
                 qDebug() << "CameraController::restoreLastCamera - checking" << resolutions.size() << "resolutions for match";
                 for (const QSize& res : resolutions) {
                     if (res == savedResolution) {

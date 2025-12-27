@@ -39,6 +39,12 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    // Stop camera and disconnect all signals before cleanup
+    if (_cameraController) {
+        _cameraController->disconnect();
+        _cameraController->stopCamera();
+    }
+    
     // Qt parent-child ownership handles cleanup
 }
 

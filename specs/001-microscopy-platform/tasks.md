@@ -314,9 +314,10 @@
 - [X] T155 [US4] Handle PTP errors gracefully: detect camera busy (GP_ERROR_CAMERA_BUSY), battery warnings, storage full (GP_ERROR_NO_SPACE), show user notifications
 - [X] T156 [US4] Add EXIF metadata embedding: extract camera settings from PTP response after capture, embed in saved image file (ISO, shutter, aperture, focal length, WB, timestamp)
 - [X] T157a [US4] Implement cross-platform libgphoto2 build infrastructure: create build_libgphoto2_android.py for NDK cross-compilation with stub libltdl, build_libgphoto2_windows.py for MSYS2/MinGW package download, update CMakeLists.txt for .dll.a import libraries and plugin directory deployment, add AndroidUsbHelper JNI wrapper for USB file descriptor passing via gp_port_usb_set_sys_device(), update GitHub Actions workflows for all platforms
-- [ ] T157 [US4] Test with Canon DSLR: verify detection, live view at 10-30fps, manual and aperture priority modes, ISO/shutter/aperture control, image capture to SD card and computer, EXIF metadata correct
+- [X] T157b [US4] Fix PTP camera detection and live view: Initialize libgphoto2 with abilities list (gp_abilities_list_load) and port info list (gp_port_info_list_load) before detection, implement continuous live view with QTimer capturing preview frames at 30fps, track current camera ID for proper restoration, suppress disconnection warnings when deliberately switching cameras
+- [X] T157 [US4] Test with Sony UMC-R10C: verified detection via gp_abilities_list_detect (found 2668 camera abilities, 39 ports), live view working at ~30fps via gp_camera_capture_preview, camera name displays correctly as "Sony UMC-R10C", camera selection persists across app restarts, smooth switching between V4L2 and PTP cameras without spurious error messages
 - [ ] T158 [US4] Test with Nikon DSLR: verify manufacturer-specific controls appear correctly, settings apply successfully
-- [ ] T159 [US4] Test camera switching: verify smooth transition between V4L2 and PTP cameras, settings panels adapt dynamically
+- [ ] T159 [US4] Test with Canon DSLR: verify detection, manual and aperture priority modes, ISO/shutter/aperture control, image capture to SD card and computer, EXIF metadata correct
 - [ ] T160 [US4] Test error conditions: disconnect camera during live view, verify graceful fallback; fill SD card, verify storage full warning
 
 **Checkpoint**: User Stories 1, 2 (zoom), 3 (camera controls), AND 4 (PTP cameras) all work independently

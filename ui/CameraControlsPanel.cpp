@@ -489,9 +489,25 @@ void CameraControlsPanel::onCameraSelected(int index)
         int selectedIndex = 0;  // Declare outside if-else for later use
         
         if (_availableResolutions.isEmpty()) {
-            _resolutionCombo->addItem("No resolutions available");
+            // PTP cameras don't have resolution selection
+            _resolutionCombo->addItem("Auto");
             _fpsCombo->clear();
-            _fpsCombo->addItem("No frame rates available");
+            _fpsCombo->addItem("Auto");
+            
+            // For PTP cameras, start immediately without resolution/fps selection
+            bool needsCameraSwitch = !_controller->isActive() || 
+                                     _controller->currentCameraId() != cameraId;
+            
+            if (needsCameraSwitch) {
+                qDebug() << "CameraControlsPanel::onCameraSelected - starting PTP camera:" << cameraId;
+                _controller->startCamera(cameraId);
+                _controller->saveCameraSelection(cameraId, QSize());
+                
+                // Apply fit-to-width zoom for new camera
+                if (_zoomController) {
+                    _zoomController->setFitWidth();
+                }
+            }
         } else {
             // Sort resolutions: higher resolution first
             std::sort(_availableResolutions.begin(), _availableResolutions.end(), 
