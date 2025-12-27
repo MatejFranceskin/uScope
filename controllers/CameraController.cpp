@@ -455,6 +455,37 @@ void CameraController::checkForLastCamera()
 
 void CameraController::captureImage()
 {
+#if !defined(Q_OS_IOS)
+    // For PTP cameras, use high-resolution capture instead of live view grab
+    if (_currentCameraType == CameraType::PTP) {
+        if (!_ptpService->isConnected()) {
+            emit error("PTP camera not connected for capture");
+            return;
+        }
+        
+        qDebug() << "CameraController::captureImage - triggering PTP camera capture";
+        QString savedPath = _ptpService->captureImage();
+        
+        if (savedPath.isEmpty()) {
+            emit error("Failed to capture image from PTP camera");
+            return;
+        }
+        
+        // Load the captured image and emit signal
+        QImage capturedImg(savedPath);
+        if (capturedImg.isNull()) {
+            emit error("Failed to load captured image from: " + savedPath);
+            return;
+        }
+        
+        CapturedImage image(capturedImg, _currentCameraId);
+        image.setFilePath(savedPath);  // Use the PTP-saved path
+        emit imageCaptured(image);
+        return;
+    }
+#endif
+    
+    // For V4L2/UVC cameras, capture from live view
     if (!_service->isActive()) {
         emit error("No active camera for capture");
         return;
