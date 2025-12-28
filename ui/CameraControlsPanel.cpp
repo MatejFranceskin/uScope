@@ -817,8 +817,6 @@ void CameraControlsPanel::onFlipVerticalClicked()
 
 void CameraControlsPanel::onResetDefaultsClicked()
 {
-    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - starting";
-    
     // Block signals to avoid triggering handlers during reset
     if (_cameraCombo) _cameraCombo->blockSignals(true);
     if (_resolutionCombo) _resolutionCombo->blockSignals(true);
@@ -831,8 +829,6 @@ void CameraControlsPanel::onResetDefaultsClicked()
     if (_saturationSlider) _saturationSlider->blockSignals(true);
     if (_whiteBalanceSlider) _whiteBalanceSlider->blockSignals(true);
     
-    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - signals blocked";
-    
     // Re-enable auto modes for best default behavior
     _autoExposureEnabled = true;
     _autoWhiteBalanceEnabled = true;
@@ -840,8 +836,6 @@ void CameraControlsPanel::onResetDefaultsClicked()
     // Update checkboxes
     if (_autoExposureCheck) _autoExposureCheck->setChecked(true);
     if (_autoWhiteBalanceCheck) _autoWhiteBalanceCheck->setChecked(true);
-    
-    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - checkboxes updated";
     
     // Hide exposure and white balance sliders (auto modes are on)
     if (_exposureLabel) _exposureLabel->setVisible(false);
@@ -851,16 +845,12 @@ void CameraControlsPanel::onResetDefaultsClicked()
     if (_whiteBalanceValueLabel) _whiteBalanceValueLabel->setVisible(false);
     if (_whiteBalanceSlider) _whiteBalanceSlider->setVisible(false);
     
-    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - sliders hidden";
-    
     // Reset all sliders to default values
     if (_exposureSlider) _exposureSlider->setValue(100);      // Default exposure 100ms
     if (_brightnessSlider) _brightnessSlider->setValue(128);    // Default brightness (middle of 0-255)
     if (_contrastSlider) _contrastSlider->setValue(32);       // Default contrast
     if (_saturationSlider) _saturationSlider->setValue(64);     // Default saturation
     if (_whiteBalanceSlider) _whiteBalanceSlider->setValue(4600); // Default WB temperature
-    
-    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - slider values set";
     
     // Update value labels manually since signals are blocked
     if (_exposureValueLabel) _exposureValueLabel->setText("100 ms");
@@ -869,13 +859,99 @@ void CameraControlsPanel::onResetDefaultsClicked()
     if (_saturationValueLabel) _saturationValueLabel->setText("64");
     if (_whiteBalanceValueLabel) _whiteBalanceValueLabel->setText("4600K");
     
-    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - labels updated";
-    
     // Reset flip buttons
     if (_flipHorizontalBtn) _flipHorizontalBtn->setChecked(false);
     if (_flipVerticalBtn) _flipVerticalBtn->setChecked(false);
     
-    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - flip buttons reset";
+    // Reset PTP controls to defaults if PTP camera is active
+    bool isPTP = _controller && _controller->isPTPCamera();
+    if (isPTP) {
+        // Get capabilities to check what values are available
+        auto capabilities = _controller->getPTPCapabilities();
+        
+        // Block PTP control signals
+        if (_ptpExposureModeCombo) _ptpExposureModeCombo->blockSignals(true);
+        if (_ptpIsoCombo) _ptpIsoCombo->blockSignals(true);
+        if (_ptpShutterSpeedCombo) _ptpShutterSpeedCombo->blockSignals(true);
+        if (_ptpExposureCompCombo) _ptpExposureCompCombo->blockSignals(true);
+        if (_ptpWhiteBalanceCombo) _ptpWhiteBalanceCombo->blockSignals(true);
+        
+        // Set to Aperture Priority mode (best for microscopy - auto shutter with manual ISO)
+        if (_ptpExposureModeCombo && _ptpExposureModeCombo->count() > 0) {
+            int apIndex = _ptpExposureModeCombo->findText("Aperture Priority", Qt::MatchContains);
+            if (apIndex < 0) apIndex = _ptpExposureModeCombo->findText("A", Qt::MatchExactly);
+            if (apIndex >= 0) {
+                _ptpExposureModeCombo->setCurrentIndex(apIndex);
+            }
+        }
+        
+        // Set ISO to Auto (check capabilities first)
+        if (_ptpIsoCombo && _ptpIsoCombo->count() > 0 && capabilities.contains("iso")) {
+            QStringList isoValues = capabilities["iso"].toStringList();
+            
+            QString defaultIso;
+            bool hasAuto = false;
+            
+            // Check if any ISO value contains "Auto" (case-insensitive)
+            for (const QString& iso : isoValues) {
+                if (iso.contains("Auto", Qt::CaseInsensitive)) {
+                    defaultIso = iso; // Use the exact value from capabilities (e.g., "Auto ISO")
+                    hasAuto = true;
+                    break;
+                }
+            }
+            
+            int isoIndex = -1;
+            if (hasAuto) {
+                isoIndex = _ptpIsoCombo->findText(defaultIso, Qt::MatchExactly);
+            }
+            
+            // Set the index if found
+            if (isoIndex >= 0) {
+                _ptpIsoCombo->setCurrentIndex(isoIndex);
+            }
+        }
+        
+        // Reset exposure compensation to 0 (exact match for "0", "0.0", "+0", etc.)
+        if (_ptpExposureCompCombo && _ptpExposureCompCombo->count() > 0) {
+            int zeroIndex = -1;
+            // Try exact matches first
+            zeroIndex = _ptpExposureCompCombo->findText("0", Qt::MatchExactly);
+            if (zeroIndex < 0) zeroIndex = _ptpExposureCompCombo->findText("0.0", Qt::MatchExactly);
+            if (zeroIndex < 0) zeroIndex = _ptpExposureCompCombo->findText("+0", Qt::MatchExactly);
+            if (zeroIndex < 0) zeroIndex = _ptpExposureCompCombo->findText("+0.0", Qt::MatchExactly);
+            if (zeroIndex < 0) {
+                // Try to find something that starts with "0" but isn't "0,7" etc
+                for (int i = 0; i < _ptpExposureCompCombo->count(); ++i) {
+                    QString text = _ptpExposureCompCombo->itemText(i);
+                    // Match "0" at the start followed by end or space/tab
+                    if (text == "0" || text.startsWith("0 ") || text.startsWith("0\t")) {
+                        zeroIndex = i;
+                        break;
+                    }
+                }
+            }
+            if (zeroIndex >= 0) {
+                _ptpExposureCompCombo->setCurrentIndex(zeroIndex);
+            }
+        }
+        
+        // Set white balance to Auto
+        if (_ptpWhiteBalanceCombo && _ptpWhiteBalanceCombo->count() > 0) {
+            int wbIndex = _ptpWhiteBalanceCombo->findText("Auto", Qt::MatchExactly);
+            if (wbIndex < 0) wbIndex = _ptpWhiteBalanceCombo->findText("AUTO", Qt::MatchExactly);
+            if (wbIndex >= 0) {
+                _ptpWhiteBalanceCombo->setCurrentIndex(wbIndex);
+            }
+        }
+        
+        // Unblock PTP control signals
+        if (_ptpExposureModeCombo) _ptpExposureModeCombo->blockSignals(false);
+        if (_ptpIsoCombo) _ptpIsoCombo->blockSignals(false);
+        if (_ptpShutterSpeedCombo) _ptpShutterSpeedCombo->blockSignals(false);
+        if (_ptpExposureCompCombo) _ptpExposureCompCombo->blockSignals(false);
+        if (_ptpWhiteBalanceCombo) _ptpWhiteBalanceCombo->blockSignals(false);
+    }
     
     // Unblock signals
     if (_cameraCombo) _cameraCombo->blockSignals(false);
@@ -889,11 +965,9 @@ void CameraControlsPanel::onResetDefaultsClicked()
     if (_saturationSlider) _saturationSlider->blockSignals(false);
     if (_whiteBalanceSlider) _whiteBalanceSlider->blockSignals(false);
     
-    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - signals unblocked";
-    
     // Now apply settings to controller
     if (_controller) {
-        qDebug() << "CameraControlsPanel::onResetDefaultsClicked - applying to controller";
+        // Apply UVC defaults
         _controller->setAutoExposure(true);
         _controller->setAutoWhiteBalance(true);
         _controller->setBrightness(128);
@@ -901,10 +975,32 @@ void CameraControlsPanel::onResetDefaultsClicked()
         _controller->setSaturation(64);
         _controller->setFlipHorizontal(false);
         _controller->setFlipVertical(false);
-        qDebug() << "CameraControlsPanel::onResetDefaultsClicked - controller updated";
+        
+        // Apply PTP defaults
+        if (isPTP) {
+            // Apply settings to camera
+            if (_ptpExposureModeCombo && _ptpExposureModeCombo->currentText() != "") {
+                _controller->setPTPSetting("exposuremode", _ptpExposureModeCombo->currentText());
+            }
+            if (_ptpIsoCombo && _ptpIsoCombo->currentText() != "") {
+                _controller->setPTPSetting("iso", _ptpIsoCombo->currentText());
+            }
+            if (_ptpExposureCompCombo && _ptpExposureCompCombo->currentText() != "") {
+                _controller->setPTPSetting("exposurecompensation", _ptpExposureCompCombo->currentText());
+            }
+            if (_ptpWhiteBalanceCombo && _ptpWhiteBalanceCombo->currentText() != "") {
+                _controller->setPTPSetting("whitebalance", _ptpWhiteBalanceCombo->currentText());
+            }
+            
+            // Update visibility based on exposure mode (e.g., hide shutter in Aperture Priority)
+            QString currentMode = _ptpExposureModeCombo->currentText();
+            bool isManualMode = currentMode.contains("Manual", Qt::CaseInsensitive) || currentMode == "M";
+            if (_ptpShutterSpeedLabel) _ptpShutterSpeedLabel->setVisible(isManualMode);
+            if (_ptpShutterSpeedCombo) _ptpShutterSpeedCombo->setVisible(isManualMode);
+            if (_ptpExposureCompLabel) _ptpExposureCompLabel->setVisible(!isManualMode);
+            if (_ptpExposureCompCombo) _ptpExposureCompCombo->setVisible(!isManualMode);
+        }
     }
-    
-    qDebug() << "CameraControlsPanel::onResetDefaultsClicked - completed";
 }
 
 void CameraControlsPanel::setupUVCControls(QGridLayout* layout, int& row)
@@ -1041,8 +1137,6 @@ void CameraControlsPanel::updateControlsVisibility()
     
     // If camera is unavailable, hide all camera-specific controls
     if (isUnavailable) {
-        qDebug() << "CameraControlsPanel::updateControlsVisibility - camera unavailable, hiding all controls";
-        
         if (_resolutionLabel) _resolutionLabel->setVisible(false);
         if (_resolutionCombo) _resolutionCombo->setVisible(false);
         if (_fpsLabel) _fpsLabel->setVisible(false);
@@ -1056,8 +1150,6 @@ void CameraControlsPanel::updateControlsVisibility()
     }
     
     bool isPTP = _controller->isPTPCamera();
-    
-    qDebug() << "CameraControlsPanel::updateControlsVisibility - called, isPTP:" << isPTP;
     
     // Show flip and reset buttons for any connected camera
     if (_flipHorizontalBtn) _flipHorizontalBtn->setVisible(true);
@@ -1088,9 +1180,7 @@ void CameraControlsPanel::updateControlsVisibility()
         // Populate PTP controls if visible
         if (isPTP) {
             // Get capabilities from PTP service
-            qDebug() << "CameraControlsPanel::updateControlsVisibility - fetching PTP capabilities";
             auto capabilities = _controller->getPTPCapabilities();
-            qDebug() << "CameraControlsPanel::updateControlsVisibility - got capabilities, keys:" << capabilities.keys();
             
             // Populate Exposure Mode - filter to Aperture Priority and Manual only for microscopy
             _ptpExposureModeCombo->blockSignals(true);
