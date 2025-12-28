@@ -57,7 +57,7 @@ void CameraControlsPanel::setupUI()
     
     QVBoxLayout* layout = new QVBoxLayout(content);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(3);
+    layout->setSpacing(12);
     
     // Camera selection label
     QLabel* cameraLabel = new QLabel("Camera:");
@@ -373,6 +373,9 @@ void CameraControlsPanel::setupUI()
     // Add grid to main layout
     layout->addLayout(controlsGrid);
     layout->addLayout(buttonLayout);
+    
+    // Add stretch to push controls to the top
+    layout->addStretch();
     
     // Store reference to content widget
     _contentWidget = content;
