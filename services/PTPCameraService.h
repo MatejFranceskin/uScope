@@ -7,6 +7,8 @@
 #include <QMap>
 #include <QVariant>
 #include <QTimer>
+#include <QFuture>
+#include <QFutureWatcher>
 #include <gphoto2/gphoto2.h>
 
 #ifdef Q_OS_ANDROID
@@ -78,6 +80,7 @@ signals:
 private slots:
     void checkCameraConnection();
     void captureLiveViewFrame();
+    void onCameraInitFinished();
 
 private:
     GPContext* _context;
@@ -90,6 +93,8 @@ private:
     QTimer* _hotplugTimer;
     QTimer* _liveViewTimer;
     QList<PTPCameraInfo> _lastDetectedCameras;
+    PTPCameraInfo _pendingConnection;  // Camera info for async connection
+    QFutureWatcher<int>* _initWatcher;  // Watcher for async camera init
     
     // Cache of widget names for manufacturer-specific properties
     QString _exposureModeWidgetName;

@@ -401,6 +401,8 @@ void CameraControlsPanel::refreshCameras()
 {
     _availableCameras = _controller->availableCameras();
     
+    // Block signals to prevent triggering onCameraSelected during refresh
+    _cameraCombo->blockSignals(true);
     _cameraCombo->clear();
     
     if (_availableCameras.isEmpty()) {
@@ -420,17 +422,13 @@ void CameraControlsPanel::refreshCameras()
         }
         
         _cameraCombo->setCurrentIndex(selectedRow);
-        
-        // Manually trigger camera selection to populate resolutions and FPS
-        // (setCurrentIndex doesn't always trigger the signal)
-        // But don't try to start unavailable cameras automatically
-        if (selectedRow >= 0 && selectedRow < _availableCameras.size()) {
-            QString cameraId = _availableCameras[selectedRow].id();
-            if (!cameraId.startsWith("unavailable://")) {
-                onCameraSelected(selectedRow);
-            }
-        }
     }
+    
+    // Unblock signals
+    _cameraCombo->blockSignals(false);
+    
+    // Update control visibility based on current camera type
+    updateControlsVisibility();
 }
 
 void CameraControlsPanel::onCameraDisconnected()
@@ -1153,11 +1151,16 @@ void CameraControlsPanel::updateControlsVisibility()
     }
     
     bool isPTP = _controller->isPTPCamera();
+    bool isActive = _controller->isActive();
     
-    // Show flip and reset buttons for any connected camera
-    if (_flipHorizontalBtn) _flipHorizontalBtn->setVisible(true);
-    if (_flipVerticalBtn) _flipVerticalBtn->setVisible(true);
-    if (_resetDefaultsBtn) _resetDefaultsBtn->setVisible(true);
+    // For PTP cameras, only show controls if camera is actually connected
+    // For UVC cameras, show controls immediately (they connect instantly)
+    bool showControls = isPTP ? isActive : true;
+    
+    // Show flip and reset buttons only for connected cameras
+    if (_flipHorizontalBtn) _flipHorizontalBtn->setVisible(showControls);
+    if (_flipVerticalBtn) _flipVerticalBtn->setVisible(showControls);
+    if (_resetDefaultsBtn) _resetDefaultsBtn->setVisible(showControls);
     
     // Hide resolution and FPS controls for PTP cameras
     if (_resolutionLabel) {
@@ -1174,14 +1177,15 @@ void CameraControlsPanel::updateControlsVisibility()
     }
     
     if (_uvcControlsWidget) {
-        _uvcControlsWidget->setVisible(!isPTP);
+        _uvcControlsWidget->setVisible(!isPTP && showControls);
     }
     
     if (_ptpControlsWidget) {
-        _ptpControlsWidget->setVisible(isPTP);
+        // Only show PTP controls when camera is actually connected
+        _ptpControlsWidget->setVisible(isPTP && showControls);
         
-        // Populate PTP controls if visible
-        if (isPTP) {
+        // Populate PTP controls if visible and connected
+        if (isPTP && showControls) {
             // Get capabilities from PTP service
             auto capabilities = _controller->getPTPCapabilities();
             

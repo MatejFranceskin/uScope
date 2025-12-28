@@ -6,6 +6,9 @@
 #include <QDateTime>
 #include <QFileInfo>
 #include <QThread>
+#include <QRegularExpression>
+#include <QCoreApplication>
+#include <QtConcurrent/QtConcurrent>
 
 #ifdef Q_OS_ANDROID
 #include "AndroidUsbHelper.h"
@@ -41,6 +44,7 @@ PTPCameraService::PTPCameraService(QObject *parent)
     , _silentMode(false)
     , _hotplugTimer(nullptr)
     , _liveViewTimer(nullptr)
+    , _initWatcher(nullptr)
 #ifdef Q_OS_ANDROID
     , _androidUsbFd(-1)
 #endif
@@ -57,6 +61,10 @@ PTPCameraService::PTPCameraService(QObject *parent)
     _liveViewTimer = new QTimer(this);
     _liveViewTimer->setInterval(33);  // ~30 fps
     QObject::connect(_liveViewTimer, &QTimer::timeout, this, &PTPCameraService::captureLiveViewFrame);
+    
+    // Create future watcher for async camera initialization
+    _initWatcher = new QFutureWatcher<int>(this);
+    QObject::connect(_initWatcher, &QFutureWatcher<int>::finished, this, &PTPCameraService::onCameraInitFinished);
     
     // Create captures directory if it doesn't exist
     QString capturesPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/uScope/captures";
@@ -196,6 +204,10 @@ QList<PTPCameraInfo> PTPCameraService::detectCameras()
             info.model = QString::fromUtf8(name);
             info.port = QString::fromUtf8(port);
             
+            // Strip libgphoto2 suffixes like "(Control)", "(PTP/IP)" for cleaner display
+            // These are added to distinguish USB modes but aren't needed for our UI
+            info.model = info.model.remove(QRegularExpression("\\s*\\([^)]*\\)\\s*$")).trimmed();
+            
             // Parse manufacturer from model name (typically "Manufacturer Model")
             QStringList parts = info.model.split(' ', Qt::SkipEmptyParts);
             if (!parts.isEmpty()) {
@@ -334,16 +346,36 @@ bool PTPCameraService::connect(const PTPCameraInfo& cameraInfo, bool silent)
     qDebug() << "PTPCameraService::connect - port info set successfully";
 #endif // Q_OS_ANDROID
     
-    // Initialize camera
-    ret = gp_camera_init(_camera, _context);
+    // Store camera info for async callback
+    _pendingConnection = cameraInfo;
+    
+    // Initialize camera asynchronously (this can take 5-10 seconds, especially with Sony cameras)
+    qDebug() << "PTPCameraService::connect - initializing camera in background thread...";
+    
+    // Launch async initialization
+    QFuture<int> future = QtConcurrent::run([this]() -> int {
+        return gp_camera_init(_camera, _context);
+    });
+    
+    _initWatcher->setFuture(future);
+    
+    return true;  // Return true immediately, actual connection happens in onCameraInitFinished
+}
+
+void PTPCameraService::onCameraInitFinished()
+{
+    int ret = _initWatcher->result();
+    
     if (!checkError(ret, "initialize camera")) {
 #ifdef Q_OS_ANDROID
         AndroidUsbHelper::closeDevice(_androidUsbFd);
         _androidUsbFd = -1;
 #endif
-        gp_camera_free(_camera);
-        _camera = nullptr;
-        return false;
+        if (_camera) {
+            gp_camera_free(_camera);
+            _camera = nullptr;
+        }
+        return;
     }
     
     qDebug() << "PTPCameraService::connect - camera initialized, starting live view";
@@ -354,8 +386,7 @@ bool PTPCameraService::connect(const PTPCameraInfo& cameraInfo, bool silent)
     // Reset silent mode after successful connection
     _silentMode = false;
     
-    emit cameraConnected(cameraInfo);
-    return true;
+    emit cameraConnected(_pendingConnection);
 }
 
 void PTPCameraService::disconnect()
@@ -1444,10 +1475,10 @@ void PTPCameraService::captureLiveViewFrame()
     if (!frame.isNull()) {
         // Apply flip transformations if needed
         if (_flipHorizontal) {
-            frame = frame.mirrored(true, false);
+            frame = frame.flipped(Qt::Horizontal);
         }
         if (_flipVertical) {
-            frame = frame.mirrored(false, true);
+            frame = frame.flipped(Qt::Vertical);
         }
         
         // Store processed frame for snapshots (ensures WYSIWYG)
