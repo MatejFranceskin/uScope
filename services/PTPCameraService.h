@@ -30,7 +30,7 @@ public:
 
     // Camera detection and connection
     QList<PTPCameraInfo> detectCameras();
-    bool connect(const PTPCameraInfo& cameraInfo);
+    bool connect(const PTPCameraInfo& cameraInfo, bool silent = false);
     void disconnect();
     bool isConnected() const { return _camera != nullptr; }
 
@@ -79,6 +79,7 @@ private:
     GPContext* _context;
     Camera* _camera;
     bool _isRecording;
+    bool _silentMode;  // Suppress error messages during auto-reconnect
     QTimer* _hotplugTimer;
     QTimer* _liveViewTimer;
     QList<PTPCameraInfo> _lastDetectedCameras;

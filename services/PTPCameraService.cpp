@@ -38,6 +38,7 @@ PTPCameraService::PTPCameraService(QObject *parent)
     , _context(nullptr)
     , _camera(nullptr)
     , _isRecording(false)
+    , _silentMode(false)
     , _hotplugTimer(nullptr)
     , _liveViewTimer(nullptr)
 #ifdef Q_OS_ANDROID
@@ -217,9 +218,11 @@ QList<PTPCameraInfo> PTPCameraService::detectCameras()
 #endif // Q_OS_ANDROID
 }
 
-bool PTPCameraService::connect(const PTPCameraInfo& cameraInfo)
+bool PTPCameraService::connect(const PTPCameraInfo& cameraInfo, bool silent)
 {
-    qDebug() << "PTPCameraService::connect - attempting to connect to" << cameraInfo.model << "at" << cameraInfo.port;
+    _silentMode = silent;
+    
+    qDebug() << "PTPCameraService::connect - attempting to connect to" << cameraInfo.model << "at" << cameraInfo.port << (silent ? "(silent mode)" : "");
     
     if (_camera) {
         qDebug() << "PTPCameraService::connect - disconnecting existing camera first";
@@ -348,6 +351,9 @@ bool PTPCameraService::connect(const PTPCameraInfo& cameraInfo)
     // Start live view timer
     _liveViewTimer->start();
     
+    // Reset silent mode after successful connection
+    _silentMode = false;
+    
     emit cameraConnected(cameraInfo);
     return true;
 }
@@ -388,13 +394,45 @@ QImage PTPCameraService::getLiveViewFrame()
     
     CameraFile *file;
     int ret = gp_file_new(&file);
-    if (!checkError(ret, "create file for live view")) {
+    if (ret != GP_OK) {
+        // Don't spam errors for file creation failure
         return QImage();
     }
     
     ret = gp_camera_capture_preview(_camera, file, _context);
-    if (!checkError(ret, "capture preview")) {
+    if (ret != GP_OK) {
         gp_file_free(file);
+        
+        // Check if this is a USB disconnect error
+        if (ret == GP_ERROR_IO || ret == GP_ERROR_IO_USB_FIND || 
+            ret == GP_ERROR_IO_USB_CLAIM || ret == GP_ERROR_TIMEOUT) {
+            // Camera disconnected - stop live view and clean up
+            qWarning() << "Camera disconnected during live view (error:" << gp_result_as_string(ret) << ")";
+            
+            // Stop the live view timer to prevent repeated errors
+            if (_liveViewTimer->isActive()) {
+                _liveViewTimer->stop();
+            }
+            
+            // Clean up camera connection
+            if (_camera) {
+                gp_camera_exit(_camera, _context);
+                gp_camera_free(_camera);
+                _camera = nullptr;
+                
+#ifdef Q_OS_ANDROID
+                if (_androidUsbFd >= 0) {
+                    AndroidUsbHelper::closeDevice(_androidUsbFd);
+                    _androidUsbFd = -1;
+                }
+                _androidDeviceName.clear();
+#endif
+            }
+            
+            // Emit single disconnect signal
+            emit cameraDisconnected();
+        }
+        
         return QImage();
     }
     
@@ -1024,10 +1062,13 @@ bool PTPCameraService::checkError(int result, const QString& operation)
 
     qWarning() << errorMsg;
     
-    if (isCritical) {
-        emit error(errorMsg);
-    } else {
-        emit warning(errorMsg);
+    // Don't emit error signals during silent mode (auto-reconnect)
+    if (!_silentMode) {
+        if (isCritical) {
+            emit error(errorMsg);
+        } else {
+            emit warning(errorMsg);
+        }
     }
     
     return false;
@@ -1403,4 +1444,6 @@ void PTPCameraService::captureLiveViewFrame()
     if (!frame.isNull()) {
         emit frameReady(frame);
     }
+    // If frame is null, getLiveViewFrame already handled error reporting
+    // and may have stopped the timer if it was a disconnect
 }

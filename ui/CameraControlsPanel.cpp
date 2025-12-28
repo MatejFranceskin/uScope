@@ -377,6 +377,14 @@ void CameraControlsPanel::setupUI()
     // Store reference to content widget
     _contentWidget = content;
     
+    // Connect to camera disconnection signal to update UI when camera is unplugged
+    connect(_controller, &CameraController::cameraDisconnected,
+            this, &CameraControlsPanel::onCameraDisconnected);
+    
+    // Connect to camera connection signal to update UI when camera is reconnected
+    connect(_controller, &CameraController::cameraConnected,
+            this, &CameraControlsPanel::onCameraConnected);
+    
     // Don't set initial height - let updateGeometry handle it
     
     // Set as dialog content - scroll bars appear automatically if needed
@@ -412,8 +420,30 @@ void CameraControlsPanel::refreshCameras()
         
         // Manually trigger camera selection to populate resolutions and FPS
         // (setCurrentIndex doesn't always trigger the signal)
-        onCameraSelected(selectedRow);
+        // But don't try to start unavailable cameras automatically
+        if (selectedRow >= 0 && selectedRow < _availableCameras.size()) {
+            QString cameraId = _availableCameras[selectedRow].id();
+            if (!cameraId.startsWith("unavailable://")) {
+                onCameraSelected(selectedRow);
+            }
+        }
     }
+}
+
+void CameraControlsPanel::onCameraDisconnected()
+{
+    qDebug() << "CameraControlsPanel::onCameraDisconnected - refreshing camera list";
+    
+    // Refresh the camera list to show the disconnected camera as unavailable
+    refreshCameras();
+}
+
+void CameraControlsPanel::onCameraConnected(const QString& cameraId, const QString& name)
+{
+    qDebug() << "CameraControlsPanel::onCameraConnected - camera:" << name << "id:" << cameraId << "- refreshing camera list";
+    
+    // Refresh the camera list to show the reconnected camera as available
+    refreshCameras();
 }
 
 void CameraControlsPanel::onCameraSelected(int index)
@@ -424,6 +454,13 @@ void CameraControlsPanel::onCameraSelected(int index)
         QString cameraId = _availableCameras[index].id();
         
         qDebug() << "CameraControlsPanel::onCameraSelected - cameraId:" << cameraId;
+        
+        // Don't try to start unavailable cameras - just update the UI
+        if (cameraId.startsWith("unavailable://")) {
+            qDebug() << "CameraControlsPanel::onCameraSelected - camera is unavailable, skipping";
+            updateControlsVisibility();
+            return;
+        }
         
         // Update control visibility based on camera type
         updateControlsVisibility();
@@ -995,9 +1032,37 @@ void CameraControlsPanel::setupPTPControls(QGridLayout* layout, int& row)
 
 void CameraControlsPanel::updateControlsVisibility()
 {
+    // Check if current camera is unavailable
+    int currentIndex = _cameraCombo->currentIndex();
+    bool isUnavailable = false;
+    if (currentIndex >= 0 && currentIndex < _availableCameras.size()) {
+        isUnavailable = _availableCameras[currentIndex].id().startsWith("unavailable://");
+    }
+    
+    // If camera is unavailable, hide all camera-specific controls
+    if (isUnavailable) {
+        qDebug() << "CameraControlsPanel::updateControlsVisibility - camera unavailable, hiding all controls";
+        
+        if (_resolutionLabel) _resolutionLabel->setVisible(false);
+        if (_resolutionCombo) _resolutionCombo->setVisible(false);
+        if (_fpsLabel) _fpsLabel->setVisible(false);
+        if (_fpsCombo) _fpsCombo->setVisible(false);
+        if (_uvcControlsWidget) _uvcControlsWidget->setVisible(false);
+        if (_ptpControlsWidget) _ptpControlsWidget->setVisible(false);
+        if (_flipHorizontalBtn) _flipHorizontalBtn->setVisible(false);
+        if (_flipVerticalBtn) _flipVerticalBtn->setVisible(false);
+        if (_resetDefaultsBtn) _resetDefaultsBtn->setVisible(false);
+        return;
+    }
+    
     bool isPTP = _controller->isPTPCamera();
     
     qDebug() << "CameraControlsPanel::updateControlsVisibility - called, isPTP:" << isPTP;
+    
+    // Show flip and reset buttons for any connected camera
+    if (_flipHorizontalBtn) _flipHorizontalBtn->setVisible(true);
+    if (_flipVerticalBtn) _flipVerticalBtn->setVisible(true);
+    if (_resetDefaultsBtn) _resetDefaultsBtn->setVisible(true);
     
     // Hide resolution and FPS controls for PTP cameras
     if (_resolutionLabel) {

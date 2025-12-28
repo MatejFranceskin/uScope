@@ -32,6 +32,8 @@ public:
 
 public slots:
     void refreshCameras();
+    void onCameraDisconnected();
+    void onCameraConnected(const QString& cameraId, const QString& name);
 
 signals:
     void captureRequested();

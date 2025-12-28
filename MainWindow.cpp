@@ -277,9 +277,21 @@ void MainWindow::onCameraError(const QString& message)
 
 void MainWindow::onCameraDisconnected(const QString& cameraId)
 {
-    QMessageBox::warning(this, "Camera Disconnected", 
-        QString("Camera disconnected: %1\n\nAttempting to reconnect automatically every 2 seconds...")
-        .arg(cameraId));
+    // Only show the message once, not repeatedly
+    // The camera controller will automatically attempt reconnection
+    static QString lastDisconnectedCamera;
+    
+    if (lastDisconnectedCamera != cameraId) {
+        lastDisconnectedCamera = cameraId;
+        
+        QMessageBox msgBox(this);
+        msgBox.setIcon(QMessageBox::Information);
+        msgBox.setWindowTitle("Camera Disconnected");
+        msgBox.setText(QString("Camera disconnected: %1").arg(cameraId));
+        msgBox.setInformativeText("The camera will automatically reconnect when plugged back in, or you can select a different camera.");
+        msgBox.setStandardButtons(QMessageBox::Ok);
+        msgBox.exec();
+    }
 }
 
 void MainWindow::onZoomChanged(qreal factor, int mode)

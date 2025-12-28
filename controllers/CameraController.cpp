@@ -56,10 +56,19 @@ CameraController::CameraController(QObject* parent)
     connect(_ptpService, &PTPCameraService::cameraConnected,
             this, [this](const PTPCameraInfo& info) {
                 qDebug() << "CameraController - PTP camera connected:" << info.model;
+                
+                // Emit the controller's cameraConnected signal so UI can update
+                emit cameraConnected(info.id, info.model);
+                
                 // Restore saved settings after camera connects
                 QTimer::singleShot(500, this, [this]() {
                     restorePTPSettings();
                 });
+            });
+    connect(_ptpService, &PTPCameraService::cameraDisconnected,
+            this, [this]() {
+                // PTPCameraService doesn't send cameraId, use current camera ID
+                onCameraDisconnected(_currentCameraId);
             });
     connect(_ptpService, &PTPCameraService::error,
             this, &CameraController::onServiceError);
@@ -114,6 +123,31 @@ QList<CameraProfile> CameraController::availableCameras()
     
     // Get V4L2 cameras
     cameras.append(_service->enumerateCameras());
+    
+    // Always include last selected camera even if it's not currently available
+    // This allows users to see and select it when plugged back in
+    if (!_lastCameraName.isEmpty()) {
+        // Strip any " (not connected)" suffix when comparing
+        QString cleanLastName = _lastCameraName;
+        cleanLastName.remove(" (not connected)");
+        
+        bool found = false;
+        for (const CameraProfile& camera : cameras) {
+            QString cleanCameraName = camera.name();
+            cleanCameraName.remove(" (not connected)");
+            if (cleanCameraName == cleanLastName) {
+                found = true;
+                break;
+            }
+        }
+        
+        if (!found) {
+            // Add a placeholder for the unavailable camera
+            // Use a special ID prefix to indicate it's unavailable
+            CameraProfile unavailable("unavailable://" + cleanLastName, cleanLastName + " (not connected)");
+            cameras.prepend(unavailable);  // Add at the top so it's visible
+        }
+    }
     
     return cameras;
 }
@@ -178,6 +212,14 @@ QString CameraController::currentCameraId() const
 void CameraController::startCamera(const QString& cameraId)
 {
     qDebug() << "CameraController::startCamera (no resolution) - cameraId:" << cameraId;
+    
+    // Check if this is an unavailable camera placeholder
+    if (cameraId.startsWith("unavailable://")) {
+        QString cameraName = cameraId.mid(14);  // Remove "unavailable://" prefix
+        emit error(QString("Camera '%1' is not currently connected. Please plug it in.").arg(cameraName));
+        return;
+    }
+    
     _currentCameraId = cameraId;
     _currentCameraType = detectCameraType(cameraId);
     
@@ -192,7 +234,8 @@ void CameraController::startCamera(const QString& cameraId)
         QList<PTPCameraInfo> ptpCameras = _ptpService->detectCameras();
         for (const PTPCameraInfo& info : ptpCameras) {
             if (info.id == cameraId) {
-                _ptpService->connect(info);
+                // Use silent mode during auto-reconnect to suppress error messages
+                _ptpService->connect(info, true);
                 break;
             }
         }
@@ -213,6 +256,13 @@ void CameraController::startCamera(const QString& cameraId, const QSize& resolut
 {
     qDebug() << "CameraController::startCamera - cameraId:" << cameraId 
              << "resolution:" << resolution << "@" << frameRate << "fps";
+    
+    // Check if this is an unavailable camera placeholder
+    if (cameraId.startsWith("unavailable://")) {
+        QString cameraName = cameraId.mid(14);  // Remove "unavailable://" prefix
+        emit error(QString("Camera '%1' is not currently connected. Please plug it in.").arg(cameraName));
+        return;
+    }
     
     _currentCameraId = cameraId;
     _currentCameraType = detectCameraType(cameraId);
@@ -267,6 +317,12 @@ void CameraController::saveCurrentCamera()
 
 void CameraController::saveCameraSelection(const QString& cameraId, const QSize& resolution)
 {
+    // Don't save unavailable cameras
+    if (cameraId.startsWith("unavailable://")) {
+        qDebug() << "CameraController::saveCameraSelection - skipping unavailable camera:" << cameraId;
+        return;
+    }
+    
     // Find camera name from available cameras
     QString cameraName;
     QList<CameraProfile> cameras = availableCameras();
@@ -277,9 +333,16 @@ void CameraController::saveCameraSelection(const QString& cameraId, const QSize&
         }
     }
     
+    if (cameraName.isEmpty()) {
+        qDebug() << "CameraController::saveCameraSelection - camera name not found for:" << cameraId;
+        return;
+    }
+    
     qDebug() << "CameraController::saveCameraSelection - cameraId:" << cameraId 
              << "name:" << cameraName << "resolution:" << resolution;
+    // Strip " (not connected)" suffix before saving
     _lastCameraName = cameraName;
+    _lastCameraName.remove(" (not connected)");
     saveCurrentCamera();
 }
 
@@ -291,8 +354,9 @@ void CameraController::restoreLastCamera()
     qDebug() << "CameraController::restoreLastCamera - read cameraName:" << _lastCameraName;
     
     if (_lastCameraName.isEmpty()) {
-        qDebug() << "CameraController::restoreLastCamera - no saved camera, auto-starting first available";
-        autoStartCamera();  // Fall back to auto-start (PTP cameras have priority)
+        qDebug() << "CameraController::restoreLastCamera - no saved camera, starting monitoring only (no auto-start)";
+        // Don't auto-start a camera if there's no saved preference
+        // Just start monitoring in case a camera is plugged in
         return;
     }
     
@@ -300,9 +364,22 @@ void CameraController::restoreLastCamera()
     QList<CameraProfile> cameras = availableCameras();
     qDebug() << "CameraController::restoreLastCamera - found" << cameras.size() << "available cameras";
     
+    // Strip any " (not connected)" suffix when comparing
+    QString cleanLastName = _lastCameraName;
+    cleanLastName.remove(" (not connected)");
+    
     for (const CameraProfile& camera : cameras) {
-        if (camera.name() == _lastCameraName) {
+        QString cleanCameraName = camera.name();
+        cleanCameraName.remove(" (not connected)");
+        if (cleanCameraName == cleanLastName) {
             qDebug() << "CameraController::restoreLastCamera - found saved camera:" << camera.name() << "id:" << camera.id();
+            
+            // Don't try to start unavailable cameras
+            if (camera.id().startsWith("unavailable://")) {
+                qDebug() << "CameraController::restoreLastCamera - camera is unavailable, starting monitoring";
+                startCameraMonitoring();
+                return;
+            }
             
             // Check if this is a PTP camera (no resolutions available)
             QList<QSize> resolutions = availableResolutions(camera.id());
@@ -389,8 +466,9 @@ void CameraController::savePTPSetting(const QString& name, const QVariant& value
         return;  // Only save for PTP cameras
     }
     
+    // Use camera name instead of ID for stable settings across reconnections
     QSettings settings("uScope", "uScope");
-    QString prefix = QString("camera/%1/ptp/").arg(cameraId);
+    QString prefix = QString("camera/%1/ptp/").arg(_lastCameraName);
     settings.setValue(prefix + name, value);
 }
 
@@ -402,10 +480,16 @@ void CameraController::restorePTPSettings()
         return;  // Only restore for PTP cameras
     }
     
-    qDebug() << "CameraController::restorePTPSettings - restoring for" << cameraId;
+    if (_lastCameraName.isEmpty()) {
+        qDebug() << "CameraController::restorePTPSettings - no camera name available";
+        return;
+    }
     
+    qDebug() << "CameraController::restorePTPSettings - restoring for" << _lastCameraName;
+    
+    // Use camera name instead of ID for stable settings across reconnections
     QSettings settings("uScope", "uScope");
-    QString prefix = QString("camera/%1/ptp/").arg(cameraId);
+    QString prefix = QString("camera/%1/ptp/").arg(_lastCameraName);
     
     // Restore saved PTP settings
     QStringList settingNames = {"exposuremode", "iso", "shutterspeed", "exposurecompensation", "whitebalance"};
@@ -430,8 +514,15 @@ void CameraController::checkForLastCamera()
     
     // Check if last camera is now available by searching for the name
     QList<CameraProfile> cameras = availableCameras();
+    
+    // Strip any " (not connected)" suffix when comparing
+    QString cleanLastName = _lastCameraName;
+    cleanLastName.remove(" (not connected)");
+    
     for (const CameraProfile& camera : cameras) {
-        if (camera.name() == _lastCameraName) {
+        QString cleanCameraName = camera.name();
+        cleanCameraName.remove(" (not connected)");
+        if (cleanCameraName == cleanLastName && !camera.id().startsWith("unavailable://")) {
             // Found the camera, try to restore it
             stopCameraMonitoring();
             
