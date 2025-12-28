@@ -1,0 +1,86 @@
+name: Build Linux DEB Package
+
+on:
+  workflow_call:
+    inputs:
+      upload-artifacts:
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+      
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          build-essential \
+          qt6-base-dev \
+          qt6-multimedia-dev \
+          libqt6svg6-dev \
+          libgl1-mesa-dev \
+          libunwind-dev \
+          libgstreamer1.0-dev \
+          imagemagick \
+          libgstreamer-plugins-base1.0-dev \
+          libopencv-dev \
+          libgphoto2-dev \
+          debhelper \
+          devscripts
+          
+    - name: Install optional dependencies
+      run: |
+        sudo apt-get install -y \
+          tesseract-ocr \
+          libtesseract-dev \
+          gstreamer1.0-plugins-base \
+          gstreamer1.0-plugins-good \
+          gstreamer1.0-rtsp || true
+          
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+      
+    - name: Build
+      run: cmake --build build --parallel
+      
+    - name: Create DEB package
+      run: |
+        mkdir -p package/DEBIAN
+        mkdir -p package/usr/bin
+        mkdir -p package/usr/share/applications
+        mkdir -p package/usr/share/icons/hicolor/scalable/apps
+        
+        cp build/uScope package/usr/bin/
+        cp uScope.desktop package/usr/share/applications/
+        cp images/uScope.svg package/usr/share/icons/hicolor/scalable/apps/ || true
+        
+        cat > package/DEBIAN/control << EOF
+        Package: uscope
+        Version: 0.1.0
+        Section: science
+        Priority: optional
+        Architecture: amd64
+        Depends: libqt6core6, libqt6widgets6, libqt6multimedia6, libqt6svg6, libopencv-core4.5d | libopencv-core4.6d, tesseract-ocr, gstreamer1.0-rtsp
+        Maintainer: uScope Team <info@uscope.org>
+        Description: Cross-platform microscopy application for USB/UVC cameras
+         uScope is an open-source microscopy application for educational institutions,
+         hobbyists, and small laboratories using USB/UVC-compliant cameras.
+        EOF
+        
+        dpkg-deb --build package uscope_0.1.0_amd64.deb
+        
+    - name: Upload DEB artifact
+      if: inputs.upload-artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: uscope-deb
+        path: uscope_0.1.0_amd64.deb

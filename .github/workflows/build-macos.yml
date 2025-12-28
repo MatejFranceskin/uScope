@@ -1,0 +1,108 @@
+name: Build macOS Package
+
+on:
+  workflow_call:
+    inputs:
+      upload-artifacts:
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+      
+    - name: Install ImageMagick
+      run: brew install imagemagick
+      
+    - name: Cache Homebrew packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/Library/Caches/Homebrew
+          /usr/local/Cellar/opencv
+          /usr/local/Cellar/tesseract
+          /usr/local/Cellar/gstreamer
+          /usr/local/Cellar/create-dmg
+        key: ${{ runner.os }}-homebrew-${{ hashFiles('**/CMakeLists.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-homebrew-
+      
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.7.3'
+        host: 'mac'
+        target: 'desktop'
+        arch: 'clang_64'
+        modules: 'qtmultimedia qtshadertools'
+        cache: true
+        
+    - name: Install Homebrew dependencies
+      run: |
+        brew install opencv tesseract gstreamer create-dmg libgphoto2
+        
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$Qt6_DIR/..
+      
+    - name: Build
+      run: cmake --build build --parallel
+      
+    - name: Deploy Qt dependencies
+      run: |
+        # CMake already created uScope.app in build directory
+        macdeployqt build/uScope.app -always-overwrite
+        
+    - name: Bundle Homebrew dependencies
+      run: |
+        # Copy OpenCV, Tesseract, and other Homebrew dylibs into the app bundle
+        mkdir -p build/uScope.app/Contents/Frameworks
+        
+        # Find and copy all dylib dependencies from Homebrew
+        # OpenCV
+        cp /usr/local/opt/opencv/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || \
+        cp /opt/homebrew/opt/opencv/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || true
+        
+        # Tesseract
+        cp /usr/local/opt/tesseract/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || \
+        cp /opt/homebrew/opt/tesseract/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || true
+        
+        # Leptonica (Tesseract dependency)
+        cp /usr/local/opt/leptonica/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || \
+        cp /opt/homebrew/opt/leptonica/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || true
+        
+        # libgphoto2
+        cp /usr/local/opt/libgphoto2/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || \
+        cp /opt/homebrew/opt/libgphoto2/lib/*.dylib build/uScope.app/Contents/Frameworks/ 2>/dev/null || true
+        
+        # Fix install names to use @rpath
+        for dylib in build/uScope.app/Contents/Frameworks/*.dylib; do
+          if [ -f "$dylib" ]; then
+            chmod +w "$dylib"
+            install_name_tool -id "@rpath/$(basename $dylib)" "$dylib" 2>/dev/null || true
+          fi
+        done
+        
+    - name: Create DMG
+      run: |
+        create-dmg \
+          --volname "uScope" \
+          --window-pos 200 120 \
+          --window-size 600 300 \
+          --app-drop-link 425 120 \
+          uScope-0.1.0-macos.dmg \
+          build/uScope.app || \
+        hdiutil create -volname uScope -srcfolder build/uScope.app -ov -format UDZO uScope-0.1.0-macos.dmg
+      
+    - name: Upload macOS artifact
+      if: inputs.upload-artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: uscope-macos
+        path: uScope-0.1.0-macos.dmg

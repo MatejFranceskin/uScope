@@ -1,0 +1,19 @@
+<RCC>
+    <qresource prefix="/">
+        <!-- Application icon (generated from SVG) -->
+        <file alias="images/uScope.ico">@CMAKE_CURRENT_BINARY_DIR@/uScope.ico</file>
+        <file alias="images/uScope.svg">@CMAKE_SOURCE_DIR@/images/uScope.svg</file>
+        
+        <!-- Image resources -->
+        <file alias="images/camera.svg">@CMAKE_SOURCE_DIR@/images/camera.svg</file>
+        <file alias="images/settings.svg">@CMAKE_SOURCE_DIR@/images/settings.svg</file>
+        <file alias="images/media-record.svg">@CMAKE_SOURCE_DIR@/images/media-record.svg</file>
+        <file alias="images/media-playback-start.svg">@CMAKE_SOURCE_DIR@/images/media-playback-start.svg</file>
+        <file alias="images/media-playback-pause.svg">@CMAKE_SOURCE_DIR@/images/media-playback-pause.svg</file>
+        <file alias="images/media-playback-stop.svg">@CMAKE_SOURCE_DIR@/images/media-playback-stop.svg</file>
+        
+        <!-- Sound resources -->
+        <file alias="sounds/camera-shutter.mp3">@CMAKE_SOURCE_DIR@/sounds/camera-shutter.mp3</file>
+        <file alias="sounds/snap.mp3">@CMAKE_SOURCE_DIR@/sounds/snap.mp3</file>
+    </qresource>
+</RCC>

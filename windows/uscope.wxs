@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Product Id="*" 
+             Name="uScope" 
+             Language="1033" 
+             Version="0.1.0" 
+             Manufacturer="uScope Team" 
+             UpgradeCode="12345678-1234-1234-1234-123456789012">
+        
+        <Package InstallerVersion="200" 
+                 Compressed="yes" 
+                 InstallScope="perMachine" 
+                 Description="Cross-platform microscopy application for USB/UVC cameras"
+                 Comments="uScope Installer" />
+
+        <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+        <MediaTemplate EmbedCab="yes" />
+
+        <Feature Id="ProductFeature" Title="uScope" Level="1">
+            <ComponentGroupRef Id="ProductComponents" />
+            <ComponentRef Id="ApplicationShortcut" />
+        </Feature>
+
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="ProgramFilesFolder">
+                <Directory Id="INSTALLFOLDER" Name="uScope" />
+            </Directory>
+            <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="uScope"/>
+            </Directory>
+        </Directory>
+
+        <DirectoryRef Id="ApplicationProgramsFolder">
+            <Component Id="ApplicationShortcut" Guid="*">
+                <Shortcut Id="ApplicationStartMenuShortcut"
+                          Name="uScope"
+                          Description="Microscopy Platform"
+                          Target="[INSTALLFOLDER]uScope.exe"
+                          WorkingDirectory="INSTALLFOLDER"/>
+                <RemoveFolder Id="CleanUpShortcut" Directory="ApplicationProgramsFolder" On="uninstall"/>
+                <RegistryValue Root="HKCU" Key="Software\uScope" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+            </Component>
+        </DirectoryRef>
+
+        <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+            <Component Id="MainExecutable" Guid="*">
+                <File Id="uScopeEXE" Source="build\Release\uScope.exe" KeyPath="yes">
+                    <Shortcut Id="DesktopShortcut" 
+                              Directory="DesktopFolder" 
+                              Name="uScope"
+                              Description="Microscopy Platform"
+                              WorkingDirectory="INSTALLFOLDER"
+                              Advertise="yes" />
+                </File>
+            </Component>
+            <!-- Qt and dependency DLLs will be added by deployment scripts -->
+        </ComponentGroup>
+    </Product>
+</Wix>

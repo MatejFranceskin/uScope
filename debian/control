@@ -1,0 +1,41 @@
+Source: uscope
+Section: science
+Priority: optional
+Maintainer: uScope Team <info@uscope.org>
+Build-Depends: debhelper (>= 11),
+               cmake (>= 3.21),
+               qt6-base-dev,
+               qt6-multimedia-dev,
+               qt6-svg-dev,
+               libopencv-dev,
+               libtesseract-dev,
+               libgstreamer1.0-dev
+Standards-Version: 4.5.0
+Homepage: https://github.com/MatejFranceskin/uScope
+
+Package: uscope
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends},
+         libqt6core6,
+         libqt6widgets6,
+         libqt6multimedia6,
+         libqt6svg6,
+         libopencv-core4.5d | libopencv-core4.6d,
+         tesseract-ocr,
+         gstreamer1.0-rtsp
+Description: Cross-platform microscopy application for USB/UVC cameras
+ uScope is an open-source microscopy application for educational institutions,
+ hobbyists, and small laboratories using USB/UVC-compliant cameras.
+ .
+ Features include:
+  - Live camera preview and high-quality image capture
+  - Manual camera controls (exposure, white balance, brightness, contrast)
+  - Calibration and measurement tools with scientific accuracy
+  - Video recording and time-lapse sequences
+  - Automated object detection and analysis
+  - Image enhancement filters
+  - Image stitching for panoramas
+  - Extended depth of focus (EDF)
+  - Professional export formats (PDF, OME-TIFF)
+  - RTSP streaming for classroom collaboration
+  - iNaturalist integration for species identification

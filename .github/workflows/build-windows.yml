@@ -1,0 +1,187 @@
+name: Build Windows Package
+
+on:
+  workflow_call:
+    inputs:
+      upload-artifacts:
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+      
+    - name: Cache vcpkg
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ github.workspace }}/vcpkg
+          ${{ github.workspace }}/build/vcpkg_installed
+          ~\AppData\Local\vcpkg\archives
+        key: ${{ runner.os }}-vcpkg-${{ hashFiles('**/CMakeLists.txt') }}-v2
+        restore-keys: |
+          ${{ runner.os }}-vcpkg-
+      
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.7.3'
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_msvc2019_64'
+        modules: 'qtmultimedia qtshadertools'
+        cache: true
+        
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v1.1
+      
+    - name: Install ImageMagick
+      run: choco install imagemagick -y
+      
+    - name: Install vcpkg dependencies
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git
+        cd vcpkg
+        .\bootstrap-vcpkg.bat
+        # Enable binary caching
+        $env:VCPKG_BINARY_SOURCES="clear;files,$env:LOCALAPPDATA\vcpkg\archives,readwrite"
+        .\vcpkg install opencv:x64-windows tesseract:x64-windows --triplet=x64-windows
+    
+    - name: Build libgphoto2 for Windows
+      run: python build_libgphoto2_windows.py
+        
+    - name: Configure CMake
+      run: |
+        if (Test-Path vcpkg) {
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="vcpkg/scripts/buildsystems/vcpkg.cmake"
+        } else {
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+        }
+      
+    - name: Build
+      run: cmake --build build --config Release --parallel
+      
+    - name: Deploy Qt dependencies
+      run: |
+        cd build/Release
+        windeployqt uScope.exe --release --no-translations
+        
+    - name: Deploy vcpkg DLLs (OpenCV, Tesseract)
+      run: |
+        # Copy OpenCV and Tesseract DLLs from vcpkg to build output
+        cp vcpkg/installed/x64-windows/bin/*.dll build/Release/ || true
+        # Note: Some DLLs might already exist from windeployqt, || true prevents errors
+        
+    - name: Deploy libgphoto2 DLLs
+      run: |
+        # libgphoto2 DLLs and plugins are already copied by CMake POST_BUILD
+        # This step is kept for verification only
+        echo "libgphoto2 DLLs and plugins already copied by CMake"
+        
+    - name: Install WiX Toolset
+      run: |
+        dotnet tool install --global wix
+        wix extension add -g WixToolset.UI.wixext
+        wix extension add -g WixToolset.Util.wixext
+        
+    - name: Create WiX installer
+      run: |
+        # Create staging directory with all files
+        mkdir installer-staging
+        cp -r build/Release/* installer-staging/
+        
+        # Download VC++ redistributable
+        Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "installer-staging/vc_redist.x64.exe"
+        
+        # Create WiX source file
+        @"
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+          <Package Name="uScope" Version="0.1.0" Manufacturer="uScope" UpgradeCode="12345678-1234-1234-1234-123456789012">
+            <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+            <MediaTemplate EmbedCab="yes" />
+            
+            <Feature Id="ProductFeature" Title="uScope" Level="1">
+              <ComponentGroupRef Id="ProductComponents" />
+            </Feature>
+            
+            <!-- Install VC++ redistributable -->
+            <CustomAction Id="InstallVCRedist" 
+                          FileRef="VCRedistFile" 
+                          ExeCommand="/quiet /norestart" 
+                          Execute="deferred" 
+                          Impersonate="no" 
+                          Return="check" />
+            <InstallExecuteSequence>
+              <Custom Action="InstallVCRedist" Before="InstallFinalize" Condition="NOT Installed" />
+            </InstallExecuteSequence>
+          </Package>
+          
+          <Fragment>
+            <StandardDirectory Id="ProgramFiles64Folder">
+              <Directory Id="INSTALLFOLDER" Name="uScope" />
+            </StandardDirectory>
+            <StandardDirectory Id="ProgramMenuFolder">
+              <Directory Id="ApplicationProgramsFolder" Name="uScope"/>
+            </StandardDirectory>
+          </Fragment>
+          
+          <Fragment>
+            <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+              <!-- Main executable -->
+              <Component Id="MainExecutable" Guid="*">
+                <File Id="uScopeExe" Source="installer-staging/uScope.exe" KeyPath="yes">
+                  <Shortcut Id="StartMenuShortcut" 
+                            Directory="ApplicationProgramsFolder" 
+                            Name="uScope" 
+                            WorkingDirectory="INSTALLFOLDER" 
+                            Icon="AppIcon" />
+                </File>
+              </Component>
+              
+              <!-- VC++ Redistributable -->
+              <Component Id="VCRedist" Guid="*">
+                <File Id="VCRedistFile" Source="installer-staging/vc_redist.x64.exe" KeyPath="yes" />
+              </Component>
+              
+              <!-- All DLL files -->
+        "@ | Out-File -FilePath Product.wxs -Encoding UTF8
+        
+        # Add all DLLs to the WiX file
+        Get-ChildItem installer-staging/*.dll | ForEach-Object {
+          $guid = [guid]::NewGuid().ToString()
+          $name = $_.Name
+          @"
+              <Component Id="Comp_$($name -replace '[^a-zA-Z0-9]', '_')" Guid="$guid">
+                <File Id="File_$($name -replace '[^a-zA-Z0-9]', '_')" Source="installer-staging/$name" KeyPath="yes" />
+              </Component>
+        "@ | Out-File -FilePath Product.wxs -Append -Encoding UTF8
+        }
+        
+        # Close the ComponentGroup and add Icon
+        @"
+            </ComponentGroup>
+          </Fragment>
+          
+          <Fragment>
+            <Icon Id="AppIcon" SourceFile="build/uScope.ico" />
+          </Fragment>
+        </Wix>
+        "@ | Out-File -FilePath Product.wxs -Append -Encoding UTF8
+        
+        # Build the installer
+        wix build Product.wxs -out uScope-0.1.0-windows-x64.msi
+        
+    - name: Upload Windows installer
+      if: inputs.upload-artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: uscope-windows
+        path: uScope-0.1.0-windows-x64.msi
