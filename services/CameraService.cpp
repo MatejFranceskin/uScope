@@ -291,19 +291,20 @@ QImage CameraService::captureFrame()
         return QImage();
     }
     
-    cv::Mat frame;
-    if (_cvCapture.read(frame) && !frame.empty()) {
-        // Convert BGR to RGB
-        cv::Mat rgbFrame;
-        cv::cvtColor(frame, rgbFrame, cv::COLOR_BGR2RGB);
-        
-        // Convert to QImage
-        QImage image(rgbFrame.data, rgbFrame.cols, rgbFrame.rows, 
-                     rgbFrame.step, QImage::Format_RGB888);
-        return image.copy();  // Deep copy to avoid data invalidation
+    // Use the last processed frame (already has flip applied) for WYSIWYG snapshots
+    if (_lastProcessedFrame.empty()) {
+        qWarning() << "CameraService::captureFrame - no processed frame available";
+        return QImage();
     }
     
-    return QImage();
+    // Convert BGR to RGB
+    cv::Mat rgbFrame;
+    cv::cvtColor(_lastProcessedFrame, rgbFrame, cv::COLOR_BGR2RGB);
+    
+    // Convert to QImage
+    QImage image(rgbFrame.data, rgbFrame.cols, rgbFrame.rows, 
+                 rgbFrame.step, QImage::Format_RGB888);
+    return image.copy();  // Deep copy to avoid data invalidation
 }
 
 // Slot called when capture thread emits a new frame
@@ -325,6 +326,9 @@ void CameraService::processFrame(const cv::Mat& frame)
     } else if (_flipVertical) {
         cv::flip(processedFrame, processedFrame, 0);   // Vertical
     }
+    
+    // Store processed frame for snapshots (ensures WYSIWYG)
+    _lastProcessedFrame = processedFrame.clone();
     
 #ifdef ENABLE_LATENCY_MEASUREMENT
     // Measure latency for SC-004 verification (<200ms requirement)

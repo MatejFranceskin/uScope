@@ -503,6 +503,18 @@ void CameraController::restorePTPSettings()
             qDebug() << "CameraController::restorePTPSettings - no saved value for" << name;
         }
     }
+    
+    // Restore flip settings from camera controls (same as UVC)
+    QString controlsPrefix = QString("camera/%1/controls/").arg(currentCameraId());
+    bool flipH = settings.value(controlsPrefix + "flipHorizontal", false).toBool();
+    bool flipV = settings.value(controlsPrefix + "flipVertical", false).toBool();
+    if (flipH || flipV) {
+        qDebug() << "CameraController::restorePTPSettings - restoring flip H:" << flipH << "V:" << flipV;
+        _ptpService->setFlipHorizontal(flipH);
+        _ptpService->setFlipVertical(flipV);
+        _flipHorizontal = flipH;
+        _flipVertical = flipV;
+    }
 }
 
 void CameraController::checkForLastCamera()
@@ -561,11 +573,28 @@ void CameraController::captureImage()
             return;
         }
         
-        // Load the captured image and emit signal
+        // Load the captured image and apply flip transformations
         QImage capturedImg(savedPath);
         if (capturedImg.isNull()) {
             emit error("Failed to load captured image from: " + savedPath);
             return;
+        }
+        
+        // Apply flip transformations if needed
+        if (_flipHorizontal) {
+            capturedImg = capturedImg.mirrored(true, false);
+        }
+        if (_flipVertical) {
+            capturedImg = capturedImg.mirrored(false, true);
+        }
+        
+        // Save the flipped image back to the same path
+        if (_flipHorizontal || _flipVertical) {
+            if (!capturedImg.save(savedPath)) {
+                emit error("Failed to save flipped image to: " + savedPath);
+                return;
+            }
+            qDebug() << "CameraController::captureImage - saved flipped image to" << savedPath;
         }
         
         CapturedImage image(capturedImg, _currentCameraId);
@@ -725,6 +754,11 @@ void CameraController::setFlipHorizontal(bool enabled)
 {
     _flipHorizontal = enabled;
     _service->setFlipHorizontal(enabled);
+#if !defined(Q_OS_IOS)
+    if (_ptpService) {
+        _ptpService->setFlipHorizontal(enabled);
+    }
+#endif
     saveCameraControls(currentCameraId());
 }
 
@@ -732,6 +766,11 @@ void CameraController::setFlipVertical(bool enabled)
 {
     _flipVertical = enabled;
     _service->setFlipVertical(enabled);
+#if !defined(Q_OS_IOS)
+    if (_ptpService) {
+        _ptpService->setFlipVertical(enabled);
+    }
+#endif
     saveCameraControls(currentCameraId());
 }
 

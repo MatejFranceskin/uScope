@@ -78,6 +78,7 @@ private:
     QVideoSink* _videoSink;
     QString _currentCameraId;
     QSize _currentResolution;
+    cv::Mat _lastProcessedFrame;  // Store last processed frame for snapshots
     double _currentFrameRate = 30.0;
     
     // OpenCV VideoCapture - primary capture mechanism

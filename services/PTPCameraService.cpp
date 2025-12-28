@@ -1442,6 +1442,17 @@ void PTPCameraService::captureLiveViewFrame()
     
     QImage frame = getLiveViewFrame();
     if (!frame.isNull()) {
+        // Apply flip transformations if needed
+        if (_flipHorizontal) {
+            frame = frame.mirrored(true, false);
+        }
+        if (_flipVertical) {
+            frame = frame.mirrored(false, true);
+        }
+        
+        // Store processed frame for snapshots (ensures WYSIWYG)
+        _lastProcessedFrame = frame.copy();
+        
         emit frameReady(frame);
     }
     // If frame is null, getLiveViewFrame already handled error reporting

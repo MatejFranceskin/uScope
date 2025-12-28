@@ -44,6 +44,10 @@ public:
     bool setSetting(const QString& name, const QVariant& value);
     QVariant getSetting(const QString& name);
     
+    // Flip transformations
+    void setFlipHorizontal(bool enabled) { _flipHorizontal = enabled; }
+    void setFlipVertical(bool enabled) { _flipVertical = enabled; }
+    
     // Capture - always captures to SD card and transfers via USB
     QString captureImage();
     
@@ -80,6 +84,9 @@ private:
     Camera* _camera;
     bool _isRecording;
     bool _silentMode;  // Suppress error messages during auto-reconnect
+    bool _flipHorizontal = false;
+    bool _flipVertical = false;
+    QImage _lastProcessedFrame;  // Store last processed frame for snapshots
     QTimer* _hotplugTimer;
     QTimer* _liveViewTimer;
     QList<PTPCameraInfo> _lastDetectedCameras;
